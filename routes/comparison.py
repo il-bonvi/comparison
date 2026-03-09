@@ -62,15 +62,31 @@ def _parse_fit_for_comparison(file_bytes: bytes) -> Dict[str, Any]:
 
     df_geo = df.loc[valid].copy().reset_index(drop=True)
 
+    # Calculate speed in km/h from distance and time
+    speed = []
+    dist_m = df_geo["distance"].tolist()
+    time_sec = df_geo["time_sec"].tolist()
+    for i in range(len(dist_m)):
+        if i == 0:
+            speed.append(0)
+        else:
+            dt = time_sec[i] - time_sec[i-1]
+            dd = dist_m[i] - dist_m[i-1]
+            if dt > 0:
+                speed.append((dd / 1000) / (dt / 3600))  # Convert to km/h
+            else:
+                speed.append(0)
+
     return {
         "lat": df_geo["position_lat"].tolist(),
         "lon": df_geo["position_long"].tolist(),
         "alt": df_geo["altitude"].tolist(),
-        "distance_m": df_geo["distance"].tolist(),
-        "time_sec": df_geo["time_sec"].tolist(),
+        "distance_m": dist_m,
+        "time_sec": time_sec,
         "power": df_geo["power"].tolist(),
         "hr": df_geo["heartrate"].tolist(),
         "cadence": df_geo["cadence"].tolist(),
+        "speed": speed,
         "n": len(df_geo),
     }
 
@@ -191,6 +207,9 @@ body {{ background:#0f172a; color:#e2e8f0; font-family:'Inter',system-ui,sans-se
 .btn-warning {{ background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; }}
 .btn-warning:hover {{ transform:translateY(-1px); }}
 .btn-danger  {{ background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff; }}
+.btn-ghost {{ background:#334155; color:#e2e8f0; border:1px solid #475569; }}
+.btn-ghost:hover {{ background:#475569; }}
+.btn-ghost.off {{ background:#0f172a; color:#64748b; border-color:#334155; }}
 .badge {{
   display:inline-flex; align-items:center; gap:5px; padding:4px 10px;
   border-radius:20px; font-size:0.75rem; font-weight:600;
@@ -334,17 +353,20 @@ body {{ background:#0f172a; color:#e2e8f0; font-family:'Inter',system-ui,sans-se
     <label>Sezione (sec):</label>
     <input type="number" id="input-sec" value="20" min="5" max="300" step="5"/>
 
-    <button class="btn btn-success" id="btn-set-arrival" onclick="startSetArrival()">
-      🏁 Segna Arrivo
-    </button>
     <button class="btn btn-warning" id="btn-analyze" onclick="runAnalysis()">
       🔍 Analizza Sezioni
     </button>
+    <button class="btn btn-ghost" id="btn-adjust-arrivals" onclick="toggleArrivalPanel()">
+      🏁 Regola Arrivi
+    </button>
+    <button class="btn btn-ghost" id="btn-vis-a" onclick="toggleLayerVisibility('traceA')">A ON</button>
+    <button class="btn btn-ghost" id="btn-vis-b" onclick="toggleLayerVisibility('traceB')">B ON</button>
+    <button class="btn btn-ghost" id="btn-vis-sections" onclick="toggleLayerVisibility('sections')">Sezioni ON</button>
     <button class="btn btn-danger" onclick="resetApp()" style="margin-left:auto;">
       🔄 Reset
     </button>
 
-    <span id="status-msg">Segna il punto di arrivo sulla mappa</span>
+    <span id="status-msg"></span>
   </div>
 
   <div style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column;">
@@ -365,7 +387,7 @@ body {{ background:#0f172a; color:#e2e8f0; font-family:'Inter',system-ui,sans-se
     <div id="map-controls">
       <select id="style-select" onchange="changeStyle(this.value)">
         <option value="outdoor">Outdoor</option>
-        <option value="streets">Streets</option>
+        <option value="streets" selected>Streets</option>
         <option value="topo">Topo</option>
         <option value="satellite">Satellite</option>
         <option value="dark">Dark</option>
@@ -374,8 +396,38 @@ body {{ background:#0f172a; color:#e2e8f0; font-family:'Inter',system-ui,sans-se
       <button onclick="toggle3D()">🏔️ 3D</button>
     </div>
 
-    <div id="arrival-tip">
-      🏁 Clicca sulla mappa per segnare il <strong>punto di arrivo</strong>
+    <div id="arrival-tip" style="display:none;"></div>
+
+    <!-- ARRIVAL ADJUSTMENT PANEL -->
+    <div id="arrival-panel" style="display:none;position:absolute;bottom:0;left:0;right:0;z-index:200;
+      background:rgba(15,23,42,.97);border-top:2px solid #334155;padding:10px 16px;
+      flex-direction:column;gap:8px;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="color:#60a5fa;font-weight:700;font-size:0.82rem;min-width:70px;">🔵 Arrivo A</span>
+        <button class="btn btn-ghost" style="padding:3px 9px;font-size:0.8rem" onclick="shiftArrival('A',-1000)">◀◀ 1km</button>
+        <button class="btn btn-ghost" style="padding:3px 9px;font-size:0.8rem" onclick="shiftArrival('A',-100)">◀ 100m</button>
+        <button class="btn btn-ghost" style="padding:3px 9px;font-size:0.8rem" onclick="shiftArrival('A',-10)">◀ 10m</button>
+        <button class="btn btn-ghost" style="padding:3px 9px;font-size:0.8rem" onclick="shiftArrival('A',-1)">◀ 1m</button>
+        <span id="arrival-a-pos" style="color:#60a5fa;font-size:0.85rem;min-width:90px;text-align:center;font-weight:600;">—</span>
+        <button class="btn btn-ghost" style="padding:3px 9px;font-size:0.8rem" onclick="shiftArrival('A',1)">1m ▶</button>
+        <button class="btn btn-ghost" style="padding:3px 9px;font-size:0.8rem" onclick="shiftArrival('A',10)">10m ▶</button>
+        <button class="btn btn-ghost" style="padding:3px 9px;font-size:0.8rem" onclick="shiftArrival('A',100)">100m ▶</button>
+        <button class="btn btn-ghost" style="padding:3px 9px;font-size:0.8rem" onclick="shiftArrival('A',1000)">1km ▶▶</button>
+        <button class="btn btn-ghost" style="padding:3px 9px;font-size:0.8rem;margin-left:6px" onclick="resetArrival('A')">↺ Fine traccia</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="color:#fb923c;font-weight:700;font-size:0.82rem;min-width:70px;">🟠 Arrivo B</span>
+        <button class="btn btn-ghost" style="padding:3px 9px;font-size:0.8rem" onclick="shiftArrival('B',-1000)">◀◀ 1km</button>
+        <button class="btn btn-ghost" style="padding:3px 9px;font-size:0.8rem" onclick="shiftArrival('B',-100)">◀ 100m</button>
+        <button class="btn btn-ghost" style="padding:3px 9px;font-size:0.8rem" onclick="shiftArrival('B',-10)">◀ 10m</button>
+        <button class="btn btn-ghost" style="padding:3px 9px;font-size:0.8rem" onclick="shiftArrival('B',-1)">◀ 1m</button>
+        <span id="arrival-b-pos" style="color:#fb923c;font-size:0.85rem;min-width:90px;text-align:center;font-weight:600;">—</span>
+        <button class="btn btn-ghost" style="padding:3px 9px;font-size:0.8rem" onclick="shiftArrival('B',1)">1m ▶</button>
+        <button class="btn btn-ghost" style="padding:3px 9px;font-size:0.8rem" onclick="shiftArrival('B',10)">10m ▶</button>
+        <button class="btn btn-ghost" style="padding:3px 9px;font-size:0.8rem" onclick="shiftArrival('B',100)">100m ▶</button>
+        <button class="btn btn-ghost" style="padding:3px 9px;font-size:0.8rem" onclick="shiftArrival('B',1000)">1km ▶▶</button>
+        <button class="btn btn-ghost" style="padding:3px 9px;font-size:0.8rem;margin-left:6px" onclick="resetArrival('B')">↺ Fine traccia</button>
+      </div>
     </div>
 
     <div id="hover-tip"></div>
@@ -395,17 +447,27 @@ const MAPTILER_KEY = '{maptiler_key}';
 
 let streamA = null;
 let streamB = null;
+let streamBAligned = null; // Aligned version of streamB for analysis
 let filenameA = 'Atleta A';
 let filenameB = 'Atleta B';
 
 let arrivalMode = false;
-let arrivalA = null;
-let arrivalB = null;
+let arrivalA = null;   // index into streamA
+let arrivalB = null;   // index into streamB
+let markerA = null;    // MapLibre Marker for trace A arrival
+let markerB = null;    // MapLibre Marker for trace B arrival
 let map = null;
 let elevationChart = null;
 let analysisLayers = [];
-let arrivalMarker = null;
+let arrivalMarker = null;  // unused, kept for compat
+let arrivalPanelOpen = false;
+let dragSelecting = false;
+let dragStartKm = null;
+let dragEndKm = null;
+let selectedRangeKm = null;
 let is3D = true;
+let layerVisibility = {{ traceA: true, traceB: true, sections: true }};
+let elevationChartMode = true; // true = elevation, false = power/analysis chart
 
 const STYLES = {{
   outdoor:   `https://api.maptiler.com/maps/outdoor-v2/style.json?key=${{MAPTILER_KEY}}`,
@@ -430,15 +492,32 @@ const fileBInput = document.getElementById('file-b-input');
 const fileDisplay = document.getElementById('file-display');
 const btnUpload = document.getElementById('btn-upload');
 
-fileAInput.addEventListener('change', updateFileDisplay);
-fileBInput.addEventListener('change', updateFileDisplay);
+fileAInput.addEventListener('change', (e) => {{
+  updateFileDisplay();
+  if (fileAInput.files[0]) {{
+    showLoading('File A selezionato, in attesa...');
+    setTimeout(hideLoading, 1000);
+  }}
+}});
+fileBInput.addEventListener('change', (e) => {{
+  updateFileDisplay();
+  if (fileBInput.files[0]) {{
+    showLoading('File B selezionato, in attesa...');
+    setTimeout(hideLoading, 1000);
+  }}
+}});
 
 function updateFileDisplay() {{
   const fileA = fileAInput.files[0];
   const fileB = fileBInput.files[0];
   
-  if (fileA && fileB) {{
-    fileDisplay.textContent = `✅ ${{fileA.name}} + ${{fileB.name}}`;
+  if (fileA || fileB) {{
+    let displayText = '';
+    if (fileA) displayText += fileA.name;
+    if (fileA && fileB) displayText += ' + ';
+    if (fileB) displayText += fileB.name;
+    
+    fileDisplay.textContent = '✅ ' + displayText;
     fileDisplay.style.display = 'block';
     btnUpload.disabled = false;
   }} else {{
@@ -451,7 +530,10 @@ async function uploadFiles() {{
   const fileA = fileAInput.files[0];
   const fileB = fileBInput.files[0];
   
-  if (!fileA || !fileB) return;
+  if (!fileA || !fileB) {{
+    alert('Seleziona entrambi i file FIT');
+    return;
+  }}
   
   showLoading('Parsing file FIT...');
   
@@ -513,7 +595,12 @@ function initMap() {{
     drawTraceA();
     drawTraceB();
     fitToBounds(streamA, streamB);
+    // Initialize arrivals at the end of each trace
+    arrivalA = streamA.lat.length - 1;
+    arrivalB = streamB.lat.length - 1;
     initElevationChart();
+    updateArrivalMarkers();
+    updateArrivalPanelPositions();
   }});
 
   map.on('click', handleMapClick);
@@ -569,6 +656,10 @@ function drawTraceA() {{
 
 function drawTraceB() {{
   if (!streamB) return;
+
+  // Traces always stay at their raw GPS coordinates — no shifting
+  streamBAligned = streamB;
+
   const geojson = streamToGeoJSON(streamB, '#f97316');
   if (map.getSource('trace-b')) {{
     map.getSource('trace-b').setData(geojson);
@@ -591,62 +682,126 @@ function fitToBounds(streamA_, streamB_) {{
 }}
 
 // ============================================================================
-// ARRIVAL POINT
+// ARRIVAL POINT - dual always-visible, adjustable
 // ============================================================================
-function startSetArrival() {{
-  arrivalMode = true;
-  document.getElementById('arrival-tip').classList.add('visible');
-  document.getElementById('status-msg').textContent = 'Clicca sulla mappa...';
-  map.getCanvas().style.cursor = 'crosshair';
+
+function updateArrivalMarkers() {{
+  // Place/update map markers for both arrivals
+  if (markerA) markerA.remove();
+  if (markerB) markerB.remove();
+
+  if (arrivalA !== null && streamA) {{
+    const elA = document.createElement('div');
+    elA.innerHTML = '🏁';
+    elA.title = 'Arrivo A';
+    elA.style.cssText = 'font-size:26px;filter:drop-shadow(0 1px 3px #1e40af);cursor:pointer;';
+    markerA = new maplibregl.Marker({{ element: elA }})
+      .setLngLat([streamA.lon[arrivalA], streamA.lat[arrivalA]])
+      .addTo(map);
+  }}
+
+  if (arrivalB !== null && streamB) {{
+    const elB = document.createElement('div');
+    elB.innerHTML = '🏴';
+    elB.title = 'Arrivo B';
+    elB.style.cssText = 'font-size:26px;filter:drop-shadow(0 1px 3px #c2410c);cursor:pointer;';
+    markerB = new maplibregl.Marker({{ element: elB }})
+      .setLngLat([streamB.lon[arrivalB], streamB.lat[arrivalB]])
+      .addTo(map);
+  }}
+}}
+
+function updateArrivalChartLines() {{
+  if (!elevationChart || arrivalA === null || arrivalB === null) return;
+  const kmA = (streamA.distance_m[arrivalA] || 0) / 1000;
+  const kmB = (streamB.distance_m[arrivalB] || 0) / 1000;
+  elevationChart.setOption({{
+    series: [
+      {{
+        markLine: {{
+          silent: true,
+          symbol: 'none',
+          lineStyle: {{ color: '#60a5fa', width: 2, type: 'dashed' }},
+          label: {{ show: true, formatter: 'A', color: '#60a5fa', position: 'insideStartTop' }},
+          data: [{{ xAxis: kmA }}]
+        }}
+      }},
+      {{
+        markLine: {{
+          silent: true,
+          symbol: 'none',
+          lineStyle: {{ color: '#fb923c', width: 2, type: 'dashed' }},
+          label: {{ show: true, formatter: 'B', color: '#fb923c', position: 'insideStartBottom' }},
+          data: [{{ xAxis: kmB }}]
+        }}
+      }}
+    ]
+  }}, {{ lazyUpdate: true, silent: true }});
+}}
+
+function updateArrivalPanelPositions() {{
+  if (arrivalA !== null && streamA) {{
+    const km = (streamA.distance_m[arrivalA] / 1000).toFixed(2);
+    document.getElementById('arrival-a-pos').textContent = km + ' km';
+  }}
+  if (arrivalB !== null && streamB) {{
+    const km = (streamB.distance_m[arrivalB] / 1000).toFixed(2);
+    document.getElementById('arrival-b-pos').textContent = km + ' km';
+  }}
+}}
+
+function shiftArrival(who, deltaM) {{
+  let stream = who === 'A' ? streamA : streamB;
+  let currentIdx = who === 'A' ? arrivalA : arrivalB;
+  
+  let newIdx;
+  const direction = deltaM > 0 ? 1 : -1;
+  
+  // For true micro-movements (1m), move point by point
+  if (Math.abs(deltaM) === 1) {{
+    newIdx = currentIdx + direction;  // 1 point at a time
+  }} else {{
+    // For all other distances (10m, 100m, 1km), use distance-based approach
+    const curDist = stream.distance_m[currentIdx] || 0;
+    const maxDist = stream.distance_m[stream.distance_m.length - 1] || 1;
+    const newDist = Math.max(0, Math.min(maxDist, curDist + deltaM));
+    newIdx = nearestIndexByDistance(stream, newDist);
+  }}
+  
+  // Clamp to valid range
+  newIdx = Math.max(0, Math.min(stream.lat.length - 1, newIdx));
+  
+  if (who === 'A') arrivalA = newIdx;
+  else arrivalB = newIdx;
+
+  updateArrivalMarkers();
+  updateArrivalChartLines();
+  updateArrivalPanelPositions();
+}}
+
+function resetArrival(who) {{
+  if (who === 'A') arrivalA = streamA.lat.length - 1;
+  else arrivalB = streamB.lat.length - 1;
+  updateArrivalMarkers();
+  updateArrivalChartLines();
+  updateArrivalPanelPositions();
+}}
+
+function toggleArrivalPanel() {{
+  arrivalPanelOpen = !arrivalPanelOpen;
+  const panel = document.getElementById('arrival-panel');
+  panel.style.display = arrivalPanelOpen ? 'flex' : 'none';
+  const btn = document.getElementById('btn-adjust-arrivals');
+  btn.classList.toggle('off', !arrivalPanelOpen);
 }}
 
 function handleMapClick(e) {{
-  if (!arrivalMode) return;
-  arrivalMode = false;
-  map.getCanvas().style.cursor = '';
-  document.getElementById('arrival-tip').classList.remove('visible');
-
-  const clickLat = e.lngLat.lat;
-  const clickLon = e.lngLat.lng;
-
-  arrivalA = nearestIndex(streamA, clickLat, clickLon);
-  arrivalB = nearestIndex(streamB, clickLat, clickLon);
-
-  if (arrivalMarker) arrivalMarker.remove();
-  const el = document.createElement('div');
-  el.innerHTML = '🏁';
-  el.style.cssText = 'font-size:28px;';
-  arrivalMarker = new maplibregl.Marker({{ element:el }})
-    .setLngLat([clickLon, clickLat])
-    .addTo(map);
-
-  document.getElementById('status-msg').textContent = 'Arrivo segnato! Clicca "Analizza Sezioni"';
+  // map click no longer sets arrival
 }}
 
 function nearestIndex(stream, lat, lon) {{
-  // Find the LAST (latest in time) occurrence of a point near the clicked location
-  // This is critical for multi-lap routes where the same area is visited multiple times
-  
-  const DISTANCE_THRESHOLD = 0.001; // ~100m in degrees
-  let candidates = [];
-  
-  for (let i = 0; i < stream.lat.length; i++) {{
-    const dlat = stream.lat[i] - lat;
-    const dlon = stream.lon[i] - lon;
-    const d = Math.sqrt(dlat*dlat + dlon*dlon);
-    
-    if (d < DISTANCE_THRESHOLD) {{
-      candidates.push(i);
-    }}
-  }}
-  
-  // If found points within threshold, return the LAST one (highest index = latest in time)
-  if (candidates.length > 0) {{
-    return candidates[candidates.length - 1];
-  }}
-  
-  // Fallback: find nearest point if none within threshold
-  let best = 0, bestD = Infinity;
+  let best = 0;
+  let bestD = Infinity;
   for (let i = 0; i < stream.lat.length; i++) {{
     const dlat = stream.lat[i] - lat;
     const dlon = stream.lon[i] - lon;
@@ -656,26 +811,231 @@ function nearestIndex(stream, lat, lon) {{
   return best;
 }}
 
+function nearestIndexWithDistanceHint(stream, lat, lon, targetRatio) {{
+  const maxDist = stream.distance_m[stream.distance_m.length - 1] || 1;
+
+  // Phase 1: collect ALL points near the finish GPS (any lap crossing within ~330m)
+  const candidates = [];
+  for (let i = 0; i < stream.lat.length; i++) {{
+    const dlat = stream.lat[i] - lat;
+    const dlon = stream.lon[i] - lon;
+    const d = Math.sqrt(dlat*dlat + dlon*dlon);
+    if (d < 0.003) {{
+      candidates.push({{ idx: i, ratio: (stream.distance_m[i] || 0) / maxDist }});
+    }}
+  }}
+
+  // Phase 2: among all GPS-near candidates, pick the one with ratio closest to targetRatio
+  // This guarantees the correct lap wins regardless of GPS micro-variation
+  if (candidates.length > 0) {{
+    candidates.sort((a, b) => Math.abs(a.ratio - targetRatio) - Math.abs(b.ratio - targetRatio));
+    return candidates[0].idx;
+  }}
+
+  // Fallback: pure distance ratio (no GPS match at all - different course section)
+  return nearestIndexByDistance(stream, targetRatio * maxDist);
+}}
+
+function distanceRatioAtIndex(stream, idx) {{
+  const maxDist = stream.distance_m[stream.distance_m.length - 1] || 1;
+  return (stream.distance_m[idx] || 0) / maxDist;
+}}
+
+function nearestIndexByDistance(stream, distanceM) {{
+  let best = 0;
+  let bestDiff = Infinity;
+  for (let i = 0; i < stream.distance_m.length; i++) {{
+    const diff = Math.abs((stream.distance_m[i] || 0) - distanceM);
+    if (diff < bestDiff) {{
+      bestDiff = diff;
+      best = i;
+    }}
+  }}
+  return best;
+}}
+
+function buildSegmentGeoJSON(stream, startIdx, endIdx) {{
+  const a = Math.max(0, Math.min(startIdx, endIdx));
+  const b = Math.min(stream.lat.length - 1, Math.max(startIdx, endIdx));
+  const coords = [];
+  for (let i = a; i <= b; i++) {{
+    coords.push([stream.lon[i], stream.lat[i], stream.alt[i] || 0]);
+  }}
+  return {{
+    type: 'FeatureCollection',
+    features: [{{ type: 'Feature', geometry: {{ type: 'LineString', coordinates: coords }}, properties: {{}} }}]
+  }};
+}}
+
+function upsertSelectionLayer(sourceId, layerId, geojson, color, width) {{
+  if (map.getSource(sourceId)) {{
+    map.getSource(sourceId).setData(geojson);
+  }} else {{
+    map.addSource(sourceId, {{ type: 'geojson', data: geojson }});
+    map.addLayer({{
+      id: layerId,
+      type: 'line',
+      source: sourceId,
+      paint: {{
+        'line-color': color,
+        'line-width': width,
+        'line-opacity': 0.98,
+      }}
+    }});
+  }}
+}}
+
+function previewSegmentOnMap(startKm, endKm) {{
+  if (!map || !streamA || !streamB) return;
+
+  const startDist = Math.max(0, Math.min(startKm, endKm) * 1000);
+  const endDist = Math.max(startKm, endKm) * 1000;
+
+  const startIdxA = nearestIndexByDistance(streamA, startDist);
+  const endIdxA = nearestIndexByDistance(streamA, endDist);
+
+  const distRatioStart = distanceRatioAtIndex(streamA, startIdxA);
+  const distRatioEnd = distanceRatioAtIndex(streamA, endIdxA);
+  const maxDistB = (streamB.distance_m[streamB.distance_m.length - 1] || 1);
+  const startIdxB = nearestIndexByDistance(streamB, distRatioStart * maxDistB);
+  const endIdxB = nearestIndexByDistance(streamB, distRatioEnd * maxDistB);
+
+  const geoA = buildSegmentGeoJSON(streamA, startIdxA, endIdxA);
+  const geoB = buildSegmentGeoJSON(streamBAligned || streamB, startIdxB, endIdxB);
+
+  // During drag preview, show ONLY selected segments.
+  if (map.getLayer('trace-a-line')) map.setLayoutProperty('trace-a-line', 'visibility', 'none');
+  if (map.getLayer('trace-b-line')) map.setLayoutProperty('trace-b-line', 'visibility', 'none');
+  analysisLayers.forEach(({{ layerId }}) => {{
+    if (map.getLayer(layerId)) map.setLayoutProperty(layerId, 'visibility', 'none');
+  }});
+
+  upsertSelectionLayer('selected-a', 'selected-a-line', geoA, '#60a5fa', 7);
+  upsertSelectionLayer('selected-b', 'selected-b-line', geoB, '#fb923c', 7);
+  if (map.getLayer('selected-a-line')) map.setLayoutProperty('selected-a-line', 'visibility', 'visible');
+  if (map.getLayer('selected-b-line')) map.setLayoutProperty('selected-b-line', 'visibility', 'visible');
+}}
+
+function clearSegmentPreview() {{
+  if (!map) return;
+  if (map.getLayer('selected-a-line')) map.removeLayer('selected-a-line');
+  if (map.getSource('selected-a')) map.removeSource('selected-a');
+  if (map.getLayer('selected-b-line')) map.removeLayer('selected-b-line');
+  if (map.getSource('selected-b')) map.removeSource('selected-b');
+
+  // Restore visibility according to current user toggles.
+  applyLayerVisibility();
+}}
+
+function setElevationSelectionVisual(startKm, endKm) {{
+  if (!elevationChart) return;
+  const start = Math.min(startKm, endKm);
+  const end = Math.max(startKm, endKm);
+
+  elevationChart.setOption({{
+    series: [
+      {{
+        markArea: {{
+          silent: true,
+          data: [[
+            {{
+              xAxis: start,
+              itemStyle: {{
+                color: 'rgba(14,165,233,.32)',
+                borderColor: 'rgba(56,189,248,.95)',
+                borderWidth: 2
+              }}
+            }},
+            {{ xAxis: end }}
+          ]]
+        }},
+        markLine: {{
+          symbol: 'none',
+          lineStyle: {{ color: 'rgba(56,189,248,.95)', width: 2 }},
+          data: [{{ xAxis: start }}, {{ xAxis: end }}]
+        }}
+      }},
+      {{
+        markArea: {{
+          silent: true,
+          data: [[
+            {{ xAxis: start, itemStyle: {{ color: 'rgba(249,115,22,.20)' }} }},
+            {{ xAxis: end }}
+          ]]
+        }},
+        markLine: {{ symbol: 'none', data: [] }}
+      }}
+    ]
+  }}, {{ lazyUpdate: true, silent: true }});
+}}
+
+function clearElevationSelectionVisual() {{
+  if (!elevationChart) return;
+  elevationChart.setOption({{
+    series: [
+      {{ markArea: {{ data: [] }}, markLine: {{ data: [] }} }},
+      {{ markArea: {{ data: [] }}, markLine: {{ data: [] }} }}
+    ]
+  }}, {{ lazyUpdate: true, silent: true }});
+}}
+
+function refreshSelectedSegmentPreview() {{
+  if (!selectedRangeKm) return;
+  previewSegmentOnMap(selectedRangeKm.startKm, selectedRangeKm.endKm);
+}}
+
+function applyArrivalFromElevationRange(startKm, endKm) {{
+  const start = Math.min(startKm, endKm);
+  const end = Math.max(startKm, endKm);
+  selectedRangeKm = {{ startKm: start, endKm: end }};
+
+  const arrivalDist = end * 1000;
+  arrivalA = nearestIndexByDistance(streamA, arrivalDist);
+  const ratioA = distanceRatioAtIndex(streamA, arrivalA);
+  // GPS-aware match for B with strong distance-ratio hint → picks the correct lap at the finish line
+  arrivalB = nearestIndexWithDistanceHint(streamB, streamA.lat[arrivalA], streamA.lon[arrivalA], ratioA);
+
+  if (arrivalMarker) arrivalMarker.remove();
+  const el = document.createElement('div');
+  el.innerHTML = '🏁';
+  el.style.cssText = 'font-size:28px;';
+  arrivalMarker = new maplibregl.Marker({{ element:el }})
+    .setLngLat([streamA.lon[arrivalA], streamA.lat[arrivalA]])
+    .addTo(map);
+
+  drawTraceB();
+  // Keep the selected-only map view after mouse release.
+  previewSegmentOnMap(start, end);
+
+  arrivalMode = false;
+  map.getCanvas().style.cursor = '';
+  document.getElementById('arrival-tip').classList.remove('visible');
+  document.getElementById('status-msg').textContent = 'Arrivo impostato da altimetria (snap su traccia)';
+}}
+
 // ============================================================================
 // ANALYSIS
 // ============================================================================
 function runAnalysis() {{
-  if (arrivalA === null || arrivalB === null) {{
-    alert('Segna il punto di arrivo prima');
-    return;
-  }}
-  
+  // arrivalA and arrivalB are always set (initialized to end of trace)
   const km = parseFloat(document.getElementById('input-km').value) || 3;
   const secInterval = parseInt(document.getElementById('input-sec').value) || 20;
 
   showLoading('Calcolo sezioni...');
   setTimeout(() => {{
     try {{
+      clearSegmentPreview();
+      clearElevationSelectionVisual();
       clearAnalysisLayers();
-      hideFullTraces();
+      layerVisibility.traceA = false;
+      layerVisibility.traceB = false;
+      layerVisibility.sections = true;
       const sectionsA = buildSections(streamA, arrivalA, km * 1000, secInterval);
-      const sectionsB = buildSections(streamB, arrivalB, km * 1000, secInterval);
+      // Use aligned stream B for consistent analysis
+      const sectionsB = buildSections(streamBAligned || streamB, arrivalB, km * 1000, secInterval);
       drawSections(sectionsA, sectionsB);
+      applyLayerVisibility();
+      updateVisibilityButtons();
       drawElevationSections(sectionsA, sectionsB, secInterval);
       buildAndShowPowerComparison(km);
       document.getElementById('status-msg').textContent = `Analisi: ${{sectionsA.length}} sezioni da ${{secInterval}}s`;
@@ -692,6 +1052,8 @@ function buildSections(stream, arrivalIdx, distanceM, secInterval) {{
   if (arrivalIdx === null || arrivalIdx === undefined) arrivalIdx = stream.lat.length - 1;
 
   const dist = stream.distance_m;
+  const time = stream.time_sec;
+  const arrivalTime = time[arrivalIdx];
   const arrivalDist = dist[arrivalIdx];
   const startDist = Math.max(0, arrivalDist - distanceM);
 
@@ -700,43 +1062,57 @@ function buildSections(stream, arrivalIdx, distanceM, secInterval) {{
     if (dist[i] >= startDist) {{ startIdx = i; break; }}
   }}
 
-  const time = stream.time_sec;
+  // Build sections from arrival BACKWARDS
+  // CRITICAL: Never include indices beyond arrivalIdx
   const sections = [];
-  let i = startIdx;
-  let sectionIdx = 0;
-
-  while (i <= arrivalIdx) {{
-    const tStart = time[i];
-    const tEnd = tStart + secInterval;
-
+  let currentEndIdx = arrivalIdx;
+  
+  while (currentEndIdx > startIdx) {{
+    const currentEndTime = time[currentEndIdx];
+    const sectionStartTime = currentEndTime - secInterval;
+    
+    // Find where time <= sectionStartTime
+    let sectionStartIdx = startIdx;
+    for (let i = currentEndIdx - 1; i >= startIdx; i--) {{
+      if (time[i] <= sectionStartTime) {{
+        sectionStartIdx = i;
+        break;
+      }}
+    }}
+    
+    if (sectionStartIdx >= currentEndIdx) break;
+    
+    // Collect points, ensuring NO index exceeds arrivalIdx
     const pts = [];
-    let j = i;
-    while (j <= arrivalIdx && time[j] < tEnd) {{
-      pts.push(j);
-      j++;
+    for (let i = sectionStartIdx; i <= currentEndIdx && i <= arrivalIdx; i++) {{
+      if (i >= 0 && i <= arrivalIdx) {{
+        pts.push(i);
+      }}
     }}
-
-    if (pts.length < 2) {{ i = j; sectionIdx++; continue; }}
-
-    let sumPow = 0, sumHr = 0;
-    for (const p of pts) {{
-      sumPow += (stream.power[p] || 0);
-      sumHr  += (stream.hr[p] || 0);
+    
+    if (pts.length >= 2) {{
+      let sumPow = 0, sumHr = 0, sumSpeed = 0;
+      for (const p of pts) {{
+        sumPow += (stream.power[p] || 0);
+        sumHr  += (stream.hr[p] || 0);
+        sumSpeed += (stream.speed[p] || 0);
+      }}
+      
+      sections.push({{
+        coords: pts.map(p => [stream.lon[p], stream.lat[p], stream.alt[p]||0]),
+        sectionIdx: sections.length,
+        avgPower: sumPow / pts.length,
+        avgHr: sumHr / pts.length,
+        avgSpeed: sumSpeed / pts.length,
+        startDist: dist[pts[0]],
+        endDist: dist[pts[pts.length-1]],
+      }});
     }}
-
-    sections.push({{
-      coords: pts.map(p => [stream.lon[p], stream.lat[p], stream.alt[p]||0]),
-      sectionIdx,
-      avgPower: sumPow / pts.length,
-      avgHr: sumHr / pts.length,
-      startDist: dist[pts[0]],
-      endDist: dist[pts[pts.length-1]],
-    }});
-
-    i = j;
-    sectionIdx++;
+    
+    // Move to next section ending
+    currentEndIdx = sectionStartIdx - 1;
   }}
-
+  
   return sections;
 }}
 
@@ -779,6 +1155,8 @@ function drawSections(sectionsA, sectionsB) {{
 
     analysisLayers.push({{ layerId, sourceId }});
   }});
+
+  applyLayerVisibility();
 }}
 
 function clearAnalysisLayers() {{
@@ -790,13 +1168,63 @@ function clearAnalysisLayers() {{
 }}
 
 function hideFullTraces() {{
-  if (map.getLayer('trace-a-line')) map.setLayoutProperty('trace-a-line', 'visibility', 'none');
-  if (map.getLayer('trace-b-line')) map.setLayoutProperty('trace-b-line', 'visibility', 'none');
+  layerVisibility.traceA = false;
+  layerVisibility.traceB = false;
+  applyLayerVisibility();
+  updateVisibilityButtons();
 }}
 
 function showFullTraces() {{
-  if (map.getLayer('trace-a-line')) map.setLayoutProperty('trace-a-line', 'visibility', 'visible');
-  if (map.getLayer('trace-b-line')) map.setLayoutProperty('trace-b-line', 'visibility', 'visible');
+  layerVisibility.traceA = true;
+  layerVisibility.traceB = true;
+  applyLayerVisibility();
+  updateVisibilityButtons();
+}}
+
+function applyLayerVisibility() {{
+  if (!map) return;
+
+  if (map.getLayer('trace-a-line')) {{
+    map.setLayoutProperty('trace-a-line', 'visibility', layerVisibility.traceA ? 'visible' : 'none');
+  }}
+  if (map.getLayer('trace-b-line')) {{
+    map.setLayoutProperty('trace-b-line', 'visibility', layerVisibility.traceB ? 'visible' : 'none');
+  }}
+
+  if (map.getLayer('selected-a-line')) {{
+    map.setLayoutProperty('selected-a-line', 'visibility', layerVisibility.traceA ? 'visible' : 'none');
+  }}
+  if (map.getLayer('selected-b-line')) {{
+    map.setLayoutProperty('selected-b-line', 'visibility', layerVisibility.traceB ? 'visible' : 'none');
+  }}
+
+  analysisLayers.forEach(({{ layerId }}) => {{
+    if (map.getLayer(layerId)) {{
+      map.setLayoutProperty(layerId, 'visibility', layerVisibility.sections ? 'visible' : 'none');
+    }}
+  }});
+}}
+
+function updateVisibilityButtons() {{
+  const btnA = document.getElementById('btn-vis-a');
+  const btnB = document.getElementById('btn-vis-b');
+  const btnS = document.getElementById('btn-vis-sections');
+  if (!btnA || !btnB || !btnS) return;
+
+  btnA.textContent = `A ${{layerVisibility.traceA ? 'ON' : 'OFF'}}`;
+  btnB.textContent = `B ${{layerVisibility.traceB ? 'ON' : 'OFF'}}`;
+  btnS.textContent = `Sezioni ${{layerVisibility.sections ? 'ON' : 'OFF'}}`;
+
+  btnA.classList.toggle('off', !layerVisibility.traceA);
+  btnB.classList.toggle('off', !layerVisibility.traceB);
+  btnS.classList.toggle('off', !layerVisibility.sections);
+}}
+
+function toggleLayerVisibility(layerKey) {{
+  if (!(layerKey in layerVisibility)) return;
+  layerVisibility[layerKey] = !layerVisibility[layerKey];
+  applyLayerVisibility();
+  updateVisibilityButtons();
 }}
 
 // ============================================================================
@@ -806,6 +1234,8 @@ function initElevationChart() {{
   const dom = document.getElementById('elevation-chart');
   elevationChart = echarts.init(dom, 'dark');
   updateElevationChart();
+  updateArrivalChartLines();
+  updateVisibilityButtons();
 
   const handle = document.getElementById('chart-resize');
   let dragging = false, startY = 0, startH = 0;
@@ -823,16 +1253,110 @@ function initElevationChart() {{
   }});
   document.addEventListener('mouseup', () => {{ dragging = false; }});
   window.addEventListener('resize', () => {{ if (elevationChart) elevationChart.resize(); }});
+
+  // Webapp-style drag selection on chart container
+  if (dom._arrivalMouseMove) dom.removeEventListener('mousemove', dom._arrivalMouseMove);
+  if (dom._arrivalMouseDown) dom.removeEventListener('mousedown', dom._arrivalMouseDown);
+  if (dom._arrivalMouseLeave) dom.removeEventListener('mouseleave', dom._arrivalMouseLeave);
+  if (dom._arrivalMouseUp) document.removeEventListener('mouseup', dom._arrivalMouseUp);
+
+  const getKmFromEvent = (evt) => {{
+    const rect = dom.getBoundingClientRect();
+    const x = evt.clientX - rect.left;
+    const y = evt.clientY - rect.top;
+    if (x < 0 || y < 0 || x > rect.width || y > rect.height) return null;
+
+    // Only proceed if click is inside the actual chart grid (not legend, margins, etc.)
+    if (!elevationChart.containPixel('grid', [x, y])) return null;
+
+    try {{
+      const pointInGrid = elevationChart.convertFromPixel('grid', [x, y]);
+      if (!pointInGrid || pointInGrid[0] === undefined || Number.isNaN(pointInGrid[0])) return null;
+      return pointInGrid[0];
+    }} catch (_) {{
+      return null;
+    }}
+  }};
+
+  const handleArrivalMouseDown = (evt) => {{
+    if (!elevationChartMode) return; // ignore drag when showing power/analysis chart
+    const km = getKmFromEvent(evt);
+    if (km === null) return;
+
+    dragSelecting = true;
+    dragStartKm = km;
+    dragEndKm = km;
+    previewSegmentOnMap(dragStartKm, dragEndKm);
+    setElevationSelectionVisual(dragStartKm, dragEndKm);
+  }};
+
+  const handleArrivalMouseMove = (evt) => {{
+    if (!dragSelecting) return;
+    const km = getKmFromEvent(evt);
+    if (km === null) return;
+
+    dragEndKm = km;
+    previewSegmentOnMap(dragStartKm, dragEndKm);
+    setElevationSelectionVisual(dragStartKm, dragEndKm);
+
+    const start = Math.min(dragStartKm, dragEndKm);
+    const end = Math.max(dragStartKm, dragEndKm);
+
+    document.getElementById('status-msg').textContent = `Selezione altimetria: ${{start.toFixed(2)}} - ${{end.toFixed(2)}} km`;
+  }};
+
+  const handleArrivalMouseUp = (evt) => {{
+    if (!dragSelecting) return;
+    const km = getKmFromEvent(evt);
+    if (km !== null) dragEndKm = km;
+
+    dragSelecting = false;
+    if (dragStartKm === null || dragEndKm === null) return;
+
+    const spanKm = Math.abs(dragEndKm - dragStartKm);
+    if (spanKm < 0.03) {{
+      clearSegmentPreview();
+      clearElevationSelectionVisual();
+      document.getElementById('status-msg').textContent = 'Trascina almeno 30m in altimetria';
+      return;
+    }}
+
+    // Store range and show preview ONLY — do NOT set arrival yet
+    const start = Math.min(dragStartKm, dragEndKm);
+    const end = Math.max(dragStartKm, dragEndKm);
+    selectedRangeKm = {{ startKm: start, endKm: end }};
+    previewSegmentOnMap(start, end);
+    setElevationSelectionVisual(start, end);
+    document.getElementById('status-msg').textContent =
+      `Sezione: ${{start.toFixed(2)}}–${{end.toFixed(2)}} km · Clicca "Segna Arrivo" per fissare l'arrivo a fine sezione`;
+  }};
+
+  const handleArrivalMouseLeave = () => {{
+    if (!dragSelecting) return;
+    // keep selection alive; mouseup on document closes it
+  }};
+
+  dom.addEventListener('mousedown', handleArrivalMouseDown);
+  dom.addEventListener('mousemove', handleArrivalMouseMove);
+  dom.addEventListener('mouseleave', handleArrivalMouseLeave);
+  document.addEventListener('mouseup', handleArrivalMouseUp);
+
+  dom._arrivalMouseDown = handleArrivalMouseDown;
+  dom._arrivalMouseMove = handleArrivalMouseMove;
+  dom._arrivalMouseLeave = handleArrivalMouseLeave;
+  dom._arrivalMouseUp = handleArrivalMouseUp;
 }}
 
 function updateElevationChart() {{
   if (!elevationChart) return;
+  elevationChartMode = true; // re-enable elevation drag
 
   const series = [];
 
   series.push({{
     name: filenameA.slice(0,15),
     type: 'line',
+    markLine: {{ data: [] }},  // placeholder, filled by updateArrivalChartLines
     data: streamA.distance_m.map((d,i) => [d/1000, streamA.alt[i]||0]),
     lineStyle: {{ color:'#3b82f6', width:2, opacity:0.9 }},
     areaStyle: {{ color:'rgba(59,130,246,.12)' }},
@@ -951,6 +1475,8 @@ function buildPowerAlignment(streamA, streamB, arrivalA, arrivalB, kmWindow) {{
       powerB: streamB.power[idxB] || 0,
       hrA: streamA.hr[idxA] || 0,
       hrB: streamB.hr[idxB] || 0,
+      speedA: streamA.speed ? streamA.speed[idxA] || 0 : 0,
+      speedB: streamB.speed ? streamB.speed[idxB] || 0 : 0,
     }});
   }}
   
@@ -965,67 +1491,77 @@ function buildAndShowPowerComparison(kmWindow) {{
     return;
   }}
   
-  // Create separate charts for Power and HR
-  const powerData = alignment.map(a => [a.distance/1000, a.powerA, a.powerB]);
-  const hrData = alignment.map(a => [a.distance/1000, a.hrA, a.hrB]);
-  
   const option = {{
     backgroundColor: 'transparent',
     animation: false,
-    grid: [
-      {{ left:50, right:20, top:20, bottom:20, height:'48%' }},
-      {{ left:50, right:20, top:'58%', bottom:20, height:'40%' }}
-    ],
-    xAxis: [
-      {{ type:'value', name:'km', gridIndex:0, position:'bottom', nameTextStyle:{{ color:'#64748b' }}, axisLabel:{{ color:'#94a3b8' }}, splitLine:{{ lineStyle:{{ color:'#1e293b' }} }} }},
-      {{ type:'value', name:'km', gridIndex:1, nameTextStyle:{{ color:'#64748b' }}, axisLabel:{{ color:'#94a3b8' }}, splitLine:{{ lineStyle:{{ color:'#1e293b' }} }} }}
-    ],
+    grid: {{ left:50, right:80, top:20, bottom:20 }},
+    xAxis: {{
+      type: 'value',
+      name: 'km',
+      nameTextStyle: {{ color:'#64748b' }},
+      axisLabel: {{ color:'#94a3b8' }},
+      splitLine: {{ lineStyle: {{ color:'#1e293b' }} }}
+    }},
     yAxis: [
-      {{ type:'value', name:'Watt', gridIndex:0, nameTextStyle:{{ color:'#64748b' }}, axisLabel:{{ color:'#94a3b8' }}, splitLine:{{ lineStyle:{{ color:'#1e293b' }} }} }},
-      {{ type:'value', name:'bpm', gridIndex:1, nameTextStyle:{{ color:'#64748b' }}, axisLabel:{{ color:'#94a3b8' }}, splitLine:{{ lineStyle:{{ color:'#1e293b' }} }} }}
+      {{
+        type: 'value',
+        name: 'Watt',
+        position: 'left',
+        nameTextStyle: {{ color:'#64748b' }},
+        axisLabel: {{ color:'#94a3b8' }},
+        splitLine: {{ lineStyle: {{ color:'#1e293b' }} }}
+      }},
+      {{
+        type: 'value',
+        name: 'km/h',
+        position: 'right',
+        nameTextStyle: {{ color:'#64748b' }},
+        axisLabel: {{ color:'#94a3b8' }},
+        splitLine: {{ lineStyle: {{ color:'#1e293b' }} }}
+      }}
     ],
     legend: {{
       show: true,
       textStyle: {{ color:'#94a3b8', fontSize:9 }},
       top: 2,
-      data: [`${{filenameA.slice(0,12)}} Power`, `${{filenameB.slice(0,12)}} Power`, `${{filenameA.slice(0,12)}} HR`, `${{filenameB.slice(0,12)}} HR`]
+      data: [`${{filenameA.slice(0,12)}} Watt`, `${{filenameB.slice(0,12)}} Watt`, `${{filenameA.slice(0,12)}} Speed`, `${{filenameB.slice(0,12)}} Speed`]
     }},
     series: [
       {{
-        name: `${{filenameA.slice(0,12)}} Power`,
+        name: `${{filenameA.slice(0,12)}} Watt`,
         type: 'line',
         data: alignment.map(a => [a.distance/1000, a.powerA]),
-        xAxisIndex: 0, yAxisIndex: 0,
+        yAxisIndex: 0,
         lineStyle: {{ color:'#3b82f6', width:2 }},
         itemStyle: {{ color:'#3b82f6' }},
         showSymbol: false,
         smooth: 0.3,
       }},
       {{
-        name: `${{filenameB.slice(0,12)}} Power`,
+        name: `${{filenameB.slice(0,12)}} Watt`,
         type: 'line',
         data: alignment.map(a => [a.distance/1000, a.powerB]),
-        xAxisIndex: 0, yAxisIndex: 0,
-        lineStyle: {{ color:'#f97316', width:2, dashOffset: 0 }},
+        yAxisIndex: 0,
+        lineStyle: {{ color:'#f97316', width:2 }},
         itemStyle: {{ color:'#f97316' }},
         showSymbol: false,
         smooth: 0.3,
       }},
       {{
-        name: `${{filenameA.slice(0,12)}} HR`,
+        name: `${{filenameA.slice(0,12)}} Speed`,
         type: 'line',
-        data: alignment.map(a => [a.distance/1000, a.hrA]),
-        xAxisIndex: 1, yAxisIndex: 1,
+        data: alignment.map(a => [a.distance/1000, a.speedA || 0]),
+        yAxisIndex: 1,
         lineStyle: {{ color:'#60a5fa', width:1.5, dashArray: [4,2] }},
         itemStyle: {{ color:'#60a5fa' }},
         showSymbol: false,
         smooth: 0.3,
       }},
       {{
-        name: `${{filenameB.slice(0,12)}} HR`,
+        name: `${{filenameB.slice(0,12)}} Speed`,
         type: 'line',
-        data: alignment.map(a => [a.distance/1000, a.hrB]),
-        xAxisIndex: 1, yAxisIndex: 1,
+        data: alignment.map(a => [a.distance/1000, a.speedB || 0]),
+        yAxisIndex: 1,
         lineStyle: {{ color:'#fb923c', width:1.5, dashArray: [4,2] }},
         itemStyle: {{ color:'#fb923c' }},
         showSymbol: false,
@@ -1049,6 +1585,7 @@ function buildAndShowPowerComparison(kmWindow) {{
   }};
   
   elevationChart.setOption(option, true);
+  elevationChartMode = false; // now showing power chart, disable elevation drag
 }}
 
 // ============================================================================
@@ -1112,12 +1649,23 @@ function toggle3D() {{
 }}
 
 function resetApp() {{
-  arrivalA = null; arrivalB = null;
-  if (arrivalMarker) {{ arrivalMarker.remove(); arrivalMarker = null; }}
+  clearSegmentPreview();
+  clearElevationSelectionVisual();
   clearAnalysisLayers();
-  showFullTraces();
-  document.getElementById('status-msg').textContent = 'Segna il punto di arrivo';
+  // Reset arrivals to end of each trace
+  if (streamA) arrivalA = streamA.lat.length - 1;
+  if (streamB) arrivalB = streamB.lat.length - 1;
+  selectedRangeKm = null;
+  layerVisibility.traceA = true;
+  layerVisibility.traceB = true;
+  layerVisibility.sections = true;
+  applyLayerVisibility();
+  updateVisibilityButtons();
+  updateArrivalMarkers();
   updateElevationChart();
+  updateArrivalChartLines();
+  updateArrivalPanelPositions();
+  document.getElementById('status-msg').textContent = '';
 }}
 
 // ============================================================================
