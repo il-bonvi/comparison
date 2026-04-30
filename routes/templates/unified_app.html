@@ -54,7 +54,7 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
 #app-header .brand h1 {
   font-size:.88rem; font-weight:800; letter-spacing:.1em;
   background:linear-gradient(90deg,var(--a),var(--b));
-  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
   white-space:nowrap;
 }
 
@@ -297,8 +297,14 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
 }
 #replay-pb-time { font-family:var(--font-mono); font-size:.74rem; color:var(--muted2); min-width:90px; }
 
-/* Section colors */
-.SECTION_PALETTE_CSS {}
+/* Replay start/end panel */
+#rp-bounds-panel {
+  display:none; position:absolute; bottom:0; left:0; right:0; z-index:200;
+  background:rgba(8,12,20,.97); border-top:2px solid var(--border);
+  padding:8px 14px; flex-direction:column; gap:7px;
+}
+
+/* end styles */
 </style>
 </head>
 <body>
@@ -472,6 +478,7 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
           <option value="satellite">Satellite</option>
           <option value="dark">Dark</option>
         </select>
+        <button class="btn btn-ghost" id="rp-btn-bounds" onclick="rpToggleBoundsPanel()" style="margin-left:6px;">🎯 Regola Start/End</button>
         <span id="replay-status"></span>
       </div>
       <div id="replay-main">
@@ -494,6 +501,67 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
             <button class="map-mini-btn" onclick="rpFitAll()">🎯 Fit</button>
             <button class="map-mini-btn" onclick="rpToggle3D()">🏔️ 3D</button>
           </div>
+
+          <!-- START / END bounds panel -->
+          <div id="rp-bounds-panel">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span style="color:var(--a);font-weight:700;font-size:.74rem;min-width:76px;">🔵 Start A</span>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startA',-1000)">◀◀1km</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startA',-100)">◀100m</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startA',-10)">◀10m</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startA',-1)">◀1m</button>
+              <span id="rp-pos-startA" style="color:var(--a);font-family:var(--font-mono);font-size:.78rem;min-width:72px;text-align:center">—</span>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startA',1)">1m▶</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startA',10)">10m▶</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startA',100)">100m▶</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startA',1000)">1km▶▶</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem;margin-left:4px" onclick="rpResetBound('startA')">↺ Inizio</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span style="color:var(--b);font-weight:700;font-size:.74rem;min-width:76px;">🟠 Start B</span>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startB',-1000)">◀◀1km</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startB',-100)">◀100m</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startB',-10)">◀10m</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startB',-1)">◀1m</button>
+              <span id="rp-pos-startB" style="color:var(--b);font-family:var(--font-mono);font-size:.78rem;min-width:72px;text-align:center">—</span>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startB',1)">1m▶</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startB',10)">10m▶</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startB',100)">100m▶</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startB',1000)">1km▶▶</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem;margin-left:4px" onclick="rpResetBound('startB')">↺ Inizio</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span style="color:var(--a);font-weight:700;font-size:.74rem;min-width:76px;">🔵 End A</span>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endA',-1000)">◀◀1km</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endA',-100)">◀100m</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endA',-10)">◀10m</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endA',-1)">◀1m</button>
+              <span id="rp-pos-endA" style="color:var(--a);font-family:var(--font-mono);font-size:.78rem;min-width:72px;text-align:center">—</span>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endA',1)">1m▶</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endA',10)">10m▶</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endA',100)">100m▶</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endA',1000)">1km▶▶</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem;margin-left:4px" onclick="rpResetBound('endA')">↺ Fine</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span style="color:var(--b);font-weight:700;font-size:.74rem;min-width:76px;">🟠 End B</span>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endB',-1000)">◀◀1km</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endB',-100)">◀100m</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endB',-10)">◀10m</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endB',-1)">◀1m</button>
+              <span id="rp-pos-endB" style="color:var(--b);font-family:var(--font-mono);font-size:.78rem;min-width:72px;text-align:center">—</span>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endB',1)">1m▶</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endB',10)">10m▶</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endB',100)">100m▶</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endB',1000)">1km▶▶</button>
+              <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem;margin-left:4px" onclick="rpResetBound('endB')">↺ Fine</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:2px;">
+              <button class="btn btn-primary-b" style="font-size:.72rem;padding:4px 14px" onclick="rpApplyBounds()">✓ Applica e ricalcola</button>
+              <span style="font-size:.7rem;color:var(--muted);font-family:var(--font-mono);">Sposta lo start/end di ogni atleta per allineare la partenza o ignorare i dati extra</span>
+            </div>
+          </div>
+
         </div>
         <div id="replay-chart-panel">
           <div id="replay-chart-resize"></div>
@@ -560,9 +628,17 @@ function switchTab(tab) {
   document.getElementById('tab-comp').className = 'tab-btn' + (tab === 'comp' ? ' active-comp' : '');
   document.getElementById('tab-replay').className = 'tab-btn' + (tab === 'replay' ? ' active-replay' : '');
   activeTab = tab;
-  // Resize charts if they exist
-  if (tab === 'comp' && compElevChart) setTimeout(() => compElevChart.resize(), 50);
-  if (tab === 'replay' && rpChart) setTimeout(() => rpChart.resize(), 50);
+  // After display:flex kicks in, resize everything so maps/charts get proper dimensions
+  setTimeout(() => {
+    if (tab === 'comp' && compElevChart) compElevChart.resize();
+    if (tab === 'replay') {
+      if (rpChart) rpChart.resize();
+      if (rpMap) {
+        rpMap.resize();
+        if (rpAligned.length) rpUpdateFrame(rpCurrentT);
+      }
+    }
+  }, 60);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -911,6 +987,19 @@ let rpMarkerA=null,rpMarkerB=null;
 let rpAligned=[], rpMaxT=0, rpCurrentT=0, rpPlaySpeed=1, rpPlaying=false;
 let rpLastTs=null, rpIs3D=true;
 let rpChartVis={gap:true,speed:false,power:false,hr:false,elev:false};
+// Bounds: index into the raw stream arrays defining the active [start, end] window
+let rpBoundStartA=0, rpBoundEndA=0, rpBoundStartB=0, rpBoundEndB=0;
+let rpBoundsPanelOpen=false;
+let rpMapReady=false; // true once MapLibre has fired 'load'
+
+function rpNearestByDist(s, distM) {
+  let best=0, bd=Infinity;
+  for (let i=0;i<s.distance_m.length;i++) {
+    const diff=Math.abs((s.distance_m[i]||0)-distM);
+    if (diff<bd) { bd=diff; best=i; }
+  }
+  return best;
+}
 
 document.getElementById('rp-file-a').addEventListener('change',e=>{
   if(e.target.files[0]){document.getElementById('rp-slot-a').classList.add('filled-a');document.getElementById('rp-name-a').textContent=e.target.files[0].name.slice(0,22);rpCheckReady();}
@@ -936,14 +1025,27 @@ async function replayStart() {
     rpNameB=(d.filename_b||'B').replace('.fit','');
     ['rp-lbl-a','rp-leg-a'].forEach(id=>document.getElementById(id).textContent=rpNameA.slice(0,16));
     ['rp-lbl-b','rp-leg-b'].forEach(id=>document.getElementById(id).textContent=rpNameB.slice(0,16));
+    rpBoundStartA=0; rpBoundEndA=rpSA.lat.length-1;
+    rpBoundStartB=0; rpBoundEndB=rpSB.lat.length-1;
+    rpUpdateBoundsPanelUI();
     document.getElementById('replay-upload').style.display='none';
     document.getElementById('replay-app').style.display='flex';
+
+    // Switch to replay tab NOW so the map container is visible and has real dimensions
+    // before MapLibre tries to create a WebGL canvas
+    switchTab('replay');
+
     rpBuildAlignment();
-    rpInitMap();
     rpInitChart();
     rpRenderCharts();
     rpSetSpeed(1);
-    hideLoading();
+
+    // Small delay to let the browser paint display:flex before MapLibre measures the container
+    setTimeout(() => {
+      rpInitMap();
+      hideLoading();
+    }, 80);
+
   } catch(e){hideLoading();alert('Errore: '+e.message);}
 }
 
@@ -954,49 +1056,180 @@ function rpNearestByVal(arr,val){
   if(lo>0&&Math.abs(arr[lo-1]-val)<Math.abs(arr[lo]-val))return lo-1;
   return Math.min(lo,arr.length-1);
 }
+
 function rpBuildAlignment(){
-  rpAligned=[];
-  const mode=document.getElementById('rp-align').value;
-  const tA=rpSA.time_sec,tB=rpSB.time_sec,dA=rpSA.distance_m,dB=rpSB.distance_m;
-  if(mode==='time'){
-    rpMaxT=Math.min(tA[tA.length-1]-tA[0],tB[tB.length-1]-tB[0]);
-    for(let t=0;t<=rpMaxT;t+=1){
-      const iA=rpNearestByVal(tA,tA[0]+t),iB=rpNearestByVal(tB,tB[0]+t);
-      const iAd=rpNearestByVal(dA,dA[iA]), tBd=tB[rpNearestByVal(dB,dA[iAd])]-tB[0];
-      rpAligned.push({t,iA,iB,gap:t-tBd,distA:dA[iA]||0,distB:dB[iB]||0,
-        speedA:rpSA.speed?rpSA.speed[iA]||0:0,speedB:rpSB.speed?rpSB.speed[iB]||0:0,
-        powerA:rpSA.power[iA]||0,powerB:rpSB.power[iB]||0,
-        hrA:rpSA.hr[iA]||0,hrB:rpSB.hr[iB]||0,
-        altA:rpSA.alt[iA]||0,altB:rpSB.alt[iB]||0,
-        latA:rpSA.lat[iA],lonA:rpSA.lon[iA],latB:rpSB.lat[iB],lonB:rpSB.lon[iB]});
+  rpAligned = [];
+  const mode = document.getElementById('rp-align').value;
+
+  // ── Windowed slices (rispetta i bounds impostati dall'utente) ──
+  const sA_t  = rpSA.time_sec.slice(rpBoundStartA, rpBoundEndA+1);
+  const sA_d  = rpSA.distance_m.slice(rpBoundStartA, rpBoundEndA+1);
+  const sA_la = rpSA.lat.slice(rpBoundStartA, rpBoundEndA+1);
+  const sA_lo = rpSA.lon.slice(rpBoundStartA, rpBoundEndA+1);
+  const sB_t  = rpSB.time_sec.slice(rpBoundStartB, rpBoundEndB+1);
+  const sB_d  = rpSB.distance_m.slice(rpBoundStartB, rpBoundEndB+1);
+  const sB_la = rpSB.lat.slice(rpBoundStartB, rpBoundEndB+1);
+  const sB_lo = rpSB.lon.slice(rpBoundStartB, rpBoundEndB+1);
+
+  if (!sA_t.length || !sB_t.length) return;
+
+  // ── Normalizza tempi e distanze a partire da 0 ──
+  const t0A = sA_t[0], t0B = sB_t[0];
+  const d0A = sA_d[0], d0B = sB_d[0];
+  const tA = sA_t.map(t => t - t0A);
+  const tB = sB_t.map(t => t - t0B);
+  const dA = sA_d.map(d => d - d0A);
+  const dB = sB_d.map(d => d - d0B);
+
+  // ── Costruisce un lookup spaziale per B ──
+  // Per ogni punto di A, cerca in B il punto geograficamente più vicino
+  // entro una finestra temporale ragionevole (evita di matchare giri diversi)
+  //
+  // Approssimazione rapida distanza sferica (Equirectangular):
+  // abbastanza precisa per distanze <5km
+  const geoDist2 = (la1,lo1,la2,lo2) => {
+    const dlat = la1 - la2;
+    const dlon = (lo1 - lo2) * Math.cos(la1 * Math.PI / 180);
+    return dlat*dlat + dlon*dlon; // gradi², proporzionale a m²
+  };
+
+  // Pre-costruisce indice spaziale B per la ricerca veloce:
+  // Raggruppa i punti B per bin di 0.001° lat (~110m) per limitare la ricerca
+  const BIN = 0.001;
+  const bBins = {};
+  for (let i = 0; i < sB_la.length; i++) {
+    const key = `${Math.round(sB_la[i]/BIN)},${Math.round(sB_lo[i]/BIN)}`;
+    if (!bBins[key]) bBins[key] = [];
+    bBins[key].push(i);
+  }
+
+  // Per un punto A (lat,lon), trova l'indice in B geograficamente più vicino
+  // cercando nei bin vicini (±2 bin = ±220m raggio)
+  const nearestBgeo = (la, lo, tElapsedA, maxTimeDiff) => {
+    const binLa = Math.round(la/BIN);
+    const binLo = Math.round(lo/BIN);
+    let bestI = -1, bestD2 = Infinity;
+    for (let dbl = -2; dbl <= 2; dbl++) {
+      for (let dbo = -2; dbo <= 2; dbo++) {
+        const key = `${binLa+dbl},${binLo+dbo}`;
+        const cands = bBins[key];
+        if (!cands) continue;
+        for (const i of cands) {
+          // Opzionale: limita la finestra temporale (evita di matchare
+          // punti di B che sono a più di maxTimeDiff secondi di distanza)
+          if (maxTimeDiff > 0) {
+            const tDiff = Math.abs(tB[i] - tElapsedA);
+            if (tDiff > maxTimeDiff) continue;
+          }
+          const d2 = geoDist2(la, lo, sB_la[i], sB_lo[i]);
+          if (d2 < bestD2) { bestD2 = d2; bestI = i; }
+        }
+      }
     }
+    // Fallback se non trovato entro 220m: cerca globalmente (strada molto divergente)
+    if (bestI < 0) {
+      for (let i = 0; i < sB_la.length; i++) {
+        const d2 = geoDist2(la, lo, sB_la[i], sB_lo[i]);
+        if (d2 < bestD2) { bestD2 = d2; bestI = i; }
+      }
+    }
+    return bestI < 0 ? 0 : bestI;
+  };
+
+  if (mode === 'time') {
+    // ── Modalità TEMPO: itera ogni secondo dell'atleta A ──
+    // A è dove fisicamente si trova dopo t secondi.
+    // B è dove fisicamente si trova dopo t secondi (posizione reale sul marker).
+    // Il gap si calcola però con geo-matching: quanto tempo ha impiegato B
+    // ad arrivare nello stesso punto fisico dove si trova A adesso.
+    rpMaxT = Math.min(tA[tA.length-1], tB[tB.length-1]);
+    for (let t = 0; t <= rpMaxT; t += 1) {
+      // Posizione reale di A al tempo t
+      const iA_local = rpNearestByVal(tA, t);
+      const iA = iA_local + rpBoundStartA;
+
+      // Posizione reale di B al tempo t (per il marker sulla mappa)
+      const iB_pos_local = rpNearestByVal(tB, t);
+      const iB_pos = iB_pos_local + rpBoundStartB;
+
+      // Indice B per il gap: punto di B geograficamente più vicino a dove è A
+      const iB_gap_local = nearestBgeo(sA_la[iA_local], sA_lo[iA_local], t, 120);
+
+      // Gap = tempo A per arrivare qui − tempo B per arrivare qui (stesso punto fisico)
+      const gap = tA[iA_local] - tB[iB_gap_local];
+
+      rpAligned.push({
+        t, iA,
+        iB: iB_pos,           // usato per marker, speed, power, hr del frame corrente
+        gap,
+        distA: rpSA.distance_m[iA]||0,
+        distB: rpSB.distance_m[iB_pos]||0,
+        speedA: rpSA.speed ? rpSA.speed[iA]||0 : 0,
+        speedB: rpSB.speed ? rpSB.speed[iB_pos]||0 : 0,
+        powerA: rpSA.power[iA]||0,  powerB: rpSB.power[iB_pos]||0,
+        hrA:    rpSA.hr[iA]||0,     hrB:    rpSB.hr[iB_pos]||0,
+        altA:   rpSA.alt[iA]||0,    altB:   rpSB.alt[iB_pos]||0,
+        latA: rpSA.lat[iA], lonA: rpSA.lon[iA],
+        latB: rpSB.lat[iB_pos], lonB: rpSB.lon[iB_pos],  // posizione reale B
+      });
+    }
+
   } else {
-    const maxD=Math.min(dA[dA.length-1],dB[dB.length-1]);
-    rpMaxT=maxD/10;
-    for(let step=0;step<=rpMaxT;step+=1){
-      const d=step*10;
-      const iA=rpNearestByVal(dA,d),iB=rpNearestByVal(dB,d);
-      const gap=(tA[iA]-tA[0])-(tB[iB]-tB[0]);
-      rpAligned.push({t:step,iA,iB,gap,distA:dA[iA]||0,distB:dB[iB]||0,
-        speedA:rpSA.speed?rpSA.speed[iA]||0:0,speedB:rpSB.speed?rpSB.speed[iB]||0:0,
-        powerA:rpSA.power[iA]||0,powerB:rpSB.power[iB]||0,
-        hrA:rpSA.hr[iA]||0,hrB:rpSB.hr[iB]||0,
-        altA:rpSA.alt[iA]||0,altB:rpSB.alt[iB]||0,
-        latA:rpSA.lat[iA],lonA:rpSA.lon[iA],latB:rpSB.lat[iB],lonB:rpSB.lon[iB]});
+    // ── Modalità DISTANZA: itera ogni 10m dell'atleta A ──
+    // A è al punto della sua traccia a distanza d.
+    // B è al punto della sua traccia a distanza d (odometro B, posizione reale).
+    // Gap: geo-matching come sopra.
+    const maxD = Math.min(dA[dA.length-1], dB[dB.length-1]);
+    rpMaxT = maxD / 10;
+    for (let step = 0; step <= rpMaxT; step += 1) {
+      const d = step * 10;
+
+      // Posizione reale di A a distanza d
+      const iA_local = rpNearestByVal(dA, d);
+      const iA = iA_local + rpBoundStartA;
+
+      // Posizione reale di B a distanza d (per marker — stesso metro ma traccia diversa)
+      const iB_pos_local = rpNearestByVal(dB, d);
+      const iB_pos = iB_pos_local + rpBoundStartB;
+
+      // Indice B per il gap: punto geograficamente vicino ad A
+      const iB_gap_local = nearestBgeo(sA_la[iA_local], sA_lo[iA_local], tA[iA_local], 120);
+
+      const gap = tA[iA_local] - tB[iB_gap_local];
+
+      rpAligned.push({
+        t: step, iA,
+        iB: iB_pos,
+        gap,
+        distA: rpSA.distance_m[iA]||0,
+        distB: rpSB.distance_m[iB_pos]||0,
+        speedA: rpSA.speed ? rpSA.speed[iA]||0 : 0,
+        speedB: rpSB.speed ? rpSB.speed[iB_pos]||0 : 0,
+        powerA: rpSA.power[iA]||0,  powerB: rpSB.power[iB_pos]||0,
+        hrA:    rpSA.hr[iA]||0,     hrB:    rpSB.hr[iB_pos]||0,
+        altA:   rpSA.alt[iA]||0,    altB:   rpSB.alt[iB_pos]||0,
+        latA: rpSA.lat[iA], lonA: rpSA.lon[iA],
+        latB: rpSB.lat[iB_pos], lonB: rpSB.lon[iB_pos],  // posizione reale B
+      });
     }
   }
-  rpCurrentT=0;
-  document.getElementById('replay-slider').max=rpAligned.length-1;
-  document.getElementById('replay-status').textContent=`${rpAligned.length} frame • ${fmtTime(rpMaxT)}`;
+
+  rpCurrentT = 0;
+  document.getElementById('replay-slider').max = rpAligned.length - 1;
+  document.getElementById('replay-slider').value = 0;
+  document.getElementById('replay-status').textContent =
+    `${rpAligned.length} frame • ${fmtTime(rpMaxT)}`;
 }
-function rpOnAlignChange(){rpBuildAlignment();rpRenderCharts();rpUpdateFrame(0);}
+function rpOnAlignChange(){ rpBuildAlignment(); rpRenderCharts(); rpUpdateFrame(0); }
 
 // Map
 function rpInitMap(){
+  rpMapReady = false;
   const n=rpSA.lat.length, lat=rpSA.lat.reduce((a,b)=>a+b,0)/n, lon=rpSA.lon.reduce((a,b)=>a+b,0)/n;
   rpMap=new maplibregl.Map({container:'replay-map',style:STYLES.streets,center:[lon,lat],zoom:12,pitch:45,bearing:0,antialias:true});
   rpMap.addControl(new maplibregl.NavigationControl(),'top-left');
   rpMap.on('load',()=>{
+    rpMapReady = true;
     map_addTerrain_to(rpMap);
     rpAddTrace('rp-ta',rpSA,'#3b82f6',3,false); rpAddTrace('rp-tb',rpSB,'#f97316',3,false);
     rpAddTrace('rp-ta-tr',rpSA,'#60a5fa',5,true); rpAddTrace('rp-tb-tr',rpSB,'#fb923c',5,true);
@@ -1030,56 +1263,106 @@ function rpFitAll(){
 function rpToggle3D(){rpIs3D=!rpIs3D;rpMap.easeTo({pitch:rpIs3D?45:0,duration:600});}
 function replayChangeStyle(k){
   if(!STYLES[k])return;
+  rpMapReady = false;
   rpMap.setStyle(STYLES[k]);
-  rpMap.once('styledata',()=>{map_addTerrain_to(rpMap);rpAddTrace('rp-ta',rpSA,'#3b82f6',3,false);rpAddTrace('rp-tb',rpSB,'#f97316',3,false);rpAddTrace('rp-ta-tr',rpSA,'#60a5fa',5,true);rpAddTrace('rp-tb-tr',rpSB,'#fb923c',5,true);rpAddGapLine();if(rpAligned.length)rpUpdateFrame(rpCurrentT);});
+  rpMap.once('styledata',()=>{
+    rpMapReady = true;
+    map_addTerrain_to(rpMap);
+    rpAddTrace('rp-ta',rpSA,'#3b82f6',3,false);
+    rpAddTrace('rp-tb',rpSB,'#f97316',3,false);
+    rpAddTrace('rp-ta-tr',rpSA,'#60a5fa',5,true);
+    rpAddTrace('rp-tb-tr',rpSB,'#fb923c',5,true);
+    rpAddGapLine();
+    rpSpawnMarkers();
+    if(rpAligned.length) rpUpdateFrame(rpCurrentT);
+  });
 }
 
 // Frame update
 function rpUpdateFrame(idx){
-  idx=Math.max(0,Math.min(rpAligned.length-1,Math.round(idx)));
-  rpCurrentT=idx;
-  const fr=rpAligned[idx]; if(!fr)return;
-  if(rpMarkerA)rpMarkerA.setLngLat([fr.lonA,fr.latA]);
-  if(rpMarkerB)rpMarkerB.setLngLat([fr.lonB,fr.latB]);
-  if(rpMap&&rpMap.getSource('rp-gap'))rpMap.getSource('rp-gap').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:[[fr.lonA,fr.latA],[fr.lonB,fr.latB]]}}]});
-  // Trails
-  if(rpMap&&rpMap.getSource('rp-ta-tr')){
-    const cA=rpSA.lat.slice(0,fr.iA+1).map((la,i)=>[rpSA.lon[i],la,rpSA.alt[i]||0]);
-    const cB=rpSB.lat.slice(0,fr.iB+1).map((la,i)=>[rpSB.lon[i],la,rpSB.alt[i]||0]);
-    if(cA.length>=2){rpMap.getSource('rp-ta-tr').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:cA}}]});rpMap.setPaintProperty('rp-ta-tr-ln','line-opacity',0.85);}
-    if(cB.length>=2){rpMap.getSource('rp-tb-tr').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:cB}}]});rpMap.setPaintProperty('rp-tb-tr-ln','line-opacity',0.85);}
+  idx = Math.max(0, Math.min(rpAligned.length - 1, Math.round(idx)));
+  rpCurrentT = idx;
+  const fr = rpAligned[idx];
+  if (!fr) return;
+
+  // Map operations — only if map has fully loaded
+  const mapReady = rpMapReady && rpMap;
+  if (mapReady) {
+    if (rpMarkerA) rpMarkerA.setLngLat([fr.lonA, fr.latA]);
+    if (rpMarkerB) rpMarkerB.setLngLat([fr.lonB, fr.latB]);
+    try {
+      if (rpMap.getSource('rp-gap')) {
+        rpMap.getSource('rp-gap').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:[[fr.lonA,fr.latA],[fr.lonB,fr.latB]]}}]});
+      }
+      if (rpMap.getSource('rp-ta-tr')) {
+        const cA = rpSA.lat.slice(0, fr.iA + 1).map((la,i) => [rpSA.lon[i], la, rpSA.alt[i]||0]);
+        const cB = rpSB.lat.slice(0, fr.iB + 1).map((la,i) => [rpSB.lon[i], la, rpSB.alt[i]||0]);
+        if (cA.length >= 2) { rpMap.getSource('rp-ta-tr').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:cA}}]}); rpMap.setPaintProperty('rp-ta-tr-ln','line-opacity',0.85); }
+        if (cB.length >= 2) { rpMap.getSource('rp-tb-tr').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:cB}}]}); rpMap.setPaintProperty('rp-tb-tr-ln','line-opacity',0.85); }
+      }
+    } catch(e) { /* map sources not ready yet, skip */ }
   }
-  // Stats
-  const g=fr.gap,gc=g>=0?'var(--gap-neg)':'var(--gap-pos)',gs=(g>=0?'+':'')+g.toFixed(1)+'s';
-  document.getElementById('ov-gap').textContent=gs; document.getElementById('ov-gap').style.color=gc;
-  document.getElementById('replay-gap-big').textContent=gs; document.getElementById('replay-gap-big').style.color=gc;
-  document.getElementById('ov-da').textContent=(fr.distA/1000).toFixed(2)+'km';
-  document.getElementById('ov-db').textContent=(fr.distB/1000).toFixed(2)+'km';
-  document.getElementById('ov-sa').textContent=(fr.speedA||0).toFixed(1)+' km/h';
-  document.getElementById('ov-sb').textContent=(fr.speedB||0).toFixed(1)+' km/h';
-  document.getElementById('ov-pa').textContent=Math.round(fr.powerA||0)+'W';
-  document.getElementById('ov-pb').textContent=Math.round(fr.powerB||0)+'W';
-  document.getElementById('replay-slider').value=idx;
-  const tL=document.getElementById('rp-align').value==='time'?fmtTime(fr.t):(fr.distA/1000).toFixed(2)+'km';
-  const tT=document.getElementById('rp-align').value==='time'?fmtTime(rpMaxT):((rpAligned[rpAligned.length-1]?.distA||0)/1000).toFixed(2)+'km';
-  document.getElementById('replay-pb-time').textContent=`${tL} / ${tT}`;
+
+  // Stats overlay — always update regardless of map state
+  const g = fr.gap;
+  const gc = g >= 0 ? 'var(--gap-neg)' : 'var(--gap-pos)';
+  const gs = (g >= 0 ? '+' : '') + g.toFixed(1) + 's';
+  document.getElementById('ov-gap').textContent = gs;
+  document.getElementById('ov-gap').style.color = gc;
+  document.getElementById('replay-gap-big').textContent = gs;
+  document.getElementById('replay-gap-big').style.color = gc;
+  document.getElementById('ov-da').textContent = (fr.distA/1000).toFixed(2) + 'km';
+  document.getElementById('ov-db').textContent = (fr.distB/1000).toFixed(2) + 'km';
+  document.getElementById('ov-sa').textContent = (fr.speedA||0).toFixed(1) + ' km/h';
+  document.getElementById('ov-sb').textContent = (fr.speedB||0).toFixed(1) + ' km/h';
+  document.getElementById('ov-pa').textContent = Math.round(fr.powerA||0) + 'W';
+  document.getElementById('ov-pb').textContent = Math.round(fr.powerB||0) + 'W';
+
+  // Slider + time label
+  document.getElementById('replay-slider').value = idx;
+  const mode = document.getElementById('rp-align').value;
+  const tL = mode === 'time' ? fmtTime(fr.t) : (fr.distA/1000).toFixed(2) + 'km';
+  const tT = mode === 'time' ? fmtTime(rpMaxT) : ((rpAligned[rpAligned.length-1]?.distA||0)/1000).toFixed(2) + 'km';
+  document.getElementById('replay-pb-time').textContent = `${tL} / ${tT}`;
+
   rpUpdateChartCursor(idx);
 }
 
 // Playback
 function rpTogglePlay(){
-  rpPlaying=!rpPlaying;
-  const btn=document.getElementById('rp-play');
-  if(rpPlaying){btn.textContent='⏸';btn.classList.add('pb-active');if(rpCurrentT>=rpAligned.length-1)rpCurrentT=0;rpLastTs=null;requestAnimationFrame(rpAnimLoop);}
-  else{btn.textContent='▶';btn.classList.remove('pb-active');}
+  rpPlaying = !rpPlaying;
+  const btn = document.getElementById('rp-play');
+  if (rpPlaying) {
+    btn.textContent = '⏸';
+    btn.classList.add('pb-active');
+    if (rpCurrentT >= rpAligned.length - 1) rpCurrentT = 0;
+    rpLastTs = null;
+    requestAnimationFrame(rpAnimLoop);
+  } else {
+    btn.textContent = '▶';
+    btn.classList.remove('pb-active');
+  }
 }
 function rpAnimLoop(ts){
-  if(!rpPlaying)return;
-  if(!rpLastTs)rpLastTs=ts;
-  rpCurrentT+=(ts-rpLastTs)/1000*rpPlaySpeed; rpLastTs=ts;
-  if(rpCurrentT>=rpAligned.length-1){rpCurrentT=rpAligned.length-1;rpPlaying=false;document.getElementById('rp-play').textContent='▶';document.getElementById('rp-play').classList.remove('pb-active');}
-  rpUpdateFrame(rpCurrentT);
-  if(rpPlaying)requestAnimationFrame(rpAnimLoop);
+  if (!rpPlaying) return;
+  try {
+    if (!rpLastTs) rpLastTs = ts;
+    const elapsed = (ts - rpLastTs) / 1000;
+    rpLastTs = ts;
+    rpCurrentT += elapsed * rpPlaySpeed;
+    if (rpCurrentT >= rpAligned.length - 1) {
+      rpCurrentT = rpAligned.length - 1;
+      rpUpdateFrame(rpCurrentT);
+      rpPlaying = false;
+      document.getElementById('rp-play').textContent = '▶';
+      document.getElementById('rp-play').classList.remove('pb-active');
+      return;
+    }
+    rpUpdateFrame(rpCurrentT);
+  } catch(e) {
+    console.warn('rpAnimLoop error:', e);
+  }
+  if (rpPlaying) requestAnimationFrame(rpAnimLoop);
 }
 function rpSetSpeed(s){
   rpPlaySpeed=s;
@@ -1141,9 +1424,111 @@ function rpToggleChart(k){
   rpRenderCharts();
 }
 
+// ── BOUNDS PANEL ──
+function rpToggleBoundsPanel() {
+  rpBoundsPanelOpen = !rpBoundsPanelOpen;
+  const panel = document.getElementById('rp-bounds-panel');
+  panel.style.display = rpBoundsPanelOpen ? 'flex' : 'none';
+  const btn = document.getElementById('rp-btn-bounds');
+  btn.classList.toggle('off', !rpBoundsPanelOpen);
+  if (rpBoundsPanelOpen) rpUpdateBoundsMarkersOnMap();
+  else rpRemoveBoundsMarkers();
+}
+
+function rpUpdateBoundsPanelUI() {
+  const fmt = (s, idx) => ((s.distance_m[idx]||0)/1000).toFixed(2) + ' km';
+  if (rpSA) {
+    document.getElementById('rp-pos-startA').textContent = fmt(rpSA, rpBoundStartA);
+    document.getElementById('rp-pos-endA').textContent   = fmt(rpSA, rpBoundEndA);
+  }
+  if (rpSB) {
+    document.getElementById('rp-pos-startB').textContent = fmt(rpSB, rpBoundStartB);
+    document.getElementById('rp-pos-endB').textContent   = fmt(rpSB, rpBoundEndB);
+  }
+}
+
+function rpShift(which, deltaM) {
+  const isA  = which.endsWith('A');
+  const s    = isA ? rpSA : rpSB;
+  let   idx  = which === 'startA' ? rpBoundStartA
+             : which === 'endA'   ? rpBoundEndA
+             : which === 'startB' ? rpBoundStartB
+             :                      rpBoundEndB;
+
+  if (Math.abs(deltaM) === 1) {
+    idx += deltaM > 0 ? 1 : -1;
+  } else {
+    const curDist = s.distance_m[idx] || 0;
+    const maxDist = s.distance_m[s.distance_m.length-1] || 1;
+    idx = rpNearestByDist(s, Math.max(0, Math.min(maxDist, curDist + deltaM)));
+  }
+
+  // Clamp and enforce start < end
+  idx = Math.max(0, Math.min(s.lat.length-1, idx));
+  if (which === 'startA') rpBoundStartA = Math.min(idx, rpBoundEndA   - 10);
+  if (which === 'endA')   rpBoundEndA   = Math.max(idx, rpBoundStartA + 10);
+  if (which === 'startB') rpBoundStartB = Math.min(idx, rpBoundEndB   - 10);
+  if (which === 'endB')   rpBoundEndB   = Math.max(idx, rpBoundStartB + 10);
+
+  rpUpdateBoundsPanelUI();
+  rpUpdateBoundsMarkersOnMap();
+}
+
+function rpResetBound(which) {
+  if (which === 'startA') rpBoundStartA = 0;
+  if (which === 'endA')   rpBoundEndA   = rpSA.lat.length - 1;
+  if (which === 'startB') rpBoundStartB = 0;
+  if (which === 'endB')   rpBoundEndB   = rpSB.lat.length - 1;
+  rpUpdateBoundsPanelUI();
+  rpUpdateBoundsMarkersOnMap();
+}
+
+function rpApplyBounds() {
+  // Stop playback, rebuild alignment, re-render
+  if (rpPlaying) rpTogglePlay();
+  rpBuildAlignment();
+  rpRenderCharts();
+  rpUpdateFrame(0);
+  document.getElementById('replay-status').textContent =
+    `Bounds applicati · ${rpAligned.length} frame · ${fmtTime(rpMaxT)}`;
+}
+
+// Small map markers (flags) showing where start/end are
+let rpBoundMarkersMap = {};
+function rpUpdateBoundsMarkersOnMap() {
+  if (!rpMapReady || !rpMap) return;
+  const defs = [
+    { key:'sA', s:rpSA, idx:rpBoundStartA, emoji:'🟢', label:'Start A' },
+    { key:'eA', s:rpSA, idx:rpBoundEndA,   emoji:'🔴', label:'End A'   },
+    { key:'sB', s:rpSB, idx:rpBoundStartB, emoji:'🟢', label:'Start B' },
+    { key:'eB', s:rpSB, idx:rpBoundEndB,   emoji:'🔴', label:'End B'   },
+  ];
+  defs.forEach(({key,s,idx,emoji,label}) => {
+    if (rpBoundMarkersMap[key]) rpBoundMarkersMap[key].remove();
+    const el = document.createElement('div');
+    el.innerHTML = emoji;
+    el.title = label;
+    el.style.cssText = 'font-size:16px;opacity:.85;';
+    rpBoundMarkersMap[key] = new maplibregl.Marker({element:el})
+      .setLngLat([s.lon[idx], s.lat[idx]])
+      .addTo(rpMap);
+  });
+}
+
+function rpRemoveBoundsMarkers() {
+  Object.values(rpBoundMarkersMap).forEach(m => m.remove());
+  rpBoundMarkersMap = {};
+}
+
 function replayReset(){
   if(rpPlaying)rpTogglePlay();
+  rpRemoveBoundsMarkers();
+  rpMapReady = false;
+  rpBoundsPanelOpen=false;
+  document.getElementById('rp-bounds-panel').style.display='none';
+  document.getElementById('rp-btn-bounds').classList.remove('off');
   rpSA=rpSB=null; rpAligned=[]; rpCurrentT=0;
+  rpBoundStartA=rpBoundEndA=rpBoundStartB=rpBoundEndB=0;
   if(rpMap){rpMap.remove();rpMap=null;}
   if(rpChart){rpChart.dispose();rpChart=null;}
   rpMarkerA=rpMarkerB=null;
