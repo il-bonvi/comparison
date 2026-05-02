@@ -230,13 +230,14 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
 
 #replay-gap-overlay {
   position:absolute; top:10px; left:50%; transform:translateX(-50%);
-  background:rgba(8,12,20,.9); border:1px solid var(--border-hi);
+  background:rgba(8,12,20,.93); border:1px solid var(--border-hi);
   border-radius:10px; padding:7px 14px;
   display:flex; gap:10px; align-items:center; z-index:100;
   backdrop-filter:blur(8px); pointer-events:none;
-  flex-wrap:wrap; max-width:calc(100% - 240px);
+  flex-wrap:nowrap; white-space:nowrap;
+  max-width:calc(100% - 20px); overflow-x:auto;
 }
-.ov-stat { text-align:center; min-width:44px; }
+.ov-stat { text-align:center; min-width:44px; flex-shrink:0; }
 .ov-stat .v { font-family:var(--font-mono); font-size:.82rem; font-weight:700; }
 .ov-stat .l { font-size:.55rem; color:var(--muted); letter-spacing:.07em; text-transform:uppercase; margin-top:1px; }
 .ov-diff .v { font-size:.78rem !important; }
@@ -267,22 +268,36 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
   font-family:var(--font-mono); cursor:pointer; border:1px solid; transition:all .18s;
   letter-spacing:.04em;
 }
-.ct-gap-on  { background:rgba(34,211,238,.14); color:var(--gap-pos); border-color:var(--gap-pos); }
-.ct-gap-off { background:transparent; color:var(--muted); border-color:var(--border-hi); }
-.ct-spd-on  { background:rgba(34,197,94,.12); color:#22c55e; border-color:#22c55e; }
-.ct-spd-off { background:transparent; color:var(--muted); border-color:var(--border-hi); }
-.ct-pwr-on  { background:rgba(234,179,8,.12); color:#eab308; border-color:#eab308; }
-.ct-pwr-off { background:transparent; color:var(--muted); border-color:var(--border-hi); }
-.ct-hr-on   { background:rgba(239,68,68,.12); color:#ef4444; border-color:#ef4444; }
-.ct-hr-off  { background:transparent; color:var(--muted); border-color:var(--border-hi); }
-.ct-el-on   { background:rgba(148,163,184,.1); color:var(--muted2); border-color:var(--muted2); }
-.ct-el-off  { background:transparent; color:var(--muted); border-color:var(--border-hi); }
-.ct-dspd-on  { background:rgba(59,130,246,.12); color:#3b82f6; border-color:#3b82f6; }
-.ct-dspd-off { background:transparent; color:var(--muted); border-color:var(--border-hi); }
-.ct-dpwr-on  { background:rgba(168,85,247,.12); color:#a855f7; border-color:#a855f7; }
-.ct-dpwr-off { background:transparent; color:var(--muted); border-color:var(--border-hi); }
-.ct-dhr-on   { background:rgba(251,146,60,.12); color:#fb923c; border-color:#fb923c; }
-.ct-dhr-off  { background:transparent; color:var(--muted); border-color:var(--border-hi); }
+/* Toggle button color families */
+/* GAP — cyan */
+.ct-gap-on  { background:rgba(34,211,238,.16); color:#22d3ee; border-color:#22d3ee; }
+.ct-gap-off { background:rgba(34,211,238,.04); color:rgba(34,211,238,.4); border-color:rgba(34,211,238,.25); }
+/* SPD family — green */
+.ct-spd-on   { background:rgba(34,197,94,.16); color:#22c55e; border-color:#22c55e; }
+.ct-spd-off  { background:rgba(34,197,94,.04); color:rgba(34,197,94,.4); border-color:rgba(34,197,94,.25); }
+.ct-spda-on  { background:rgba(34,197,94,.16); color:#22c55e; border-color:#22c55e; }
+.ct-spda-off { background:rgba(34,197,94,.04); color:rgba(34,197,94,.4); border-color:rgba(34,197,94,.25); }
+.ct-dspd-on  { background:rgba(34,197,94,.16); color:#22c55e; border-color:#22c55e; }
+.ct-dspd-off { background:rgba(34,197,94,.04); color:rgba(34,197,94,.4); border-color:rgba(34,197,94,.25); }
+.ct-dspda-on  { background:rgba(34,197,94,.16); color:#22c55e; border-color:#22c55e; }
+.ct-dspda-off { background:rgba(34,197,94,.04); color:rgba(34,197,94,.4); border-color:rgba(34,197,94,.25); }
+/* PWR family — purple */
+.ct-pwr-on   { background:rgba(168,85,247,.16); color:#a855f7; border-color:#a855f7; }
+.ct-pwr-off  { background:rgba(168,85,247,.04); color:rgba(168,85,247,.4); border-color:rgba(168,85,247,.25); }
+.ct-pwra-on  { background:rgba(168,85,247,.16); color:#a855f7; border-color:#a855f7; }
+.ct-pwra-off { background:rgba(168,85,247,.04); color:rgba(168,85,247,.4); border-color:rgba(168,85,247,.25); }
+.ct-dpwr-on  { background:rgba(168,85,247,.16); color:#a855f7; border-color:#a855f7; }
+.ct-dpwr-off { background:rgba(168,85,247,.04); color:rgba(168,85,247,.4); border-color:rgba(168,85,247,.25); }
+.ct-dpwra-on  { background:rgba(168,85,247,.16); color:#a855f7; border-color:#a855f7; }
+.ct-dpwra-off { background:rgba(168,85,247,.04); color:rgba(168,85,247,.4); border-color:rgba(168,85,247,.25); }
+/* HR family — red */
+.ct-hr-on   { background:rgba(239,68,68,.16); color:#ef4444; border-color:#ef4444; }
+.ct-hr-off  { background:rgba(239,68,68,.04); color:rgba(239,68,68,.4); border-color:rgba(239,68,68,.25); }
+.ct-dhr-on  { background:rgba(239,68,68,.16); color:#ef4444; border-color:#ef4444; }
+.ct-dhr-off { background:rgba(239,68,68,.04); color:rgba(239,68,68,.4); border-color:rgba(239,68,68,.25); }
+/* ELEV — slate */
+.ct-el-on   { background:rgba(148,163,184,.14); color:#94a3b8; border-color:#94a3b8; }
+.ct-el-off  { background:rgba(148,163,184,.03); color:rgba(148,163,184,.35); border-color:rgba(148,163,184,.2); }
 
 #replay-multi-chart { width:100%; }
 
@@ -308,6 +323,29 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
 #replay-pb-time { font-family:var(--font-mono); font-size:.74rem; color:var(--muted2); min-width:90px; }
 
 /* Replay start/end panel */
+#rp-smooth-panel {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  background: rgba(8,12,20,.97);
+  border: 1px solid var(--border-hi);
+  border-radius: 8px;
+  margin: 4px 0 2px 0;
+  flex-wrap: wrap;
+  font-size: .72rem;
+  font-family: var(--font-mono);
+  color: var(--muted2);
+}
+#rp-smooth-panel label { color: var(--muted2); margin-right:2px; }
+#rp-smooth-panel select, #rp-smooth-panel input {
+  background: #0f1729; border: 1px solid var(--border-hi); border-radius:4px;
+  color: var(--fg); font-family: var(--font-mono); font-size:.72rem; padding:2px 5px;
+}
+#rp-smooth-panel input[type=number] { width: 52px; }
+.smooth-group { display:flex; align-items:center; gap:6px; padding: 4px 10px; border: 1px solid var(--border-hi); border-radius:6px; }
+.smooth-group .sg-label { color:#94a3b8; font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; margin-right:2px; }
+
 #rp-bounds-panel {
   display:none; position:absolute; bottom:0; left:0; right:0; z-index:200;
   background:rgba(8,12,20,.97); border-top:2px solid var(--border);
@@ -505,7 +543,48 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
           <option value="dark">Dark</option>
         </select>
         <button class="btn btn-ghost" id="rp-btn-bounds" onclick="rpToggleBoundsPanel()" style="margin-left:6px;">🎯 Regola Start/End</button>
+        <button class="btn btn-ghost" id="rp-btn-smooth" onclick="rpToggleSmoothPanel()" style="margin-left:4px;">〜 Smoothing</button>
         <span id="replay-status"></span>
+      </div>
+      <div id="rp-smooth-panel">
+        <div class="smooth-group">
+          <span class="sg-label">⚡ Power</span>
+          <label>A:</label>
+          <select id="rp-smooth-pwr-a" onchange="rpApplySmoothing()">
+            <option value="3">3s</option>
+            <option value="5" selected>5s</option>
+            <option value="10">10s</option>
+            <option value="custom">Custom</option>
+          </select>
+          <input type="number" id="rp-smooth-pwr-a-custom" min="1" max="300" value="5" style="display:none" onchange="rpApplySmoothing()">
+          <label style="margin-left:6px;">B:</label>
+          <select id="rp-smooth-pwr-b" onchange="rpApplySmoothing()">
+            <option value="3">3s</option>
+            <option value="5" selected>5s</option>
+            <option value="10">10s</option>
+            <option value="custom">Custom</option>
+          </select>
+          <input type="number" id="rp-smooth-pwr-b-custom" min="1" max="300" value="5" style="display:none" onchange="rpApplySmoothing()">
+        </div>
+        <div class="smooth-group">
+          <span class="sg-label">🚀 Speed</span>
+          <label>A:</label>
+          <select id="rp-smooth-spd-a" onchange="rpApplySmoothing()">
+            <option value="3">3s</option>
+            <option value="5" selected>5s</option>
+            <option value="10">10s</option>
+            <option value="custom">Custom</option>
+          </select>
+          <input type="number" id="rp-smooth-spd-a-custom" min="1" max="300" value="5" style="display:none" onchange="rpApplySmoothing()">
+          <label style="margin-left:6px;">B:</label>
+          <select id="rp-smooth-spd-b" onchange="rpApplySmoothing()">
+            <option value="3">3s</option>
+            <option value="5" selected>5s</option>
+            <option value="10">10s</option>
+            <option value="custom">Custom</option>
+          </select>
+          <input type="number" id="rp-smooth-spd-b-custom" min="1" max="300" value="5" style="display:none" onchange="rpApplySmoothing()">
+        </div>
       </div>
       <div id="replay-main">
         <div id="replay-map-wrap">
@@ -521,12 +600,18 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
             <div class="ov-stat ov-diff"><div class="v" id="ov-dd" style="color:var(--muted2)">—</div><div class="l">Δ Dist</div></div>
             <div class="ov-sep"></div>
             <div class="ov-stat"><div class="v" id="ov-sa" style="color:var(--a)">—</div><div class="l">Spd A</div></div>
+            <div class="ov-stat"><div class="v" id="ov-sa-avg" style="color:var(--a);opacity:.65">—</div><div class="l" id="ov-sa-avg-l">Avg A</div></div>
             <div class="ov-stat"><div class="v" id="ov-sb" style="color:var(--b)">—</div><div class="l">Spd B</div></div>
+            <div class="ov-stat"><div class="v" id="ov-sb-avg" style="color:var(--b);opacity:.65">—</div><div class="l" id="ov-sb-avg-l">Avg B</div></div>
             <div class="ov-stat ov-diff"><div class="v" id="ov-sd" style="color:var(--muted2)">—</div><div class="l">Δ Spd</div></div>
+            <div class="ov-stat ov-diff"><div class="v" id="ov-sd-avg" style="color:var(--muted2);opacity:.75">—</div><div class="l" id="ov-sd-avg-l">Δavg5s</div></div>
             <div class="ov-sep"></div>
             <div class="ov-stat"><div class="v" id="ov-pa" style="color:var(--a)">—</div><div class="l">Pwr A</div></div>
+            <div class="ov-stat"><div class="v" id="ov-pa-avg" style="color:var(--a);opacity:.65">—</div><div class="l" id="ov-pa-avg-l">Avg A</div></div>
             <div class="ov-stat"><div class="v" id="ov-pb" style="color:var(--b)">—</div><div class="l">Pwr B</div></div>
+            <div class="ov-stat"><div class="v" id="ov-pb-avg" style="color:var(--b);opacity:.65">—</div><div class="l" id="ov-pb-avg-l">Avg B</div></div>
             <div class="ov-stat ov-diff"><div class="v" id="ov-pd" style="color:var(--muted2)">—</div><div class="l">Δ Pwr</div></div>
+            <div class="ov-stat ov-diff"><div class="v" id="ov-pd-avg" style="color:var(--muted2);opacity:.75">—</div><div class="l" id="ov-pd-avg-l">Δavg5s</div></div>
             <div class="ov-sep"></div>
             <div class="ov-stat"><div class="v" id="ov-hra" style="color:var(--a)">—</div><div class="l">HR A</div></div>
             <div class="ov-stat"><div class="v" id="ov-hrb" style="color:var(--b)">—</div><div class="l">HR B</div></div>
@@ -606,14 +691,18 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
           <div id="replay-chart-resize"></div>
           <div id="replay-chart-toggles">
             <span style="font-size:.64rem;color:var(--muted);font-family:var(--font-mono);margin-right:4px;">GRAFICI:</span>
-            <button class="chart-tog ct-gap-on"  id="rp-tog-gap"   onclick="rpToggleChart('gap')">GAP</button>
-            <button class="chart-tog ct-spd-off" id="rp-tog-speed" onclick="rpToggleChart('speed')">SPEED</button>
-            <button class="chart-tog ct-dspd-off" id="rp-tog-dspd"  onclick="rpToggleChart('dspd')">ΔSPD</button>
-            <button class="chart-tog ct-pwr-off" id="rp-tog-power" onclick="rpToggleChart('power')">POWER</button>
-            <button class="chart-tog ct-dpwr-off" id="rp-tog-dpwr"  onclick="rpToggleChart('dpwr')">ΔPWR</button>
-            <button class="chart-tog ct-hr-off"  id="rp-tog-hr"    onclick="rpToggleChart('hr')">HR</button>
-            <button class="chart-tog ct-dhr-off"  id="rp-tog-dhr"   onclick="rpToggleChart('dhr')">ΔHR</button>
-            <button class="chart-tog ct-el-off"  id="rp-tog-elev"  onclick="rpToggleChart('elev')">ELEV</button>
+            <button class="chart-tog ct-gap-on"   id="rp-tog-gap"      onclick="rpToggleChart('gap')">GAP</button>
+            <button class="chart-tog ct-spd-off"  id="rp-tog-speed"    onclick="rpToggleChart('speed')">SPD</button>
+            <button class="chart-tog ct-spda-off" id="rp-tog-speedavg" onclick="rpToggleChart('speedavg')">AVG5s</button>
+            <button class="chart-tog ct-dspd-off" id="rp-tog-dspd"     onclick="rpToggleChart('dspd')">ΔSPD</button>
+            <button class="chart-tog ct-dspda-off" id="rp-tog-dspdavg"  onclick="rpToggleChart('dspdavg')">ΔAVG5s</button>
+            <button class="chart-tog ct-pwr-off"  id="rp-tog-power"    onclick="rpToggleChart('power')">PWR</button>
+            <button class="chart-tog ct-pwra-off" id="rp-tog-poweravg" onclick="rpToggleChart('poweravg')">AVG5s</button>
+            <button class="chart-tog ct-dpwr-off" id="rp-tog-dpwr"     onclick="rpToggleChart('dpwr')">ΔPWR</button>
+            <button class="chart-tog ct-dpwra-off" id="rp-tog-dpwravg"  onclick="rpToggleChart('dpwravg')">ΔAVG5s</button>
+            <button class="chart-tog ct-hr-off"   id="rp-tog-hr"       onclick="rpToggleChart('hr')">HR</button>
+            <button class="chart-tog ct-dhr-off"  id="rp-tog-dhr"      onclick="rpToggleChart('dhr')">ΔHR</button>
+            <button class="chart-tog ct-el-off"   id="rp-tog-elev"     onclick="rpToggleChart('elev')">ELEV</button>
           </div>
           <div id="replay-multi-chart" style="height:155px;"></div>
         </div>
@@ -1205,7 +1294,7 @@ let rpMap=null,rpChart=null;
 let rpMarkerA=null,rpMarkerB=null;
 let rpAligned=[], rpMaxT=0, rpCurrentT=0, rpPlaySpeed=1, rpPlaying=false;
 let rpLastTs=null, rpIs3D=true, rpAnimFrame=null;
-let rpChartVis={gap:true,speed:false,power:false,hr:false,elev:false,dspd:false,dpwr:false,dhr:false};
+let rpChartVis={gap:true,speed:false,speedavg:false,dspdavg:false,power:false,poweravg:false,dpwravg:false,hr:false,elev:false,dspd:false,dpwr:false,dhr:false};
 // Bounds: index into the raw stream arrays defining the active [start, end] window
 let rpBoundStartA=0, rpBoundEndA=0, rpBoundStartB=0, rpBoundEndB=0;
 let rpBoundsPanelOpen=false;
@@ -1247,6 +1336,13 @@ function rpUseShared() {
   if (!sharedStreamA || !sharedStreamB) return;
   showLoading('Caricamento dati condivisi...');
   rpSA = sharedStreamA; rpSB = sharedStreamB;
+  // Save raw copies for smoothing
+  rpSA._rawPower = rpSA.power ? rpSA.power.slice() : [];
+  rpSB._rawPower = rpSB.power ? rpSB.power.slice() : [];
+  rpSA._rawSpeed = rpSA.speed ? rpSA.speed.slice() : null;
+  rpSB._rawSpeed = rpSB.speed ? rpSB.speed.slice() : null;
+  // Apply default smoothing (5s)
+  rpApplySmoothing();
   rpNameA = sharedNameA; rpNameB = sharedNameB;
   ['rp-lbl-a','rp-leg-a'].forEach(id=>document.getElementById(id).textContent=rpNameA.slice(0,16));
   ['rp-lbl-b','rp-leg-b'].forEach(id=>document.getElementById(id).textContent=rpNameB.slice(0,16));
@@ -1273,6 +1369,11 @@ async function replayStart() {
     const d=await r.json();
     if(!d.success) throw new Error(d.detail);
     rpSA=d.stream_a; rpSB=d.stream_b;
+    rpSA._rawPower = rpSA.power ? rpSA.power.slice() : [];
+    rpSB._rawPower = rpSB.power ? rpSB.power.slice() : [];
+    rpSA._rawSpeed = rpSA.speed ? rpSA.speed.slice() : null;
+    rpSB._rawSpeed = rpSB.speed ? rpSB.speed.slice() : null;
+    rpApplySmoothing();
     rpNameA=(d.filename_a||'A').replace('.fit','');
     rpNameB=(d.filename_b||'B').replace('.fit','');
     sharedStreamA=d.stream_a; sharedStreamB=d.stream_b;
@@ -1431,6 +1532,10 @@ function rpBuildAlignment(){
         speedA: rpSA.speed ? rpSA.speed[iA]||0 : 0,
         speedB: rpSB.speed ? rpSB.speed[iB_pos]||0 : 0,
         powerA: rpSA.power[iA]||0,  powerB: rpSB.power[iB_pos]||0,
+        rawSpeedA: rpSA._rawSpeed ? rpSA._rawSpeed[iA]||0 : (rpSA.speed ? rpSA.speed[iA]||0 : 0),
+        rawSpeedB: rpSB._rawSpeed ? rpSB._rawSpeed[iB_pos]||0 : (rpSB.speed ? rpSB.speed[iB_pos]||0 : 0),
+        rawPowerA: rpSA._rawPower ? rpSA._rawPower[iA]||0 : rpSA.power[iA]||0,
+        rawPowerB: rpSB._rawPower ? rpSB._rawPower[iB_pos]||0 : rpSB.power[iB_pos]||0,
         hrA:    rpSA.hr[iA]||0,     hrB:    rpSB.hr[iB_pos]||0,
         altA:   rpSA.alt[iA]||0,    altB:   rpSB.alt[iB_pos]||0,
         latA: rpSA.lat[iA], lonA: rpSA.lon[iA],
@@ -1641,21 +1746,55 @@ function rpUpdateFrame(idx){
   document.getElementById('ov-dd').textContent = dd.text;
   document.getElementById('ov-dd').style.color = dd.color;
 
-  // Speeds
-  const sA = fr.speedA||0, sB = fr.speedB||0;
+  // Speeds — raw always shown, avg shown if smoothing active
+  const sA = fr.rawSpeedA||fr.speedA||0, sB = fr.rawSpeedB||fr.speedB||0;
+  const sAavg = fr.speedA||0, sBavg = fr.speedB||0;
+  const winSpdA = rpGetSmoothWin('rp-smooth-spd-a','rp-smooth-spd-a-custom');
+  const winSpdB = rpGetSmoothWin('rp-smooth-spd-b','rp-smooth-spd-b-custom');
   const sd = fmtDiff(sA - sB, 1, '', true);
   document.getElementById('ov-sa').textContent = sA.toFixed(1);
   document.getElementById('ov-sb').textContent = sB.toFixed(1);
   document.getElementById('ov-sd').textContent = sd.text;
   document.getElementById('ov-sd').style.color = sd.color;
+  const sdAvgEl = document.getElementById('ov-sd-avg');
+  const sdAvgLbl = document.getElementById('ov-sd-avg-l');
+  if (sdAvgEl) {
+    const dSpdAvg = +(sAavg - sBavg).toFixed(1);
+    const sdA = fmtDiff(dSpdAvg, 1, '', true);
+    sdAvgEl.textContent = winSpdA > 1 || winSpdB > 1 ? sdA.text : '—';
+    sdAvgEl.style.color = sdA.color;
+    sdAvgEl.parentElement.style.display = winSpdA > 1 || winSpdB > 1 ? '' : 'none';
+    if (sdAvgLbl) sdAvgLbl.textContent = `Δavg${winSpdA}s`;
+  }
+  const saAvgEl = document.getElementById('ov-sa-avg');
+  const sbAvgEl = document.getElementById('ov-sb-avg');
+  if (saAvgEl) { saAvgEl.textContent = winSpdA > 1 ? sAavg.toFixed(1) : '—'; saAvgEl.parentElement.style.display = winSpdA > 1 ? '' : 'none'; }
+  if (sbAvgEl) { sbAvgEl.textContent = winSpdB > 1 ? sBavg.toFixed(1) : '—'; sbAvgEl.parentElement.style.display = winSpdB > 1 ? '' : 'none'; }
 
-  // Power
-  const pA = Math.round(fr.powerA||0), pB = Math.round(fr.powerB||0);
+  // Power — raw always shown, avg shown if smoothing active
+  const pA = Math.round(fr.rawPowerA||fr.powerA||0), pB = Math.round(fr.rawPowerB||fr.powerB||0);
+  const pAavg = Math.round(fr.powerA||0), pBavg = Math.round(fr.powerB||0);
+  const winPwrA = rpGetSmoothWin('rp-smooth-pwr-a','rp-smooth-pwr-a-custom');
+  const winPwrB = rpGetSmoothWin('rp-smooth-pwr-b','rp-smooth-pwr-b-custom');
   const pd = fmtDiff(pA - pB, 0, 'W', true);
   document.getElementById('ov-pa').textContent = pA + 'W';
   document.getElementById('ov-pb').textContent = pB + 'W';
   document.getElementById('ov-pd').textContent = pd.text;
   document.getElementById('ov-pd').style.color = pd.color;
+  const pdAvgEl = document.getElementById('ov-pd-avg');
+  const pdAvgLbl = document.getElementById('ov-pd-avg-l');
+  if (pdAvgEl) {
+    const dPwrAvg = pAavg - pBavg;
+    const pdA = fmtDiff(dPwrAvg, 0, 'W', true);
+    pdAvgEl.textContent = winPwrA > 1 || winPwrB > 1 ? pdA.text : '—';
+    pdAvgEl.style.color = pdA.color;
+    pdAvgEl.parentElement.style.display = winPwrA > 1 || winPwrB > 1 ? '' : 'none';
+    if (pdAvgLbl) pdAvgLbl.textContent = `Δavg${winPwrA}s`;
+  }
+  const paAvgEl = document.getElementById('ov-pa-avg');
+  const pbAvgEl = document.getElementById('ov-pb-avg');
+  if (paAvgEl) { paAvgEl.textContent = winPwrA > 1 ? pAavg + 'W' : '—'; paAvgEl.parentElement.style.display = winPwrA > 1 ? '' : 'none'; }
+  if (pbAvgEl) { pbAvgEl.textContent = winPwrB > 1 ? pBavg + 'W' : '—'; pbAvgEl.parentElement.style.display = winPwrB > 1 ? '' : 'none'; }
 
   // HR
   const hA = Math.round(fr.hrA||0), hB = Math.round(fr.hrB||0);
@@ -1816,12 +1955,26 @@ function rpRenderCharts() {
     seriesDefs.push({ key:'gap', name:'Gap s', data: rpAligned.map(f=>+f.gap.toFixed(2)), color:'#22d3ee', width:2, axis:'left', yKey:'gap', area:true });
   }
   if (rpChartVis.speed) {
-    seriesDefs.push({ key:'speedA', name:rpNameA.slice(0,10)+' spd', data: rpAligned.map(f=>+getSpeedA(f).toFixed(1)), color:'#3b82f6', width:1.5, axis:'right0', yKey:'speed' });
-    seriesDefs.push({ key:'speedB', name:rpNameB.slice(0,10)+' spd', data: rpAligned.map(f=>+getSpeedB(f).toFixed(1)), color:'#f97316', width:1.5, axis:'right0', yKey:'speed' });
+    // Raw speed
+    seriesDefs.push({ key:'speedA_raw', name:rpNameA.slice(0,10)+' SPD', data: rpAligned.map(f=>+(f.rawSpeedA||0).toFixed(1)), color:'#3b82f6', width:1.5, axis:'right0', yKey:'speed' });
+    seriesDefs.push({ key:'speedB_raw', name:rpNameB.slice(0,10)+' SPD', data: rpAligned.map(f=>+(f.rawSpeedB||0).toFixed(1)), color:'#f97316', width:1.5, axis:'right0', yKey:'speed' });
+  }
+  if (rpChartVis.speedavg) {
+    const wSpdA = rpGetSmoothWin('rp-smooth-spd-a','rp-smooth-spd-a-custom');
+    const wSpdB = rpGetSmoothWin('rp-smooth-spd-b','rp-smooth-spd-b-custom');
+    seriesDefs.push({ key:'speedA_avg', name:rpNameA.slice(0,10)+` SPD${wSpdA}s`, data: rpAligned.map(f=>+getSpeedA(f).toFixed(1)), color:'#93c5fd', width:2, axis:'right0', yKey:'speed' });
+    seriesDefs.push({ key:'speedB_avg', name:rpNameB.slice(0,10)+` SPD${wSpdB}s`, data: rpAligned.map(f=>+getSpeedB(f).toFixed(1)), color:'#fed7aa', width:2, axis:'right0', yKey:'speed' });
   }
   if (rpChartVis.power) {
-    seriesDefs.push({ key:'powerA', name:rpNameA.slice(0,10)+' W', data: rpAligned.map(f=>Math.round(getPowerA(f))), color:'#60a5fa', width:1.5, axis:'right1', yKey:'power' });
-    seriesDefs.push({ key:'powerB', name:rpNameB.slice(0,10)+' W', data: rpAligned.map(f=>Math.round(getPowerB(f))), color:'#fb923c', width:1.5, axis:'right1', yKey:'power' });
+    // Raw power
+    seriesDefs.push({ key:'powerA_raw', name:rpNameA.slice(0,10)+' PWR', data: rpAligned.map(f=>Math.round(f.rawPowerA||0)), color:'#60a5fa', width:1.5, axis:'right1', yKey:'power' });
+    seriesDefs.push({ key:'powerB_raw', name:rpNameB.slice(0,10)+' PWR', data: rpAligned.map(f=>Math.round(f.rawPowerB||0)), color:'#fb923c', width:1.5, axis:'right1', yKey:'power' });
+  }
+  if (rpChartVis.poweravg) {
+    const wPwrA = rpGetSmoothWin('rp-smooth-pwr-a','rp-smooth-pwr-a-custom');
+    const wPwrB = rpGetSmoothWin('rp-smooth-pwr-b','rp-smooth-pwr-b-custom');
+    seriesDefs.push({ key:'powerA_avg', name:rpNameA.slice(0,10)+` PWR${wPwrA}s`, data: rpAligned.map(f=>Math.round(getPowerA(f))), color:'#bfdbfe', width:2, axis:'right1', yKey:'power' });
+    seriesDefs.push({ key:'powerB_avg', name:rpNameB.slice(0,10)+` PWR${wPwrB}s`, data: rpAligned.map(f=>Math.round(getPowerB(f))), color:'#ffedd5', width:2, axis:'right1', yKey:'power' });
   }
   if (rpChartVis.hr) {
     seriesDefs.push({ key:'hrA', name:rpNameA.slice(0,10)+' hr', data: rpAligned.map(f=>Math.round(getHrA(f))), color:'#ef4444', width:1.5, axis:'right2', yKey:'hr' });
@@ -1831,10 +1984,20 @@ function rpRenderCharts() {
     seriesDefs.push({ key:'elev', name:'Alt', data: rpAligned.map(f=>Math.round(getAltA(f))), color:'#94a3b8', width:1, area:true, areaColor:'rgba(148,163,184,.08)', axis:'left2', yKey:'elev' });
   }
   if (rpChartVis.dspd) {
-    seriesDefs.push({ key:'dspd', name:'ΔSPD km/h', data: rpAligned.map(f=>+(getSpeedA(f)-getSpeedB(f)).toFixed(2)), color:'#3b82f6', width:1.5, yKey:'dspd', axis:'right-dspd', zeroline:true });
+    seriesDefs.push({ key:'dspd', name:'ΔSPD km/h', data: rpAligned.map(f=>+((f.rawSpeedA||0)-(f.rawSpeedB||0)).toFixed(2)), color:'#3b82f6', width:1.5, yKey:'dspd', axis:'right-dspd', zeroline:true });
+  }
+  if (rpChartVis.dspdavg) {
+    const wSpdA = rpGetSmoothWin('rp-smooth-spd-a','rp-smooth-spd-a-custom');
+    const wSpdB = rpGetSmoothWin('rp-smooth-spd-b','rp-smooth-spd-b-custom');
+    seriesDefs.push({ key:'dspdavg', name:`ΔAVG${wSpdA}s SPD`, data: rpAligned.map(f=>+(getSpeedA(f)-getSpeedB(f)).toFixed(2)), color:'#93c5fd', width:2, yKey:'dspd', axis:'right-dspd', zeroline:true });
   }
   if (rpChartVis.dpwr) {
-    seriesDefs.push({ key:'dpwr', name:'ΔPWR W', data: rpAligned.map(f=>Math.round(getPowerA(f)-getPowerB(f))), color:'#a855f7', width:1.5, yKey:'dpwr', axis:'right-dpwr', zeroline:true });
+    seriesDefs.push({ key:'dpwr', name:'ΔPWR W', data: rpAligned.map(f=>Math.round((f.rawPowerA||0)-(f.rawPowerB||0))), color:'#a855f7', width:1.5, yKey:'dpwr', axis:'right-dpwr', zeroline:true });
+  }
+  if (rpChartVis.dpwravg) {
+    const wPwrA = rpGetSmoothWin('rp-smooth-pwr-a','rp-smooth-pwr-a-custom');
+    const wPwrB = rpGetSmoothWin('rp-smooth-pwr-b','rp-smooth-pwr-b-custom');
+    seriesDefs.push({ key:'dpwravg', name:`ΔAVG${wPwrA}s PWR`, data: rpAligned.map(f=>Math.round(getPowerA(f)-getPowerB(f))), color:'#bfdbfe', width:2, yKey:'dpwr', axis:'right-dpwr', zeroline:true });
   }
   if (rpChartVis.dhr) {
     seriesDefs.push({ key:'dhr', name:'ΔHR bpm', data: rpAligned.map(f=>Math.round(getHrA(f)-getHrB(f))), color:'#fb923c', width:1.5, yKey:'dhr', axis:'right-dhr', zeroline:true });
@@ -1956,7 +2119,9 @@ function rpRenderCharts() {
 
     const path = g.append('path').datum(ser.data).attr('clip-path','url(#rp-clip)')
       .attr('fill','none').attr('stroke', ser.color)
-      .attr('stroke-width', ser.width || 2).attr('d', lineGen);
+      .attr('stroke-width', ser.width || 2)
+      .attr('stroke-opacity', ser.opacity != null ? ser.opacity : 1)
+      .attr('d', lineGen);
     if (ser.dash) path.attr('stroke-dasharray', ser.dash);
   });
 
@@ -1987,8 +2152,8 @@ function rpRenderCharts() {
 
   // Right axes stacked at right edge
   const rightAxes = [];
-  if (rpChartVis.speed && yScales.speed)  rightAxes.push({ yKey:'speed',  offset:0  });
-  if (rpChartVis.power && yScales.power)  rightAxes.push({ yKey:'power',  offset:28 });
+  if ((rpChartVis.speed||rpChartVis.speedavg) && yScales.speed)  rightAxes.push({ yKey:'speed',  offset:0  });
+  if ((rpChartVis.power||rpChartVis.poweravg) && yScales.power)  rightAxes.push({ yKey:'power',  offset:28 });
   if (rpChartVis.hr    && yScales.hr)     rightAxes.push({ yKey:'hr',     offset:56 });
   if (rpChartVis.dspd  && yScales.dspd)  rightAxes.push({ yKey:'dspd',   offset:0  });
   if (rpChartVis.dpwr  && yScales.dpwr)  rightAxes.push({ yKey:'dpwr',   offset:28 });
@@ -2065,7 +2230,7 @@ function rpUpdateChartCursor(idx) {
 
 function rpToggleChart(k) {
   rpChartVis[k] = !rpChartVis[k];
-  const colorMap = { gap:'gap', speed:'spd', power:'pwr', hr:'hr', elev:'el', dspd:'dspd', dpwr:'dpwr', dhr:'dhr' };
+  const colorMap = { gap:'gap', speed:'spd', speedavg:'spda', dspdavg:'dspda', power:'pwr', poweravg:'pwra', dpwravg:'dpwra', hr:'hr', elev:'el', dspd:'dspd', dpwr:'dpwr', dhr:'dhr' };
   const c = colorMap[k] || k;
   const btn = document.getElementById(`rp-tog-${k}`);
   btn.className = `chart-tog ct-${c}-${rpChartVis[k]?'on':'off'}`;
@@ -2073,6 +2238,82 @@ function rpToggleChart(k) {
 }
 
 // ── BOUNDS PANEL ──
+function rpRollingAvg(arr, win) {
+  if (!win || win <= 1) return arr.slice();
+  const out = new Array(arr.length);
+  const half = Math.floor(win / 2);
+  for (let i = 0; i < arr.length; i++) {
+    let sum = 0, count = 0;
+    for (let j = Math.max(0, i - half); j <= Math.min(arr.length-1, i + half); j++) {
+      sum += arr[j]; count++;
+    }
+    out[i] = count ? sum / count : arr[i];
+  }
+  return out;
+}
+
+function rpGetSmoothWin(selectId, customId) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return 0;
+  const val = sel.value;
+  if (val === 'custom') {
+    const n = parseInt(document.getElementById(customId)?.value || '0');
+    return isNaN(n) ? 0 : n;
+  }
+  return parseInt(val) || 0;
+}
+
+function rpApplySmoothing() {
+  // Show/hide custom inputs
+  ['pwr-a','pwr-b','spd-a','spd-b'].forEach(k => {
+    const sel = document.getElementById(`rp-smooth-${k}`);
+    const inp = document.getElementById(`rp-smooth-${k}-custom`);
+    if (sel && inp) inp.style.display = sel.value === 'custom' ? 'inline-block' : 'none';
+  });
+  if (!rpSA || !rpSB) return;
+
+  const winPwrA = rpGetSmoothWin('rp-smooth-pwr-a', 'rp-smooth-pwr-a-custom');
+  const winPwrB = rpGetSmoothWin('rp-smooth-pwr-b', 'rp-smooth-pwr-b-custom');
+  const winSpdA = rpGetSmoothWin('rp-smooth-spd-a', 'rp-smooth-spd-a-custom');
+  const winSpdB = rpGetSmoothWin('rp-smooth-spd-b', 'rp-smooth-spd-b-custom');
+
+  rpSA.power = rpRollingAvg(rpSA._rawPower, winPwrA);
+  rpSB.power = rpRollingAvg(rpSB._rawPower, winPwrB);
+  if (rpSA._rawSpeed) rpSA.speed = rpRollingAvg(rpSA._rawSpeed, winSpdA);
+  if (rpSB._rawSpeed) rpSB.speed = rpRollingAvg(rpSB._rawSpeed, winSpdB);
+
+  // Update button labels and overlay labels with window sizes
+  // Speed avg button uses the A window (or B if different, show both)
+  const spdLabel = winSpdA === winSpdB ? `AVG${winSpdA}s` : `AVG${winSpdA}/${winSpdB}s`;
+  const pwrLabel = winPwrA === winPwrB ? `AVG${winPwrA}s` : `AVG${winPwrA}/${winPwrB}s`;
+  const btnSpd = document.getElementById('rp-tog-speedavg');
+  const btnPwr = document.getElementById('rp-tog-poweravg');
+  const btnDSpd = document.getElementById('rp-tog-dspdavg');
+  const btnDPwr = document.getElementById('rp-tog-dpwravg');
+  if (btnSpd) btnSpd.textContent = spdLabel;
+  if (btnPwr) btnPwr.textContent = pwrLabel;
+  if (btnDSpd) btnDSpd.textContent = 'Δ' + spdLabel;
+  if (btnDPwr) btnDPwr.textContent = 'Δ' + pwrLabel;
+  const lSaAvg = document.getElementById('ov-sa-avg-l');
+  const lSbAvg = document.getElementById('ov-sb-avg-l');
+  const lPaAvg = document.getElementById('ov-pa-avg-l');
+  const lPbAvg = document.getElementById('ov-pb-avg-l');
+  if (lSaAvg) lSaAvg.textContent = `avg${winSpdA}s A`;
+  if (lSbAvg) lSbAvg.textContent = `avg${winSpdB}s B`;
+  if (lPaAvg) lPaAvg.textContent = `avg${winPwrA}s A`;
+  if (lPbAvg) lPbAvg.textContent = `avg${winPwrB}s B`;
+
+  rpBuildAlignment();
+  rpRenderCharts();
+  rpUpdateFrame(rpCurrentT);
+}
+
+function rpToggleSmoothPanel() {
+  const panel = document.getElementById('rp-smooth-panel');
+  const isOpen = panel.style.display === 'flex';
+  panel.style.display = isOpen ? 'none' : 'flex';
+}
+
 function rpToggleBoundsPanel() {
   rpBoundsPanelOpen = !rpBoundsPanelOpen;
   const panel = document.getElementById('rp-bounds-panel');
@@ -2193,8 +2434,8 @@ function replayReset(){
   document.getElementById('rp-file-a').value='';
   document.getElementById('rp-file-b').value='';
   document.getElementById('rp-btn-go').disabled=true;
-  rpChartVis={gap:true,speed:false,power:false,hr:false,elev:false,dspd:false,dpwr:false,dhr:false};
-  ['gap','speed','power','hr','elev','dspd','dpwr','dhr'].forEach(k=>{
+  rpChartVis={gap:true,speed:false,speedavg:false,dspdavg:false,power:false,poweravg:false,dpwravg:false,hr:false,elev:false,dspd:false,dpwr:false,dhr:false};
+  ['gap','speed','speedavg','dspdavg','power','poweravg','dpwravg','hr','elev','dspd','dpwr','dhr'].forEach(k=>{
     const colorMap={gap:'gap',speed:'spd',power:'pwr',hr:'hr',elev:'el'};
     const c=colorMap[k];
     document.getElementById(`rp-tog-${k}`).className=`chart-tog ct-${c}-${rpChartVis[k]?'on':'off'}`;
