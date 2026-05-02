@@ -605,9 +605,16 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
         <div id="replay-playback">
           <button class="pb-btn" id="rp-play" onclick="rpTogglePlay()">▶</button>
           <button class="pb-btn" id="rp-1x"  onclick="rpSetSpeed(1)">1×</button>
+          <button class="pb-btn" id="rp-2x"  onclick="rpSetSpeed(2)">2×</button>
           <button class="pb-btn" id="rp-5x"  onclick="rpSetSpeed(5)">5×</button>
           <button class="pb-btn" id="rp-10x" onclick="rpSetSpeed(10)">10×</button>
           <button class="pb-btn" id="rp-30x" onclick="rpSetSpeed(30)">30×</button>
+          <div style="width:1px;height:18px;background:var(--border-hi);margin:0 2px;flex-shrink:0"></div>
+          <button class="pb-btn" onclick="rpSeek(-10)" title="-10s">−10s</button>
+          <button class="pb-btn" onclick="rpSeek(-1)"  title="-1s">−1s</button>
+          <button class="pb-btn" onclick="rpSeek(1)"   title="+1s">+1s</button>
+          <button class="pb-btn" onclick="rpSeek(10)"  title="+10s">+10s</button>
+          <div style="width:1px;height:18px;background:var(--border-hi);margin:0 2px;flex-shrink:0"></div>
           <input type="range" id="replay-slider" min="0" max="1000" value="0" oninput="rpOnSlider(this.value)"/>
           <span id="replay-pb-time">0:00 / 0:00</span>
         </div>
@@ -1369,19 +1376,16 @@ function rpBuildAlignment(){
   };
 
   if (mode === 'time') {
-    // ── Modalità TEMPO: itera ogni secondo dell'atleta A ──
-    // A è dove fisicamente si trova dopo t secondi.
-    // B è dove fisicamente si trova dopo t secondi (posizione reale sul marker).
-    // Il gap si calcola però con geo-matching: quanto tempo ha impiegato B
-    // ad arrivare nello stesso punto fisico dove si trova A adesso.
-    rpMaxT = Math.min(tA[tA.length-1], tB[tB.length-1]);
+    // ── Modalità TEMPO: itera fino alla fine dell'atleta più lento ──
+    // Quando uno dei due ha finito, il suo marker rimane all'ultimo punto noto.
+    rpMaxT = Math.max(tA[tA.length-1], tB[tB.length-1]);
     for (let t = 0; t <= rpMaxT; t += 1) {
-      // Posizione reale di A al tempo t
-      const iA_local = rpNearestByVal(tA, t);
+      // Posizione reale di A al tempo t (clampata all'ultimo indice se ha finito)
+      const iA_local = rpNearestByVal(tA, Math.min(t, tA[tA.length-1]));
       const iA = iA_local + rpBoundStartA;
 
-      // Posizione reale di B al tempo t (per il marker sulla mappa)
-      const iB_pos_local = rpNearestByVal(tB, t);
+      // Posizione reale di B al tempo t (clampata all'ultimo indice se ha finito)
+      const iB_pos_local = rpNearestByVal(tB, Math.min(t, tB[tB.length-1]));
       const iB_pos = iB_pos_local + rpBoundStartB;
 
       // Indice B per il gap: punto di B geograficamente più vicino a dove è A
@@ -1392,8 +1396,10 @@ function rpBuildAlignment(){
 
       rpAligned.push({
         t, iA,
-        iB: iB_pos,           // usato per marker, speed, power, hr del frame corrente
+        iB: iB_pos,
         gap,
+        timeA: Math.min(t, tA[tA.length-1]),  // tempo effettivo A (si stoppa all'arrivo)
+        timeB: Math.min(t, tB[tB.length-1]),  // tempo effettivo B (si stoppa all'arrivo)
         distA: rpSA.distance_m[iA]||0,
         distB: rpSB.distance_m[iB_pos]||0,
         speedA: rpSA.speed ? rpSA.speed[iA]||0 : 0,
@@ -1402,26 +1408,25 @@ function rpBuildAlignment(){
         hrA:    rpSA.hr[iA]||0,     hrB:    rpSB.hr[iB_pos]||0,
         altA:   rpSA.alt[iA]||0,    altB:   rpSB.alt[iB_pos]||0,
         latA: rpSA.lat[iA], lonA: rpSA.lon[iA],
-        latB: rpSB.lat[iB_pos], lonB: rpSB.lon[iB_pos],  // posizione reale B
+        latB: rpSB.lat[iB_pos], lonB: rpSB.lon[iB_pos],
+        finishedA: t > tA[tA.length-1],
+        finishedB: t > tB[tB.length-1],
       });
     }
 
   } else {
-    // ── Modalità DISTANZA: itera ogni 10m dell'atleta A ──
-    // A è al punto della sua traccia a distanza d.
-    // B è al punto della sua traccia a distanza d (odometro B, posizione reale).
-    // Gap: geo-matching come sopra.
-    const maxD = Math.min(dA[dA.length-1], dB[dB.length-1]);
+    // ── Modalità DISTANZA: itera fino alla fine dell'atleta più lungo ──
+    const maxD = Math.max(dA[dA.length-1], dB[dB.length-1]);
     rpMaxT = maxD / 10;
     for (let step = 0; step <= rpMaxT; step += 1) {
       const d = step * 10;
 
-      // Posizione reale di A a distanza d
-      const iA_local = rpNearestByVal(dA, d);
+      // Posizione reale di A a distanza d (clampata se ha finito)
+      const iA_local = rpNearestByVal(dA, Math.min(d, dA[dA.length-1]));
       const iA = iA_local + rpBoundStartA;
 
-      // Posizione reale di B a distanza d (per marker — stesso metro ma traccia diversa)
-      const iB_pos_local = rpNearestByVal(dB, d);
+      // Posizione reale di B a distanza d (clampata se ha finito)
+      const iB_pos_local = rpNearestByVal(dB, Math.min(d, dB[dB.length-1]));
       const iB_pos = iB_pos_local + rpBoundStartB;
 
       // Indice B per il gap: punto geograficamente vicino ad A
@@ -1433,15 +1438,19 @@ function rpBuildAlignment(){
         t: step, iA,
         iB: iB_pos,
         gap,
+        timeA: tA[iA_local],   // tempo effettivo A a questa distanza
+        timeB: tB[iB_pos_local], // tempo effettivo B a questa distanza
         distA: rpSA.distance_m[iA]||0,
-        distB: rpSB.distance_m[iB_pos]||0,
+        distB: rpSA.distance_m[iB_pos]||0,
         speedA: rpSA.speed ? rpSA.speed[iA]||0 : 0,
         speedB: rpSB.speed ? rpSB.speed[iB_pos]||0 : 0,
         powerA: rpSA.power[iA]||0,  powerB: rpSB.power[iB_pos]||0,
         hrA:    rpSA.hr[iA]||0,     hrB:    rpSB.hr[iB_pos]||0,
         altA:   rpSA.alt[iA]||0,    altB:   rpSB.alt[iB_pos]||0,
         latA: rpSA.lat[iA], lonA: rpSA.lon[iA],
-        latB: rpSB.lat[iB_pos], lonB: rpSB.lon[iB_pos],  // posizione reale B
+        latB: rpSB.lat[iB_pos], lonB: rpSB.lon[iB_pos],
+        finishedA: d > dA[dA.length-1],
+        finishedB: d > dB[dB.length-1],
       });
     }
   }
@@ -1572,9 +1581,22 @@ function rpUpdateFrame(idx){
   if (mapReady) {
     if (rpMarkerA) rpMarkerA.setLngLat([lonA, latA]);
     if (rpMarkerB) rpMarkerB.setLngLat([lonB, latB]);
+
+    // Aggiorna emoji marker se atleta ha finito
+    if (rpMarkerA?._element) {
+      rpMarkerA._element.innerHTML = fr.finishedA ? '🏁' : '🔵';
+      rpMarkerA._element.style.filter = fr.finishedA ? 'drop-shadow(0 0 6px #22c55e)' : 'drop-shadow(0 0 5px #3b82f6)';
+    }
+    if (rpMarkerB?._element) {
+      rpMarkerB._element.innerHTML = fr.finishedB ? '🏁' : '🟠';
+      rpMarkerB._element.style.filter = fr.finishedB ? 'drop-shadow(0 0 6px #22c55e)' : 'drop-shadow(0 0 5px #f97316)';
+    }
+
     try {
       if (rpMap.getSource('rp-gap')) {
-        rpMap.getSource('rp-gap').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:[[lonA,latA],[lonB,latB]]}}]});
+        // Linea gap solo se entrambi ancora in movimento (altrimenti confonde)
+        const showGap = !fr.finishedA || !fr.finishedB;
+        rpMap.getSource('rp-gap').setData({type:'FeatureCollection',features: showGap ? [{type:'Feature',geometry:{type:'LineString',coordinates:[[lonA,latA],[lonB,latB]]}}] : []});
       }
       rpUpdateTrail(fr, frameIdx);
     } catch(e) { /* map sources not ready yet, skip */ }
@@ -1596,12 +1618,15 @@ function rpUpdateFrame(idx){
     return { text: s, color: diffColor(val, higherIsBetter) };
   };
 
-  // Time elapsed (mode-aware)
-  const mode = document.getElementById('rp-align').value;
-  const tA_elapsed = mode === 'time' ? fr.t : null;
-  const tB_elapsed = mode === 'time' ? fr.t : null; // same frame time in time mode
-  document.getElementById('ov-ta').textContent = fmtTime(fr.t);
-  document.getElementById('ov-tb').textContent = fmtTime(fr.t);
+  // Time elapsed — timer individuale, si stoppa all'arrivo di ciascun atleta
+  const tAdisp = fr.timeA ?? fr.t;
+  const tBdisp = fr.timeB ?? fr.t;
+  const elA = document.getElementById('ov-ta');
+  const elB = document.getElementById('ov-tb');
+  elA.textContent = fmtTime(tAdisp) + (fr.finishedA ? ' 🏁' : '');
+  elA.style.opacity = fr.finishedA ? '0.55' : '1';
+  elB.textContent = fmtTime(tBdisp) + (fr.finishedB ? ' 🏁' : '');
+  elB.style.opacity = fr.finishedB ? '0.55' : '1';
 
   document.getElementById('ov-gap').textContent = gs;
   document.getElementById('ov-gap').style.color = gc;
@@ -1686,10 +1711,17 @@ function rpStopPlay(){
 }
 function rpSetSpeed(s){
   rpPlaySpeed=s;
-  ['1x','5x','10x','30x'].forEach(id=>{const b=document.getElementById(`rp-${id}`);if(b)b.classList.remove('pb-active');});
+  ['1x','2x','5x','10x','30x'].forEach(id=>{const b=document.getElementById(`rp-${id}`);if(b)b.classList.remove('pb-active');});
   const b=document.getElementById(`rp-${s}x`); if(b)b.classList.add('pb-active');
 }
 function rpOnSlider(v){ if(rpPlaying) rpStopPlay(); rpUpdateFrame(parseInt(v)); }
+function rpSeek(deltaSec){
+  // deltaSec in secondi di gara → corrisponde a deltaSec frame (1 frame = 1s in mode time)
+  // In mode distance 1 frame = 10m, ma il seek in secondi ha comunque senso come scatto
+  if(rpPlaying) rpStopPlay();
+  const newT = Math.max(0, Math.min(rpAligned.length - 1, rpCurrentT + deltaSec));
+  rpUpdateFrame(newT);
+}
 
 // ─────────────────────────────────────────────────────────────
 // RACE REPLAY CHART — D3.js implementation
