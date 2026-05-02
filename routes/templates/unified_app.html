@@ -1512,21 +1512,35 @@ function replayChangeStyle(k){
 
 // Frame update
 function rpUpdateFrame(idx){
+  // frameIdx = frame intero per dati/stats; t = parte frazionaria per interpolazione
+  const floorIdx = Math.max(0, Math.min(rpAligned.length - 2, Math.floor(idx)));
+  const ceilIdx  = Math.min(rpAligned.length - 1, floorIdx + 1);
+  const t        = idx - floorIdx; // 0..1, fraction between frames
   const frameIdx = Math.max(0, Math.min(rpAligned.length - 1, Math.round(idx)));
+
   rpCurrentT = idx; // mantieni float per l'accumulo del playback
-  const fr = rpAligned[frameIdx];
-  if (!fr) return;
+  const fr  = rpAligned[frameIdx];
+  const fr0 = rpAligned[floorIdx];
+  const fr1 = rpAligned[ceilIdx];
+  if (!fr || !fr0 || !fr1) return;
+
+  // Interpolazione lineare lat/lon per marker fluidi
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const latA = lerp(fr0.latA, fr1.latA, t);
+  const lonA = lerp(fr0.lonA, fr1.lonA, t);
+  const latB = lerp(fr0.latB, fr1.latB, t);
+  const lonB = lerp(fr0.lonB, fr1.lonB, t);
 
   // Map operations — only if map has fully loaded
   const mapReady = rpMapReady && rpMap;
   if (mapReady) {
-    if (rpMarkerA) rpMarkerA.setLngLat([fr.lonA, fr.latA]);
-    if (rpMarkerB) rpMarkerB.setLngLat([fr.lonB, fr.latB]);
+    if (rpMarkerA) rpMarkerA.setLngLat([lonA, latA]);
+    if (rpMarkerB) rpMarkerB.setLngLat([lonB, latB]);
     try {
       if (rpMap.getSource('rp-gap')) {
-        rpMap.getSource('rp-gap').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:[[fr.lonA,fr.latA],[fr.lonB,fr.latB]]}}]});
+        rpMap.getSource('rp-gap').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:[[lonA,latA],[lonB,latB]]}}]});
       }
-      // Trails: expensive — only update every 30 frames (~1s at 1x speed)
+      // Trails: update only when frame intero cambia (evita ridisegno continuo)
       if (rpMap.getSource('rp-ta-tr') && frameIdx % 30 === 0) {
         const cA = rpSA.lat.slice(0, fr.iA + 1).map((la,i) => [rpSA.lon[i], la, rpSA.alt[i]||0]);
         const cB = rpSB.lat.slice(0, fr.iB + 1).map((la,i) => [rpSB.lon[i], la, rpSB.alt[i]||0]);
