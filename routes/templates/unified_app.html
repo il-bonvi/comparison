@@ -485,10 +485,16 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
         <button class="btn btn-danger" onclick="replayReset()" style="margin-left:8px;">⟲ Reset</button>
       </div>
       <div id="replay-topbar">
-        <label>Allinea per:</label>
-        <select id="rp-align" onchange="rpOnAlignChange()">
+        <label>Mappa:</label>
+        <select id="rp-align" onchange="rpOnAlignChange()" style="display:none">
+          <option value="time" selected>Tempo</option>
+        </select>
+        <span style="font-size:.72rem;color:var(--muted2);font-family:var(--font-mono);">Tempo</span>
+        <label style="margin-left:10px;">Grafici:</label>
+        <select id="rp-graph-align" onchange="rpOnGraphAlignChange()">
           <option value="time">Tempo</option>
-          <option value="distance">Distanza</option>
+          <option value="distA">Dist. Blu</option>
+          <option value="distB">Dist. Arancio</option>
         </select>
         <label style="margin-left:8px;">Mappa:</label>
         <select id="rp-style" onchange="replayChangeStyle(this.value)">
@@ -1307,7 +1313,7 @@ function rpNearestByVal(arr,val){
 
 function rpBuildAlignment(){
   rpAligned = [];
-  const mode = document.getElementById('rp-align').value;
+  const mode = 'time'; // Map always uses time alignment
 
   // ── Windowed slices (rispetta i bounds impostati dall'utente) ──
   const sA_t  = rpSA.time_sec.slice(rpBoundStartA, rpBoundEndA+1);
@@ -1403,12 +1409,23 @@ function rpBuildAlignment(){
       // Gap = tempo A per arrivare qui − tempo B per arrivare qui (stesso punto fisico)
       const gap = tA[iA_local] - tB[iB_gap_local];
 
+      // For graph alignment: find B's index at same distance as A, and vice versa
+      const distA_m = rpSA.distance_m[iA] - d0A;
+      const distB_m = rpSB.distance_m[iB_pos] - d0B;
+      // B at same distance as A (for "align by dist A" graph)
+      const iB_atDistA_local = rpNearestByVal(dB, Math.min(distA_m, dB[dB.length-1]));
+      const iB_atDistA = iB_atDistA_local + rpBoundStartB;
+      // A at same distance as B (for "align by dist B" graph)
+      const iA_atDistB_local = rpNearestByVal(dA, Math.min(distB_m, dA[dA.length-1]));
+      const iA_atDistB = iA_atDistB_local + rpBoundStartA;
+
       rpAligned.push({
         t, iA,
         iB: iB_pos,
+        iB_atDistA, iA_atDistB,
         gap,
-        timeA: Math.min(t, tA[tA.length-1]),  // tempo effettivo A (si stoppa all'arrivo)
-        timeB: Math.min(t, tB[tB.length-1]),  // tempo effettivo B (si stoppa all'arrivo)
+        timeA: Math.min(t, tA[tA.length-1]),
+        timeB: Math.min(t, tB[tB.length-1]),
         distA: rpSA.distance_m[iA]||0,
         distB: rpSB.distance_m[iB_pos]||0,
         speedA: rpSA.speed ? rpSA.speed[iA]||0 : 0,
@@ -1420,49 +1437,22 @@ function rpBuildAlignment(){
         latB: rpSB.lat[iB_pos], lonB: rpSB.lon[iB_pos],
         finishedA: t > tA[tA.length-1],
         finishedB: t > tB[tB.length-1],
+        // Per-frame values for distA-aligned graphs
+        speedA_dA: rpSA.speed ? rpSA.speed[iA]||0 : 0,
+        speedB_dA: rpSB.speed ? rpSB.speed[iB_atDistA]||0 : 0,
+        powerA_dA: rpSA.power[iA]||0, powerB_dA: rpSB.power[iB_atDistA]||0,
+        hrA_dA:    rpSA.hr[iA]||0,    hrB_dA:    rpSB.hr[iB_atDistA]||0,
+        altA_dA:   rpSA.alt[iA]||0,   altB_dA:   rpSB.alt[iB_atDistA]||0,
+        // Per-frame values for distB-aligned graphs
+        speedA_dB: rpSA.speed ? rpSA.speed[iA_atDistB]||0 : 0,
+        speedB_dB: rpSB.speed ? rpSB.speed[iB_pos]||0 : 0,
+        powerA_dB: rpSA.power[iA_atDistB]||0, powerB_dB: rpSB.power[iB_pos]||0,
+        hrA_dB:    rpSA.hr[iA_atDistB]||0,    hrB_dB:    rpSB.hr[iB_pos]||0,
+        altA_dB:   rpSA.alt[iA_atDistB]||0,   altB_dB:   rpSB.alt[iB_pos]||0,
       });
     }
 
-  } else {
-    // ── Modalità DISTANZA: itera fino alla fine dell'atleta più lungo ──
-    const maxD = Math.max(dA[dA.length-1], dB[dB.length-1]);
-    rpMaxT = maxD / 10;
-    for (let step = 0; step <= rpMaxT; step += 1) {
-      const d = step * 10;
-
-      // Posizione reale di A a distanza d (clampata se ha finito)
-      const iA_local = rpNearestByVal(dA, Math.min(d, dA[dA.length-1]));
-      const iA = iA_local + rpBoundStartA;
-
-      // Posizione reale di B a distanza d (clampata se ha finito)
-      const iB_pos_local = rpNearestByVal(dB, Math.min(d, dB[dB.length-1]));
-      const iB_pos = iB_pos_local + rpBoundStartB;
-
-      // Indice B per il gap: punto geograficamente vicino ad A
-      const iB_gap_local = nearestBgeo(sA_la[iA_local], sA_lo[iA_local], tA[iA_local], 120);
-
-      const gap = tA[iA_local] - tB[iB_gap_local];
-
-      rpAligned.push({
-        t: step, iA,
-        iB: iB_pos,
-        gap,
-        timeA: tA[iA_local],   // tempo effettivo A a questa distanza
-        timeB: tB[iB_pos_local], // tempo effettivo B a questa distanza
-        distA: rpSA.distance_m[iA]||0,
-        distB: rpSA.distance_m[iB_pos]||0,
-        speedA: rpSA.speed ? rpSA.speed[iA]||0 : 0,
-        speedB: rpSB.speed ? rpSB.speed[iB_pos]||0 : 0,
-        powerA: rpSA.power[iA]||0,  powerB: rpSB.power[iB_pos]||0,
-        hrA:    rpSA.hr[iA]||0,     hrB:    rpSB.hr[iB_pos]||0,
-        altA:   rpSA.alt[iA]||0,    altB:   rpSB.alt[iB_pos]||0,
-        latA: rpSA.lat[iA], lonA: rpSA.lon[iA],
-        latB: rpSB.lat[iB_pos], lonB: rpSB.lon[iB_pos],
-        finishedA: d > dA[dA.length-1],
-        finishedB: d > dB[dB.length-1],
-      });
-    }
-  }
+  } // end time-mode build
 
   rpCurrentT = 0;
   document.getElementById('replay-slider').max = rpAligned.length - 1;
@@ -1471,6 +1461,7 @@ function rpBuildAlignment(){
     `${rpAligned.length} frame • ${fmtTime(rpMaxT)}`;
 }
 function rpOnAlignChange(){ rpBuildAlignment(); rpRenderCharts(); rpUpdateFrame(0); }
+function rpOnGraphAlignChange(){ rpRenderCharts(); rpUpdateFrame(rpCurrentT); }
 
 // Map
 function rpInitMap(){
@@ -1675,10 +1666,16 @@ function rpUpdateFrame(idx){
   document.getElementById('ov-hrd').style.color = (hA > 0 && hB > 0) ? hd.color : 'var(--muted2)';
 
   // Slider + time label
-  const _mode = document.getElementById('rp-align').value;
+  const _gAlign = (document.getElementById('rp-graph-align')||{value:'time'}).value;
   document.getElementById('replay-slider').value = frameIdx;
-  const tL = _mode === 'time' ? fmtTime(fr.t) : (fr.distA/1000).toFixed(2) + 'km';
-  const tT = _mode === 'time' ? fmtTime(rpMaxT) : ((rpAligned[rpAligned.length-1]?.distA||0)/1000).toFixed(2) + 'km';
+  let tL, tT;
+  if (_gAlign === 'distA') {
+    tL = (fr.distA/1000).toFixed(2)+'km'; tT = ((rpAligned[rpAligned.length-1]?.distA||0)/1000).toFixed(2)+'km';
+  } else if (_gAlign === 'distB') {
+    tL = (fr.distB/1000).toFixed(2)+'km'; tT = ((rpAligned[rpAligned.length-1]?.distB||0)/1000).toFixed(2)+'km';
+  } else {
+    tL = fmtTime(fr.t); tT = fmtTime(rpMaxT);
+  }
   document.getElementById('replay-pb-time').textContent = `${tL} / ${tT}`;
 
   rpUpdateChartCursor(frameIdx);
@@ -1781,7 +1778,7 @@ function rpRenderCharts() {
   container.innerHTML = '';
   container.style.position = 'relative';
 
-  const mode = document.getElementById('rp-align').value;
+  const gAlign = (document.getElementById('rp-graph-align')||{value:'time'}).value; // time | distA | distB
   const totalW = container.clientWidth || 700;
   const totalH = container.clientHeight || 160;
   const m = _rpD3.margin;
@@ -1789,11 +1786,29 @@ function rpRenderCharts() {
   const H = totalH - m.top - m.bottom;
   _rpD3.W = W; _rpD3.H = H;
 
-  // X axis data
-  const xData = rpAligned.map((f,i) => mode === 'time' ? f.t : f.distA/1000);
+  // X axis data — depends on graph alignment
+  let xData;
+  if (gAlign === 'distA') xData = rpAligned.map(f => f.distA/1000);
+  else if (gAlign === 'distB') xData = rpAligned.map(f => f.distB/1000);
+  else xData = rpAligned.map(f => f.t);
   _rpD3.xData = xData;
+  _rpD3.gAlign = gAlign;
   const xScale = d3.scaleLinear().domain([xData[0], xData[xData.length-1]]).range([0, W]);
   _rpD3.xScale = xScale;
+
+  // Helper: pick correct field suffix based on graph alignment
+  // distA → _dA suffix (B re-indexed at same dist as A), distB → _dB, time → no suffix
+  const fA = (f, key) => gAlign==='distA' ? (f[key+'_dA']||f[key]||0) : gAlign==='distB' ? (f[key+'_dB']||f[key]||0) : (f[key]||0);
+  const fB = (f, key) => gAlign==='distA' ? (f[key+'B_dA']||f['speedB']!==undefined ? f[key.replace('A','B')+'_dA']||0 : 0) : gAlign==='distB' ? (f[key.replace('A','B')+'_dB']||0) : (f[key.replace('A','B')]||0);
+
+  // Simpler direct field accessors
+  const getSpeedA = f => gAlign==='distA' ? (f.speedA_dA||0) : gAlign==='distB' ? (f.speedA_dB||0) : (f.speedA||0);
+  const getSpeedB = f => gAlign==='distA' ? (f.speedB_dA||0) : gAlign==='distB' ? (f.speedB_dB||0) : (f.speedB||0);
+  const getPowerA = f => gAlign==='distA' ? (f.powerA_dA||0) : gAlign==='distB' ? (f.powerA_dB||0) : (f.powerA||0);
+  const getPowerB = f => gAlign==='distA' ? (f.powerB_dA||0) : gAlign==='distB' ? (f.powerB_dB||0) : (f.powerB||0);
+  const getHrA    = f => gAlign==='distA' ? (f.hrA_dA||0)    : gAlign==='distB' ? (f.hrA_dB||0)    : (f.hrA||0);
+  const getHrB    = f => gAlign==='distA' ? (f.hrB_dA||0)    : gAlign==='distB' ? (f.hrB_dB||0)    : (f.hrB||0);
+  const getAltA   = f => gAlign==='distA' ? (f.altA_dA||0)   : gAlign==='distB' ? (f.altA_dB||0)   : (f.altA||0);
 
   // Build active series definitions
   const seriesDefs = [];
@@ -1801,28 +1816,28 @@ function rpRenderCharts() {
     seriesDefs.push({ key:'gap', name:'Gap s', data: rpAligned.map(f=>+f.gap.toFixed(2)), color:'#22d3ee', width:2, axis:'left', yKey:'gap', area:true });
   }
   if (rpChartVis.speed) {
-    seriesDefs.push({ key:'speedA', name:rpNameA.slice(0,10)+' spd', data: rpAligned.map(f=>+(f.speedA||0).toFixed(1)), color:'#3b82f6', width:1.5, axis:'right0', yKey:'speed' });
-    seriesDefs.push({ key:'speedB', name:rpNameB.slice(0,10)+' spd', data: rpAligned.map(f=>+(f.speedB||0).toFixed(1)), color:'#f97316', width:1.5, axis:'right0', yKey:'speed' });
+    seriesDefs.push({ key:'speedA', name:rpNameA.slice(0,10)+' spd', data: rpAligned.map(f=>+getSpeedA(f).toFixed(1)), color:'#3b82f6', width:1.5, axis:'right0', yKey:'speed' });
+    seriesDefs.push({ key:'speedB', name:rpNameB.slice(0,10)+' spd', data: rpAligned.map(f=>+getSpeedB(f).toFixed(1)), color:'#f97316', width:1.5, axis:'right0', yKey:'speed' });
   }
   if (rpChartVis.power) {
-    seriesDefs.push({ key:'powerA', name:rpNameA.slice(0,10)+' W', data: rpAligned.map(f=>Math.round(f.powerA||0)), color:'#60a5fa', width:1.5, axis:'right1', yKey:'power' });
-    seriesDefs.push({ key:'powerB', name:rpNameB.slice(0,10)+' W', data: rpAligned.map(f=>Math.round(f.powerB||0)), color:'#fb923c', width:1.5, axis:'right1', yKey:'power' });
+    seriesDefs.push({ key:'powerA', name:rpNameA.slice(0,10)+' W', data: rpAligned.map(f=>Math.round(getPowerA(f))), color:'#60a5fa', width:1.5, axis:'right1', yKey:'power' });
+    seriesDefs.push({ key:'powerB', name:rpNameB.slice(0,10)+' W', data: rpAligned.map(f=>Math.round(getPowerB(f))), color:'#fb923c', width:1.5, axis:'right1', yKey:'power' });
   }
   if (rpChartVis.hr) {
-    seriesDefs.push({ key:'hrA', name:rpNameA.slice(0,10)+' hr', data: rpAligned.map(f=>Math.round(f.hrA||0)), color:'#ef4444', width:1.5, axis:'right2', yKey:'hr' });
-    seriesDefs.push({ key:'hrB', name:rpNameB.slice(0,10)+' hr', data: rpAligned.map(f=>Math.round(f.hrB||0)), color:'#f87171', width:1.5, dash:'4,2', axis:'right2', yKey:'hr' });
+    seriesDefs.push({ key:'hrA', name:rpNameA.slice(0,10)+' hr', data: rpAligned.map(f=>Math.round(getHrA(f))), color:'#ef4444', width:1.5, axis:'right2', yKey:'hr' });
+    seriesDefs.push({ key:'hrB', name:rpNameB.slice(0,10)+' hr', data: rpAligned.map(f=>Math.round(getHrB(f))), color:'#f87171', width:1.5, dash:'4,2', axis:'right2', yKey:'hr' });
   }
   if (rpChartVis.elev) {
-    seriesDefs.push({ key:'elev', name:'Alt', data: rpAligned.map(f=>Math.round(f.altA||0)), color:'#94a3b8', width:1, area:true, areaColor:'rgba(148,163,184,.08)', axis:'left2', yKey:'elev' });
+    seriesDefs.push({ key:'elev', name:'Alt', data: rpAligned.map(f=>Math.round(getAltA(f))), color:'#94a3b8', width:1, area:true, areaColor:'rgba(148,163,184,.08)', axis:'left2', yKey:'elev' });
   }
   if (rpChartVis.dspd) {
-    seriesDefs.push({ key:'dspd', name:'ΔSPD km/h', data: rpAligned.map(f=>+((f.speedA||0)-(f.speedB||0)).toFixed(2)), color:'#3b82f6', width:1.5, yKey:'dspd', axis:'right-dspd', zeroline:true });
+    seriesDefs.push({ key:'dspd', name:'ΔSPD km/h', data: rpAligned.map(f=>+(getSpeedA(f)-getSpeedB(f)).toFixed(2)), color:'#3b82f6', width:1.5, yKey:'dspd', axis:'right-dspd', zeroline:true });
   }
   if (rpChartVis.dpwr) {
-    seriesDefs.push({ key:'dpwr', name:'ΔPWR W', data: rpAligned.map(f=>Math.round((f.powerA||0)-(f.powerB||0))), color:'#a855f7', width:1.5, yKey:'dpwr', axis:'right-dpwr', zeroline:true });
+    seriesDefs.push({ key:'dpwr', name:'ΔPWR W', data: rpAligned.map(f=>Math.round(getPowerA(f)-getPowerB(f))), color:'#a855f7', width:1.5, yKey:'dpwr', axis:'right-dpwr', zeroline:true });
   }
   if (rpChartVis.dhr) {
-    seriesDefs.push({ key:'dhr', name:'ΔHR bpm', data: rpAligned.map(f=>Math.round((f.hrA||0)-(f.hrB||0))), color:'#fb923c', width:1.5, yKey:'dhr', axis:'right-dhr', zeroline:true });
+    seriesDefs.push({ key:'dhr', name:'ΔHR bpm', data: rpAligned.map(f=>Math.round(getHrA(f)-getHrB(f))), color:'#fb923c', width:1.5, yKey:'dhr', axis:'right-dhr', zeroline:true });
   }
 
   // Build Y scales (one per axis group)
@@ -1946,9 +1961,9 @@ function rpRenderCharts() {
   });
 
   // X axis
-  const xFmt = mode === 'time'
+  const xFmt = gAlign === 'time'
     ? v => { const m=Math.floor(v/60),s=Math.floor(v%60); return `${m}:${s.toString().padStart(2,'0')}`; }
-    : v => v.toFixed(2);
+    : v => v.toFixed(2)+'km';
   const xTicks = Math.min(8, Math.floor(W/70));
   g.append('g').attr('transform',`translate(0,${H})`).call(d3.axisBottom(xScale).ticks(xTicks).tickFormat(xFmt))
     .call(ax => { ax.select('.domain').attr('stroke','#1a2540'); ax.selectAll('text').attr('fill','#475569').attr('font-size','8px'); ax.selectAll('line').attr('stroke','#1a2540'); });
@@ -2022,7 +2037,7 @@ function rpRenderCharts() {
       const xVal = xScale.invert(xi);
       const idx = Math.max(0, Math.min(rpAligned.length-1, Math.round((xi/W)*(rpAligned.length-1))));
       cursorLine.attr('x1', m.left+xi).attr('x2', m.left+xi).attr('visibility','visible');
-      const xLabel = mode === 'time'
+      const xLabel = gAlign === 'time'
         ? (() => { const mm=Math.floor(xVal/60),ss=Math.floor(xVal%60); return `${mm}:${ss.toString().padStart(2,'0')}`; })()
         : xVal.toFixed(2)+'km';
       let html = `<b style="color:#64748b">${xLabel}</b><br/>`;

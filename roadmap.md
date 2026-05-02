@@ -1,2 +1,1 @@
-- continuare prompt per allineamento
 - aggiungere smoothing 3s e 5s?
