@@ -2213,7 +2213,16 @@ function rpRenderCharts() {
       const [mx] = d3.pointer(event, this);
       const xi = mx - m.left;
       if (xi < 0 || xi > W) return;
-      const idx = Math.max(0, Math.min(rpAligned.length-1, Math.round((xi/W)*(rpAligned.length-1))));
+      const xVal = xScale.invert(xi);
+      // Find the rpAligned frame whose X value (in current graph alignment) is closest to xVal
+      let idx = 0;
+      let bestDist = Infinity;
+      for (let i = 0; i < rpAligned.length; i++) {
+        const f = rpAligned[i];
+        const fx = gAlign === 'distA' ? f.distA/1000 : gAlign === 'distB' ? f.distB/1000 : f.t;
+        const d = Math.abs(fx - xVal);
+        if (d < bestDist) { bestDist = d; idx = i; }
+      }
       if (rpPlaying) rpStopPlay();
       rpUpdateFrame(idx);
     })
