@@ -1481,6 +1481,41 @@ function rpAddGapLine(){
   rpMap.addSource('rp-gap',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
   rpMap.addLayer({id:'rp-gap-ln',type:'line',source:'rp-gap',paint:{'line-color':'#fff','line-width':2,'line-opacity':0.55,'line-dasharray':[3,3]}});
 }
+
+// Trail state — aggiornato solo quando l'indice frame cambia
+let _rpTrailLastA = -1, _rpTrailLastB = -1;
+
+function rpUpdateTrail(fr, frameIdx) {
+  if (!rpMap || !rpMapReady) return;
+  try {
+    const iA = fr.iA, iB = fr.iB;
+
+    if (iA !== _rpTrailLastA) {
+      _rpTrailLastA = iA;
+      const src = rpMap.getSource('rp-ta-tr');
+      if (src) {
+        // Slice fino all'indice corrente + 1 punto interpolato per raccordare col marker
+        const coords = rpSA.lat.slice(0, iA + 1).map((la,i) => [rpSA.lon[i], la, rpSA.alt[i]||0]);
+        if (coords.length >= 2) {
+          src.setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:coords}}]});
+          rpMap.setPaintProperty('rp-ta-tr-ln','line-opacity', 0.85);
+        }
+      }
+    }
+
+    if (iB !== _rpTrailLastB) {
+      _rpTrailLastB = iB;
+      const src = rpMap.getSource('rp-tb-tr');
+      if (src) {
+        const coords = rpSB.lat.slice(0, iB + 1).map((la,i) => [rpSB.lon[i], la, rpSB.alt[i]||0]);
+        if (coords.length >= 2) {
+          src.setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:coords}}]});
+          rpMap.setPaintProperty('rp-tb-tr-ln','line-opacity', 0.85);
+        }
+      }
+    }
+  } catch(e) { /* sorgenti non ancora pronte */ }
+}
 function rpSpawnMarkers(){
   const eA=document.createElement('div');eA.innerHTML='🔵';eA.style.cssText='font-size:20px;filter:drop-shadow(0 0 5px #3b82f6)';
   rpMarkerA=new maplibregl.Marker({element:eA}).setLngLat([rpSA.lon[0],rpSA.lat[0]]).addTo(rpMap);
@@ -1499,6 +1534,7 @@ function replayChangeStyle(k){
   rpMap.setStyle(STYLES[k]);
   rpMap.once('styledata',()=>{
     rpMapReady = true;
+    _rpTrailLastA = -1; _rpTrailLastB = -1;
     map_addTerrain_to(rpMap);
     rpAddTrace('rp-ta',rpSA,'#3b82f6',3,false);
     rpAddTrace('rp-tb',rpSB,'#f97316',3,false);
@@ -1540,13 +1576,7 @@ function rpUpdateFrame(idx){
       if (rpMap.getSource('rp-gap')) {
         rpMap.getSource('rp-gap').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:[[lonA,latA],[lonB,latB]]}}]});
       }
-      // Trails: update only when frame intero cambia (evita ridisegno continuo)
-      if (rpMap.getSource('rp-ta-tr') && frameIdx % 30 === 0) {
-        const cA = rpSA.lat.slice(0, fr.iA + 1).map((la,i) => [rpSA.lon[i], la, rpSA.alt[i]||0]);
-        const cB = rpSB.lat.slice(0, fr.iB + 1).map((la,i) => [rpSB.lon[i], la, rpSB.alt[i]||0]);
-        if (cA.length >= 2) { rpMap.getSource('rp-ta-tr').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:cA}}]}); rpMap.setPaintProperty('rp-ta-tr-ln','line-opacity',0.85); }
-        if (cB.length >= 2) { rpMap.getSource('rp-tb-tr').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:cB}}]}); rpMap.setPaintProperty('rp-tb-tr-ln','line-opacity',0.85); }
-      }
+      rpUpdateTrail(fr, frameIdx);
     } catch(e) { /* map sources not ready yet, skip */ }
   }
 
@@ -2034,6 +2064,7 @@ function replayReset(){
   _rpD3 = { svg:null, g:null, xScale:null, yScales:{}, W:0, H:0, margin:{top:14,right:60,bottom:22,left:52}, cursorLine:null, xData:[], seriesData:{} };
   document.getElementById('replay-multi-chart').innerHTML = '';
   rpMarkerA=rpMarkerB=null;
+  _rpTrailLastA = -1; _rpTrailLastB = -1;
   document.getElementById('replay-app').style.display='none';
   document.getElementById('replay-upload').style.display='flex';
   document.getElementById('rp-slot-a').classList.remove('filled-a');
