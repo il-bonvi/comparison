@@ -1512,9 +1512,9 @@ function replayChangeStyle(k){
 
 // Frame update
 function rpUpdateFrame(idx){
-  idx = Math.max(0, Math.min(rpAligned.length - 1, Math.round(idx)));
-  rpCurrentT = idx;
-  const fr = rpAligned[idx];
+  const frameIdx = Math.max(0, Math.min(rpAligned.length - 1, Math.round(idx)));
+  rpCurrentT = idx; // mantieni float per l'accumulo del playback
+  const fr = rpAligned[frameIdx];
   if (!fr) return;
 
   // Map operations — only if map has fully loaded
@@ -1527,7 +1527,7 @@ function rpUpdateFrame(idx){
         rpMap.getSource('rp-gap').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:[[fr.lonA,fr.latA],[fr.lonB,fr.latB]]}}]});
       }
       // Trails: expensive — only update every 30 frames (~1s at 1x speed)
-      if (rpMap.getSource('rp-ta-tr') && idx % 30 === 0) {
+      if (rpMap.getSource('rp-ta-tr') && frameIdx % 30 === 0) {
         const cA = rpSA.lat.slice(0, fr.iA + 1).map((la,i) => [rpSA.lon[i], la, rpSA.alt[i]||0]);
         const cB = rpSB.lat.slice(0, fr.iB + 1).map((la,i) => [rpSB.lon[i], la, rpSB.alt[i]||0]);
         if (cA.length >= 2) { rpMap.getSource('rp-ta-tr').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:cA}}]}); rpMap.setPaintProperty('rp-ta-tr-ln','line-opacity',0.85); }
@@ -1597,12 +1597,12 @@ function rpUpdateFrame(idx){
   document.getElementById('ov-hrd').style.color = (hA > 0 && hB > 0) ? hd.color : 'var(--muted2)';
 
   // Slider + time label
-  document.getElementById('replay-slider').value = idx;
+  document.getElementById('replay-slider').value = frameIdx;
   const tL = mode === 'time' ? fmtTime(fr.t) : (fr.distA/1000).toFixed(2) + 'km';
   const tT = mode === 'time' ? fmtTime(rpMaxT) : ((rpAligned[rpAligned.length-1]?.distA||0)/1000).toFixed(2) + 'km';
   document.getElementById('replay-pb-time').textContent = `${tL} / ${tT}`;
 
-  rpUpdateChartCursor(idx);
+  rpUpdateChartCursor(frameIdx);
 }
 
 // Playback
@@ -1619,10 +1619,9 @@ function rpTogglePlay(){
       const now = performance.now();
       const elapsed = Math.min((now - rpLastTs) / 1000, 0.2);
       rpLastTs = now;
+      // 1 frame aligned = 1s di gara (mode time) o 10m (mode distance).
+      // rpPlaySpeed 1x = velocità reale → avanziamo di elapsed secondi per ogni secondo reale.
       rpCurrentT += elapsed * rpPlaySpeed;
-      // Minimal DOM update to confirm interval fires — independent of rpUpdateFrame
-      const sl = document.getElementById('replay-slider');
-      if (sl) sl.value = Math.round(rpCurrentT);
       if (rpCurrentT >= rpAligned.length - 1) {
         rpCurrentT = rpAligned.length - 1;
         rpUpdateFrame(rpCurrentT);
@@ -1631,7 +1630,6 @@ function rpTogglePlay(){
       }
       rpUpdateFrame(rpCurrentT);
     }, 33);
-    console.log('setInterval started, rpAnimFrame=', rpAnimFrame);
   } else {
     rpStopPlay();
   }
