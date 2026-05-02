@@ -6,7 +6,7 @@
 <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
 <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
 <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet"/>
-<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap');
 
@@ -661,10 +661,10 @@ function switchTab(tab) {
   activeTab = tab;
   // After display:flex kicks in, resize everything so maps/charts get proper dimensions
   setTimeout(() => {
-    if (tab === 'comp' && compElevChart) compElevChart.resize();
+    if (tab === 'comp' && compElevChart) compResizeChart();
     if (tab === 'replay') {
       rpUpdateSharedBadge();
-      if (rpChart) rpChart.resize();
+      if (rpChart) rpResizeChart();
       if (rpMap) {
         rpMap.resize();
         if (rpAligned.length) rpUpdateFrame(rpCurrentT);
@@ -916,57 +916,221 @@ function compUpdateVisBtns() {
   upd('comp-btn-vs', compLayerVis.sections,'Sezioni');
 }
 
-// Elevation chart
+// ─────────────────────────────────────────────────────────────
+// COMPARISON CHART — D3.js implementation
+// ─────────────────────────────────────────────────────────────
+
+// Internal state for the D3 chart
+let _compChartSections = { sA: [], sB: [] };
+
+function compResizeChart() {
+  if (!compElevChart) return;
+  if (compElevMode) compUpdateElevChart();
+  else {
+    // rebuild power chart with last known km value
+    const km = parseFloat(document.getElementById('comp-km').value)||3;
+    compBuildPowerChart(km);
+  }
+}
+
 function compInitElevChart() {
   const dom = document.getElementById('comp-elevation-chart');
-  compElevChart = echarts.init(dom,'dark');
+  // Prepare SVG container — D3 will own this element
+  dom.innerHTML = '';
+  compElevChart = true; // truthy sentinel so callers can check existence
   compUpdateElevChart();
   compUpdateArrivalChartLines();
   compUpdateVisBtns();
-  const h=document.getElementById('comp-chart-resize');
-  let drag=false,sy=0,sh=0;
-  h.addEventListener('mousedown',e=>{drag=true;sy=e.clientY;sh=document.getElementById('comp-chart-panel').offsetHeight;e.preventDefault();});
-  document.addEventListener('mousemove',e=>{if(!drag)return;const d=sy-e.clientY,nh=Math.max(100,Math.min(500,sh+d));document.getElementById('comp-chart-panel').style.height=nh+'px';compElevChart.resize();});
-  document.addEventListener('mouseup',()=>{drag=false;});
-  window.addEventListener('resize',()=>{if(compElevChart)compElevChart.resize();});
+
+  // Resize handle (drag to change panel height)
+  const h = document.getElementById('comp-chart-resize');
+  let drag=false, sy=0, sh=0;
+  h.addEventListener('mousedown', e => { drag=true; sy=e.clientY; sh=document.getElementById('comp-chart-panel').offsetHeight; e.preventDefault(); });
+  document.addEventListener('mousemove', e => { if(!drag) return; const d=sy-e.clientY, nh=Math.max(100,Math.min(500,sh+d)); document.getElementById('comp-chart-panel').style.height=nh+'px'; compResizeChart(); });
+  document.addEventListener('mouseup', () => { drag=false; });
+  window.addEventListener('resize', () => { if(compElevChart) compResizeChart(); });
 }
+
+/* Shared D3 render helper for the Comparison chart.
+   Draws a two-series area+line chart with optional dual y-axis,
+   arrival markLines, and section markAreas.
+   opts = {
+     series: [ {name, data:[[x,y],...], color, area?, dash?} ],
+     yLeft:  { name, color },
+     yRight: { name, color } | null,
+     xLabel: string,
+     arrivalLines: [ {x, color, label} ],
+     sections: [ {x0, x1, color, opacity} ],
+     tooltip: fn(xVal, pts) => HTMLstring
+   }
+*/
+function _compD3Render(opts) {
+  const container = document.getElementById('comp-elevation-chart');
+  container.innerHTML = '';
+
+  const totalW = container.clientWidth || 600;
+  const totalH = container.clientHeight || 180;
+  const margin = { top: 28, right: opts.yRight ? 55 : 20, bottom: 28, left: 50 };
+  const W = totalW - margin.left - margin.right;
+  const H = totalH - margin.top - margin.bottom;
+
+  const svg = d3.select(container).append('svg')
+    .attr('width', totalW).attr('height', totalH)
+    .style('display','block');
+
+  // Clip path
+  svg.append('defs').append('clipPath').attr('id','comp-clip')
+    .append('rect').attr('width', W).attr('height', H);
+
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+  // X scale
+  const allX = opts.series.flatMap(s => s.data.map(d => d[0]));
+  const xScale = d3.scaleLinear().domain(d3.extent(allX)).range([0, W]);
+
+  // Left Y scale
+  const allYL = opts.series.filter(s => !s.yRight).flatMap(s => s.data.map(d => d[1]));
+  const yScaleL = d3.scaleLinear().domain([d3.min(allYL)*0.97, d3.max(allYL)*1.03]).range([H, 0]).nice();
+
+  // Right Y scale (optional)
+  let yScaleR = null;
+  if (opts.yRight) {
+    const allYR = opts.series.filter(s => s.yRight).flatMap(s => s.data.map(d => d[1]));
+    yScaleR = d3.scaleLinear().domain([d3.min(allYR)*0.97, d3.max(allYR)*1.03]).range([H, 0]).nice();
+  }
+
+  // Grid lines (left axis)
+  g.append('g').attr('class','grid')
+    .call(d3.axisLeft(yScaleL).tickSize(-W).tickFormat(''))
+    .call(ax => { ax.select('.domain').remove(); ax.selectAll('line').attr('stroke','#1e293b'); });
+
+  // Section markAreas (behind lines)
+  opts.sections.forEach(sec => {
+    g.append('rect')
+      .attr('x', xScale(sec.x0)).attr('y', 0)
+      .attr('width', Math.max(0, xScale(sec.x1) - xScale(sec.x0)))
+      .attr('height', H)
+      .attr('fill', sec.color).attr('opacity', sec.opacity);
+  });
+
+  // Axes
+  const xAxis = d3.axisBottom(xScale).ticks(6).tickFormat(v => v.toFixed(1));
+  g.append('g').attr('transform',`translate(0,${H})`).call(xAxis)
+    .call(ax => { ax.select('.domain').attr('stroke','#1a2540'); ax.selectAll('text').attr('fill','#94a3b8').attr('font-size','8px'); ax.selectAll('line').attr('stroke','#1a2540'); });
+
+  // X axis label
+  g.append('text').attr('x', W/2).attr('y', H+24).attr('fill','#64748b').attr('font-size','8px').attr('text-anchor','middle').text(opts.xLabel||'km');
+
+  const yAxisL = d3.axisLeft(yScaleL).ticks(4);
+  g.append('g').call(yAxisL)
+    .call(ax => { ax.select('.domain').attr('stroke','#1a2540'); ax.selectAll('text').attr('fill','#94a3b8').attr('font-size','8px'); ax.selectAll('line').attr('stroke','#1a2540'); });
+
+  // Left Y label
+  g.append('text').attr('transform','rotate(-90)').attr('x',-H/2).attr('y',-38).attr('fill',opts.yLeft.color||'#64748b').attr('font-size','8px').attr('text-anchor','middle').text(opts.yLeft.name);
+
+  if (opts.yRight && yScaleR) {
+    const yAxisR = d3.axisRight(yScaleR).ticks(4);
+    g.append('g').attr('transform',`translate(${W},0)`).call(yAxisR)
+      .call(ax => { ax.select('.domain').attr('stroke','#1a2540'); ax.selectAll('text').attr('fill', opts.yRight.color||'#94a3b8').attr('font-size','8px'); ax.selectAll('line').attr('stroke','#1a2540'); });
+    g.append('text').attr('transform','rotate(-90)').attr('x',-H/2).attr('y', W+46).attr('fill',opts.yRight.color||'#22c55e').attr('font-size','8px').attr('text-anchor','middle').text(opts.yRight.name);
+  }
+
+  // Series
+  opts.series.forEach(ser => {
+    const ys = (ser.yRight && yScaleR) ? yScaleR : yScaleL;
+    const lineGen = d3.line().x(d => xScale(d[0])).y(d => ys(d[1])).curve(d3.curveCatmullRom.alpha(0.5));
+
+    // Area fill
+    if (ser.area) {
+      const areaGen = d3.area().x(d => xScale(d[0])).y0(H).y1(d => ys(d[1])).curve(d3.curveCatmullRom.alpha(0.5));
+      g.append('path').datum(ser.data).attr('clip-path','url(#comp-clip)')
+        .attr('fill', ser.area).attr('d', areaGen);
+    }
+
+    // Line
+    const path = g.append('path').datum(ser.data).attr('clip-path','url(#comp-clip)')
+      .attr('fill','none').attr('stroke', ser.color).attr('stroke-width', ser.width||2)
+      .attr('d', lineGen);
+    if (ser.dash) path.attr('stroke-dasharray', ser.dash);
+  });
+
+  // Arrival markLines (vertical dashed)
+  opts.arrivalLines.forEach(al => {
+    const x = xScale(al.x);
+    g.append('line').attr('x1',x).attr('x2',x).attr('y1',0).attr('y2',H)
+      .attr('stroke',al.color).attr('stroke-width',2).attr('stroke-dasharray','5,4');
+    g.append('text').attr('x',x+3).attr('y',12).attr('fill',al.color).attr('font-size','9px').attr('font-weight','700').text(al.label);
+  });
+
+  // Legend (top right)
+  const leg = svg.append('g').attr('transform',`translate(${totalW - margin.right - 10},${6})`);
+  opts.series.forEach((ser,i) => {
+    const row = leg.append('g').attr('transform',`translate(0,${i*14})`);
+    row.append('line').attr('x1',-38).attr('x2',-24).attr('y1',5).attr('y2',5).attr('stroke',ser.color).attr('stroke-width',ser.width||2).attr('stroke-dasharray', ser.dash||null);
+    row.append('text').attr('x',-21).attr('y',9).attr('fill','#94a3b8').attr('font-size','9px').text(ser.name);
+  });
+
+  // Tooltip
+  const tooltip = d3.select(container).append('div')
+    .style('position','absolute').style('pointer-events','none').style('display','none')
+    .style('background','rgba(8,12,20,.96)').style('border','1px solid #334155')
+    .style('border-radius','6px').style('padding','7px 11px')
+    .style('font-size','11px').style('color','#e2e8f0').style('font-family','Space Mono,monospace')
+    .style('line-height','1.8').style('z-index','200');
+
+  // Make container relative for tooltip positioning
+  container.style.position = 'relative';
+
+  const bisect = d3.bisector(d => d[0]).left;
+  svg.append('rect').attr('width',totalW).attr('height',totalH).attr('fill','none').attr('pointer-events','all')
+    .on('mousemove', function(event) {
+      const [mx] = d3.pointer(event, this);
+      const xVal = xScale.invert(mx - margin.left);
+      // Find nearest point in first series
+      const ser0 = opts.series[0]; if(!ser0||!ser0.data.length) return;
+      const idx = Math.max(0, bisect(ser0.data, xVal, 1) - 1);
+      const pts = opts.series.map(s => ({ name:s.name, color:s.color, val: (s.data[idx]||s.data[s.data.length-1])[1] }));
+      const xv = (ser0.data[idx]||ser0.data[0])[0];
+      tooltip.style('display','block').style('left',(mx+10)+'px').style('top','8px')
+        .html(opts.tooltip ? opts.tooltip(xv,pts) : `<b>${xv.toFixed(2)} km</b><br/>${pts.map(p=>`<span style="color:${p.color}">■</span> ${p.name}: <b>${Math.round(p.val)}</b>`).join('<br/>')}`);
+    })
+    .on('mouseleave', () => tooltip.style('display','none'));
+}
+
 function compUpdateElevChart() {
   if (!compElevChart) return;
-  compElevMode=true;
-  compElevChart.setOption({
-    backgroundColor:'transparent', animation:false,
-    legend:{show:true,textStyle:{color:'#94a3b8',fontSize:10},top:4},
-    grid:{left:50,right:20,top:28,bottom:28},
-    xAxis:{type:'value',name:'km',nameTextStyle:{color:'#64748b'},axisLabel:{color:'#94a3b8',formatter:v=>v.toFixed(1)},splitLine:{lineStyle:{color:'#1e293b'}}},
-    yAxis:{type:'value',name:'m',nameTextStyle:{color:'#64748b'},axisLabel:{color:'#94a3b8'},splitLine:{lineStyle:{color:'#1e293b'}}},
-    tooltip:{trigger:'axis',backgroundColor:'rgba(8,12,20,.95)',borderColor:'#334155',textStyle:{color:'#e2e8f0',fontSize:11},
-      formatter:p=>{let s=`<b>${p[0].data[0].toFixed(2)} km</b><br/>`;p.forEach(x=>{s+=`${x.marker}${x.seriesName}: ${Math.round(x.data[1])}m<br/>`;});return s;}},
-    series:[
-      {name:compNameA.slice(0,14),type:'line',data:compStreamA.distance_m.map((d,i)=>[d/1000,compStreamA.alt[i]||0]),lineStyle:{color:'#3b82f6',width:2},areaStyle:{color:'rgba(59,130,246,.1)'},showSymbol:false,smooth:true,markLine:{data:[]}},
-      {name:compNameB.slice(0,14),type:'line',data:compStreamB.distance_m.map((d,i)=>[d/1000,compStreamB.alt[i]||0]),lineStyle:{color:'#f97316',width:2},areaStyle:{color:'rgba(249,115,22,.08)'},showSymbol:false,smooth:true},
-    ]
-  },true);
+  compElevMode = true;
+  const series = [
+    { name: compNameA.slice(0,14), data: compStreamA.distance_m.map((d,i)=>[d/1000, compStreamA.alt[i]||0]), color:'#3b82f6', area:'rgba(59,130,246,.10)', width:2 },
+    { name: compNameB.slice(0,14), data: compStreamB.distance_m.map((d,i)=>[d/1000, compStreamB.alt[i]||0]), color:'#f97316', area:'rgba(249,115,22,.08)', width:2 },
+  ];
+  const arrivalLines = [];
+  if (compArrivalA !== null) arrivalLines.push({ x: (compStreamA.distance_m[compArrivalA]||0)/1000, color:'#60a5fa', label:'A' });
+  if (compArrivalB !== null) arrivalLines.push({ x: (compStreamB.distance_m[compArrivalB]||0)/1000, color:'#fb923c', label:'B' });
+  _compD3Render({
+    series, arrivalLines, sections: _compChartSections.sA.map((s,i) => ({x0:s.startDist/1000,x1:s.endDist/1000,color:SECTION_PALETTE[s.sectionIdx%SECTION_PALETTE.length],opacity:.14})).concat(_compChartSections.sB.map(s=>({x0:s.startDist/1000,x1:s.endDist/1000,color:SECTION_PALETTE[s.sectionIdx%SECTION_PALETTE.length],opacity:.08}))),
+    yLeft:{ name:'m', color:'#64748b' }, xLabel:'km',
+    tooltip:(xv,pts) => `<b>${xv.toFixed(2)} km</b><br/>${pts.map(p=>`<span style="color:${p.color}">■</span> ${p.name}: <b>${Math.round(p.val)}m</b>`).join('<br/>')}`
+  });
 }
+
 function compUpdateArrivalChartLines() {
-  if (!compElevChart||compArrivalA===null) return;
-  const kmA=(compStreamA.distance_m[compArrivalA]||0)/1000;
-  const kmB=(compStreamB.distance_m[compArrivalB]||0)/1000;
-  compElevChart.setOption({series:[
-    {markLine:{silent:true,symbol:'none',lineStyle:{color:'#60a5fa',width:2,type:'dashed'},label:{show:true,formatter:'A',color:'#60a5fa'},data:[{xAxis:kmA}]}},
-    {markLine:{silent:true,symbol:'none',lineStyle:{color:'#fb923c',width:2,type:'dashed'},label:{show:true,formatter:'B',color:'#fb923c'},data:[{xAxis:kmB}]}}
-  ]},{lazyUpdate:true,silent:true});
+  // In D3 we simply re-render with updated arrival lines
+  if (!compElevChart) return;
+  if (compElevMode) compUpdateElevChart();
+  // In power mode, arrival lines are not shown — no action needed
 }
-function compDrawElevSections(sA,sB) {
-  const opt=compElevChart.getOption();
-  if(opt.series&&opt.series[0]) opt.series[0].markArea={silent:false,data:sA.map(s=>[{xAxis:s.startDist/1000,itemStyle:{color:SECTION_PALETTE[s.sectionIdx%SECTION_PALETTE.length],opacity:.14}},{xAxis:s.endDist/1000}])};
-  if(opt.series&&opt.series[1]) opt.series[1].markArea={silent:false,data:sB.map(s=>[{xAxis:s.startDist/1000,itemStyle:{color:SECTION_PALETTE[s.sectionIdx%SECTION_PALETTE.length],opacity:.08}},{xAxis:s.endDist/1000}])};
-  compElevChart.setOption(opt,{lazyUpdate:true});
+
+function compDrawElevSections(sA, sB) {
+  _compChartSections = { sA, sB };
+  if (compElevMode) compUpdateElevChart();
 }
+
 function compBuildPowerChart(kmW) {
   const dA=compStreamA.distance_m, dB=compStreamB.distance_m;
   const arrDA=dA[compArrivalA], arrDB=dB[compArrivalB];
   const startDA=Math.max(0,arrDA-kmW*1000), startDB=Math.max(0,arrDB-kmW*1000);
-  let siA=0,siB=0;
+  let siA=0, siB=0;
   for(let i=0;i<=compArrivalA;i++){if(dA[i]>=startDA){siA=i;break;}}
   for(let i=0;i<=compArrivalB;i++){if(dB[i]>=startDB){siB=i;break;}}
   const pts=[], interval=10;
@@ -976,24 +1140,20 @@ function compBuildPowerChart(kmW) {
     if(iA>compArrivalA||iB>compArrivalB) break;
     pts.push({d,pA:compStreamA.power[iA]||0,pB:compStreamB.power[iB]||0,sA:compStreamA.speed?compStreamA.speed[iA]||0:0,sB:compStreamB.speed?compStreamB.speed[iB]||0:0});
   }
-  compElevChart.setOption({
-    backgroundColor:'transparent',animation:false,
-    legend:{show:true,top:0,right:60,textStyle:{color:'#64748b',fontSize:9}},
-    grid:{left:50,right:55,top:18,bottom:22},
-    xAxis:{type:'value',name:'km',axisLabel:{color:'#94a3b8'},splitLine:{lineStyle:{color:'#1e293b'}}},
-    yAxis:[
-      {type:'value',name:'W',position:'left',nameTextStyle:{color:'#64748b',fontSize:8},axisLabel:{color:'#94a3b8',fontSize:8},splitLine:{lineStyle:{color:'#1e293b'}}},
-      {type:'value',name:'km/h',position:'right',nameTextStyle:{color:'#64748b',fontSize:8},axisLabel:{color:'#22c55e',fontSize:8},splitLine:{show:false}},
+  _compD3Render({
+    series: [
+      { name:`${compNameA.slice(0,10)} W`,   data:pts.map(p=>[p.d/1000,p.pA]), color:'#3b82f6', width:2 },
+      { name:`${compNameB.slice(0,10)} W`,   data:pts.map(p=>[p.d/1000,p.pB]), color:'#f97316', width:2 },
+      { name:`${compNameA.slice(0,10)} spd`, data:pts.map(p=>[p.d/1000,p.sA]), color:'#60a5fa', width:1.5, dash:'4,2', yRight:true },
+      { name:`${compNameB.slice(0,10)} spd`, data:pts.map(p=>[p.d/1000,p.sB]), color:'#fb923c', width:1.5, dash:'4,2', yRight:true },
     ],
-    series:[
-      {name:`${compNameA.slice(0,10)} W`,type:'line',data:pts.map(p=>[p.d/1000,p.pA]),yAxisIndex:0,lineStyle:{color:'#3b82f6',width:2},showSymbol:false,smooth:.3,itemStyle:{color:'#3b82f6'}},
-      {name:`${compNameB.slice(0,10)} W`,type:'line',data:pts.map(p=>[p.d/1000,p.pB]),yAxisIndex:0,lineStyle:{color:'#f97316',width:2},showSymbol:false,smooth:.3,itemStyle:{color:'#f97316'}},
-      {name:`${compNameA.slice(0,10)} spd`,type:'line',data:pts.map(p=>[p.d/1000,p.sA]),yAxisIndex:1,lineStyle:{color:'#60a5fa',width:1.5,dashArray:[4,2]},showSymbol:false,smooth:.3,itemStyle:{color:'#60a5fa'}},
-      {name:`${compNameB.slice(0,10)} spd`,type:'line',data:pts.map(p=>[p.d/1000,p.sB]),yAxisIndex:1,lineStyle:{color:'#fb923c',width:1.5,dashArray:[4,2]},showSymbol:false,smooth:.3,itemStyle:{color:'#fb923c'}},
-    ],
-    tooltip:{trigger:'axis',backgroundColor:'rgba(8,12,20,.95)',borderColor:'#334155',textStyle:{color:'#e2e8f0',fontSize:10}}
-  },true);
-  compElevMode=false;
+    arrivalLines: [], sections: [],
+    yLeft:  { name:'W',    color:'#64748b' },
+    yRight: { name:'km/h', color:'#22c55e' },
+    xLabel: 'km',
+    tooltip:(xv,pts) => `<b>${xv.toFixed(2)} km</b><br/>${pts.map(p=>`<span style="color:${p.color}">■</span> ${p.name}: <b>${p.val.toFixed(p.name.includes('spd')?1:0)}${p.name.includes('spd')?'km/h':'W'}</b>`).join('<br/>')}`
+  });
+  compElevMode = false;
 }
 function compHandleHover(e) {
   const tip=document.getElementById('comp-hover-tip');
@@ -1009,6 +1169,7 @@ function compReset() {
   compClearAnalysis();
   if(compArrivalA!==null) {compArrivalA=compStreamA.lat.length-1; compArrivalB=compStreamB.lat.length-1;}
   compLayerVis={traceA:true,traceB:true,sections:true};
+  _compChartSections = { sA:[], sB:[] };
   compApplyLayerVis(); compUpdateVisBtns(); compUpdateArrivalMarkers();
   compUpdateElevChart(); compUpdateArrivalChartLines(); compUpdateArrivalPanel();
   document.getElementById('comp-status').textContent='';
@@ -1365,7 +1526,8 @@ function rpUpdateFrame(idx){
       if (rpMap.getSource('rp-gap')) {
         rpMap.getSource('rp-gap').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:[[fr.lonA,fr.latA],[fr.lonB,fr.latB]]}}]});
       }
-      if (rpMap.getSource('rp-ta-tr')) {
+      // Trails: expensive — only update every 30 frames (~1s at 1x speed)
+      if (rpMap.getSource('rp-ta-tr') && idx % 30 === 0) {
         const cA = rpSA.lat.slice(0, fr.iA + 1).map((la,i) => [rpSA.lon[i], la, rpSA.alt[i]||0]);
         const cB = rpSB.lat.slice(0, fr.iB + 1).map((la,i) => [rpSB.lon[i], la, rpSB.alt[i]||0]);
         if (cA.length >= 2) { rpMap.getSource('rp-ta-tr').setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:cA}}]}); rpMap.setPaintProperty('rp-ta-tr-ln','line-opacity',0.85); }
@@ -1452,94 +1614,300 @@ function rpTogglePlay(){
     btn.textContent = '⏸';
     btn.classList.add('pb-active');
     if (Math.round(rpCurrentT) >= rpAligned.length - 1) rpCurrentT = 0;
-    rpLastTs = null;
-    rpAnimFrame = requestAnimationFrame(rpAnimLoop);
+    rpLastTs = performance.now();
+    rpAnimFrame = setInterval(() => {
+      const now = performance.now();
+      const elapsed = Math.min((now - rpLastTs) / 1000, 0.2);
+      rpLastTs = now;
+      rpCurrentT += elapsed * rpPlaySpeed;
+      // Minimal DOM update to confirm interval fires — independent of rpUpdateFrame
+      const sl = document.getElementById('replay-slider');
+      if (sl) sl.value = Math.round(rpCurrentT);
+      if (rpCurrentT >= rpAligned.length - 1) {
+        rpCurrentT = rpAligned.length - 1;
+        rpUpdateFrame(rpCurrentT);
+        rpStopPlay();
+        return;
+      }
+      rpUpdateFrame(rpCurrentT);
+    }, 33);
+    console.log('setInterval started, rpAnimFrame=', rpAnimFrame);
   } else {
-    btn.textContent = '▶';
-    btn.classList.remove('pb-active');
-    if (rpAnimFrame) { cancelAnimationFrame(rpAnimFrame); rpAnimFrame = null; }
+    rpStopPlay();
   }
 }
-function rpAnimLoop(ts){
-  if (!rpPlaying) return;
-  try {
-    if (!rpLastTs) rpLastTs = ts;
-    const elapsed = (ts - rpLastTs) / 1000;
-    rpLastTs = ts;
-    // Clamp elapsed to avoid huge jumps after tab switch / browser throttle
-    rpCurrentT += Math.min(elapsed, 0.5) * rpPlaySpeed;
-    if (rpCurrentT >= rpAligned.length - 1) {
-      rpCurrentT = rpAligned.length - 1;
-      rpUpdateFrame(rpCurrentT);
-      rpPlaying = false;
-      document.getElementById('rp-play').textContent = '▶';
-      document.getElementById('rp-play').classList.remove('pb-active');
-      rpAnimFrame = null;
-      return;
-    }
-    rpUpdateFrame(rpCurrentT);
-  } catch(e) {
-    console.warn('rpAnimLoop error:', e);
-  }
-  if (rpPlaying) rpAnimFrame = requestAnimationFrame(rpAnimLoop);
+function rpStopPlay(){
+  rpPlaying = false;
+  if (rpAnimFrame) { clearInterval(rpAnimFrame); rpAnimFrame = null; }
+  const btn = document.getElementById('rp-play');
+  if (btn) { btn.textContent = '▶'; btn.classList.remove('pb-active'); }
 }
 function rpSetSpeed(s){
   rpPlaySpeed=s;
   ['1x','5x','10x','30x'].forEach(id=>{const b=document.getElementById(`rp-${id}`);if(b)b.classList.remove('pb-active');});
   const b=document.getElementById(`rp-${s}x`); if(b)b.classList.add('pb-active');
 }
-function rpOnSlider(v){if(rpPlaying)rpTogglePlay();rpUpdateFrame(parseInt(v));}
+function rpOnSlider(v){ if(rpPlaying) rpStopPlay(); rpUpdateFrame(parseInt(v)); }
 
-// Charts
-function rpInitChart(){
-  const dom=document.getElementById('replay-multi-chart');
-  rpChart=echarts.init(dom,'dark');
-  window.addEventListener('resize',()=>rpChart&&rpChart.resize());
-  const h=document.getElementById('replay-chart-resize');
-  let drag=false,sy=0,sh=0;
-  h.addEventListener('mousedown',e=>{drag=true;sy=e.clientY;sh=document.getElementById('replay-chart-panel').offsetHeight;e.preventDefault();});
-  document.addEventListener('mousemove',e=>{if(!drag)return;const d=sy-e.clientY,nh=Math.max(120,Math.min(500,sh+d));document.getElementById('replay-chart-panel').style.height=nh+'px';const th=document.getElementById('replay-chart-toggles').offsetHeight;document.getElementById('replay-multi-chart').style.height=(nh-th-10)+'px';rpChart.resize();});
-  document.addEventListener('mouseup',()=>{drag=false;});
-  rpChart.on('click',p=>{if(p.dataIndex!==undefined){if(rpPlaying)rpTogglePlay();rpUpdateFrame(p.dataIndex);}});
+// ─────────────────────────────────────────────────────────────
+// RACE REPLAY CHART — D3.js implementation
+// ─────────────────────────────────────────────────────────────
+
+// Internal D3 state for the replay chart
+let _rpD3 = {
+  svg: null, g: null, xScale: null,
+  yScales: {},   // { gap, speed, power, hr, elev }
+  W: 0, H: 0, margin: { top:14, right:60, bottom:22, left:52 },
+  cursorLine: null, xData: [], seriesData: {}
+};
+
+function rpResizeChart() {
+  if (!rpChart || !rpAligned.length) return;
+  rpRenderCharts();
 }
-function rpRenderCharts(){
-  if(!rpChart||!rpAligned.length)return;
-  const mode=document.getElementById('rp-align').value;
-  const xData=rpAligned.map((f,i)=>mode==='time'?fmtTime(f.t):(f.distA/1000).toFixed(2));
-  const series=[];
-  if(rpChartVis.gap) series.push({name:'Gap s',type:'line',data:rpAligned.map(f=>+f.gap.toFixed(2)),yAxisIndex:0,lineStyle:{color:'#22d3ee',width:2},itemStyle:{color:'#22d3ee'},areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'rgba(244,63,94,.28)'},{offset:0.5,color:'rgba(34,211,238,.04)'},{offset:1,color:'rgba(34,211,238,.22)'}]}},showSymbol:false,smooth:.3,markLine:{silent:true,symbol:'none',lineStyle:{color:'rgba(255,255,255,.18)',width:1,type:'dashed'},data:[{yAxis:0}]}});
-  if(rpChartVis.speed){series.push({name:rpNameA.slice(0,10)+' spd',type:'line',data:rpAligned.map(f=>+(f.speedA||0).toFixed(1)),yAxisIndex:1,lineStyle:{color:'#3b82f6',width:1.5},itemStyle:{color:'#3b82f6'},showSymbol:false,smooth:.3});series.push({name:rpNameB.slice(0,10)+' spd',type:'line',data:rpAligned.map(f=>+(f.speedB||0).toFixed(1)),yAxisIndex:1,lineStyle:{color:'#f97316',width:1.5},itemStyle:{color:'#f97316'},showSymbol:false,smooth:.3});}
-  if(rpChartVis.power){series.push({name:rpNameA.slice(0,10)+' W',type:'line',data:rpAligned.map(f=>Math.round(f.powerA||0)),yAxisIndex:2,lineStyle:{color:'#60a5fa',width:1.5,dashArray:[4,2]},itemStyle:{color:'#60a5fa'},showSymbol:false,smooth:.3});series.push({name:rpNameB.slice(0,10)+' W',type:'line',data:rpAligned.map(f=>Math.round(f.powerB||0)),yAxisIndex:2,lineStyle:{color:'#fb923c',width:1.5,dashArray:[4,2]},itemStyle:{color:'#fb923c'},showSymbol:false,smooth:.3});}
-  if(rpChartVis.hr){series.push({name:rpNameA.slice(0,10)+' hr',type:'line',data:rpAligned.map(f=>Math.round(f.hrA||0)),yAxisIndex:3,lineStyle:{color:'#ef4444',width:1.5},itemStyle:{color:'#ef4444'},showSymbol:false,smooth:.3});series.push({name:rpNameB.slice(0,10)+' hr',type:'line',data:rpAligned.map(f=>Math.round(f.hrB||0)),yAxisIndex:3,lineStyle:{color:'#f87171',width:1.5,dashArray:[4,2]},itemStyle:{color:'#f87171'},showSymbol:false,smooth:.3});}
-  if(rpChartVis.elev) series.push({name:'Alt',type:'line',data:rpAligned.map(f=>Math.round(f.altA||0)),yAxisIndex:4,lineStyle:{color:'#94a3b8',width:1,opacity:.65},areaStyle:{color:'rgba(148,163,184,.08)'},itemStyle:{color:'#94a3b8'},showSymbol:false,smooth:.4});
-  rpChart.setOption({backgroundColor:'transparent',animation:false,
-    grid:{left:52,right:60,top:14,bottom:22},
-    legend:{show:true,top:0,right:65,textStyle:{color:'#475569',fontSize:8},itemWidth:10,itemHeight:6},
-    xAxis:{type:'category',data:xData,axisLabel:{color:'#475569',fontSize:8,interval:Math.floor(rpAligned.length/8)},splitLine:{lineStyle:{color:'#0d1420'}},axisLine:{lineStyle:{color:'#1a2540'}}},
-    yAxis:[
-      {type:'value',name:'Gap s',position:'left',nameTextStyle:{color:'#22d3ee',fontSize:7},axisLabel:{color:'#22d3ee',fontSize:7},splitLine:{lineStyle:{color:'#1a254022'}},axisLine:{lineStyle:{color:'#22d3ee22'}}},
-      {type:'value',name:'km/h',position:'right',offset:0,nameTextStyle:{color:'#22c55e',fontSize:7},axisLabel:{color:'#22c55e',fontSize:7},splitLine:{show:false}},
-      {type:'value',name:'W',position:'right',offset:28,nameTextStyle:{color:'#eab308',fontSize:7},axisLabel:{color:'#eab308',fontSize:7},splitLine:{show:false}},
-      {type:'value',name:'bpm',position:'right',offset:56,nameTextStyle:{color:'#ef4444',fontSize:7},axisLabel:{color:'#ef4444',fontSize:7},splitLine:{show:false}},
-      {type:'value',name:'m',position:'left',offset:36,nameTextStyle:{color:'#94a3b8',fontSize:7},axisLabel:{color:'#94a3b8',fontSize:7},splitLine:{show:false}},
-    ],
-    tooltip:{trigger:'axis',backgroundColor:'rgba(8,12,20,.96)',borderColor:'#253560',textStyle:{color:'#e2e8f0',fontSize:10,fontFamily:'Space Mono'},formatter:p=>{let h=`<b style="color:#64748b">${p[0]?.name}</b><br/>`;p.forEach(x=>{h+=`<span style="color:${x.color}">■</span> ${x.seriesName}: <b>${x.data}</b><br/>`;});return h;}},
-    series
-  },true);
+
+function rpInitChart() {
+  const dom = document.getElementById('replay-multi-chart');
+  dom.innerHTML = '';
+  rpChart = true; // truthy sentinel
+
+  window.addEventListener('resize', () => rpChart && rpResizeChart());
+
+  // Resize handle
+  const h = document.getElementById('replay-chart-resize');
+  let drag=false, sy=0, sh=0;
+  h.addEventListener('mousedown', e => {
+    drag=true; sy=e.clientY; sh=document.getElementById('replay-chart-panel').offsetHeight; e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if(!drag) return;
+    const d=sy-e.clientY, nh=Math.max(120,Math.min(500,sh+d));
+    document.getElementById('replay-chart-panel').style.height=nh+'px';
+    const th=document.getElementById('replay-chart-toggles').offsetHeight;
+    document.getElementById('replay-multi-chart').style.height=(nh-th-10)+'px';
+    rpResizeChart();
+  });
+  document.addEventListener('mouseup', () => { drag=false; });
 }
-function rpUpdateChartCursor(idx){
-  if(!rpChart||!rpAligned.length)return;
-  const opt=rpChart.getOption();
-  if(!opt||!opt.series||!opt.series[0])return;
-  const s=opt.series.map((x,i)=>({...x,markLine:i===0?{silent:true,symbol:'none',lineStyle:{color:'rgba(255,255,255,.45)',width:1.5,type:'solid'},data:[{xAxis:idx}]}:(x.markLine||{data:[]})}));
-  rpChart.setOption({series:s},{lazyUpdate:true,silent:true});
+
+function rpRenderCharts() {
+  if (!rpChart || !rpAligned.length) return;
+
+  const container = document.getElementById('replay-multi-chart');
+  container.innerHTML = '';
+  container.style.position = 'relative';
+
+  const mode = document.getElementById('rp-align').value;
+  const totalW = container.clientWidth || 700;
+  const totalH = container.clientHeight || 160;
+  const m = _rpD3.margin;
+  const W = totalW - m.left - m.right;
+  const H = totalH - m.top - m.bottom;
+  _rpD3.W = W; _rpD3.H = H;
+
+  // X axis data
+  const xData = rpAligned.map((f,i) => mode === 'time' ? f.t : f.distA/1000);
+  _rpD3.xData = xData;
+  const xScale = d3.scaleLinear().domain([xData[0], xData[xData.length-1]]).range([0, W]);
+  _rpD3.xScale = xScale;
+
+  // Build active series definitions
+  const seriesDefs = [];
+  if (rpChartVis.gap) {
+    seriesDefs.push({ key:'gap', name:'Gap s', data: rpAligned.map(f=>+f.gap.toFixed(2)), color:'#22d3ee', width:2, axis:'left', yKey:'gap', area:true });
+  }
+  if (rpChartVis.speed) {
+    seriesDefs.push({ key:'speedA', name:rpNameA.slice(0,10)+' spd', data: rpAligned.map(f=>+(f.speedA||0).toFixed(1)), color:'#3b82f6', width:1.5, axis:'right0', yKey:'speed' });
+    seriesDefs.push({ key:'speedB', name:rpNameB.slice(0,10)+' spd', data: rpAligned.map(f=>+(f.speedB||0).toFixed(1)), color:'#f97316', width:1.5, axis:'right0', yKey:'speed' });
+  }
+  if (rpChartVis.power) {
+    seriesDefs.push({ key:'powerA', name:rpNameA.slice(0,10)+' W', data: rpAligned.map(f=>Math.round(f.powerA||0)), color:'#60a5fa', width:1.5, dash:'4,2', axis:'right1', yKey:'power' });
+    seriesDefs.push({ key:'powerB', name:rpNameB.slice(0,10)+' W', data: rpAligned.map(f=>Math.round(f.powerB||0)), color:'#fb923c', width:1.5, dash:'4,2', axis:'right1', yKey:'power' });
+  }
+  if (rpChartVis.hr) {
+    seriesDefs.push({ key:'hrA', name:rpNameA.slice(0,10)+' hr', data: rpAligned.map(f=>Math.round(f.hrA||0)), color:'#ef4444', width:1.5, axis:'right2', yKey:'hr' });
+    seriesDefs.push({ key:'hrB', name:rpNameB.slice(0,10)+' hr', data: rpAligned.map(f=>Math.round(f.hrB||0)), color:'#f87171', width:1.5, dash:'4,2', axis:'right2', yKey:'hr' });
+  }
+  if (rpChartVis.elev) {
+    seriesDefs.push({ key:'elev', name:'Alt', data: rpAligned.map(f=>Math.round(f.altA||0)), color:'#94a3b8', width:1, area:true, areaColor:'rgba(148,163,184,.08)', axis:'left2', yKey:'elev' });
+  }
+
+  // Build Y scales (one per axis group)
+  const yGroups = {};
+  seriesDefs.forEach(s => {
+    if (!yGroups[s.yKey]) yGroups[s.yKey] = { vals:[], axis: s.axis };
+    yGroups[s.yKey].vals.push(...s.data);
+  });
+
+  const yScales = {};
+  Object.entries(yGroups).forEach(([key, g]) => {
+    const ext = d3.extent(g.vals);
+    const pad = (ext[1] - ext[0]) * 0.08 || 5;
+    yScales[key] = d3.scaleLinear().domain([ext[0]-pad, ext[1]+pad]).range([H, 0]).nice();
+  });
+  _rpD3.yScales = yScales;
+
+  // SVG
+  const svg = d3.select(container).append('svg')
+    .attr('width', totalW).attr('height', totalH)
+    .style('display','block');
+
+  svg.append('defs').append('clipPath').attr('id','rp-clip')
+    .append('rect').attr('width', W).attr('height', H);
+
+  const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
+  _rpD3.g = g; _rpD3.svg = svg;
+
+  // Background grid (gap axis or first available)
+  const firstYKey = seriesDefs[0]?.yKey;
+  if (firstYKey && yScales[firstYKey]) {
+    g.append('g').call(d3.axisLeft(yScales[firstYKey]).tickSize(-W).tickFormat(''))
+      .call(ax => { ax.select('.domain').remove(); ax.selectAll('line').attr('stroke','#0d1420'); });
+  }
+
+  // Zero line for gap
+  if (rpChartVis.gap && yScales.gap) {
+    const y0 = yScales.gap(0);
+    g.append('line').attr('x1',0).attr('x2',W).attr('y1',y0).attr('y2',y0)
+      .attr('stroke','rgba(255,255,255,.18)').attr('stroke-width',1).attr('stroke-dasharray','4,3');
+  }
+
+  // Gap area gradient definition
+  if (rpChartVis.gap && yScales.gap) {
+    const grad = svg.select('defs').append('linearGradient')
+      .attr('id','rp-gap-grad').attr('x1',0).attr('y1',0).attr('x2',0).attr('y2',1);
+    grad.append('stop').attr('offset','0%').attr('stop-color','rgba(244,63,94,.28)');
+    grad.append('stop').attr('offset','50%').attr('stop-color','rgba(34,211,238,.04)');
+    grad.append('stop').attr('offset','100%').attr('stop-color','rgba(34,211,238,.22)');
+  }
+
+  // Draw series
+  seriesDefs.forEach(ser => {
+    const ys = yScales[ser.yKey];
+    if (!ys) return;
+    const lineGen = d3.line()
+      .x((d,i) => xScale(xData[i]))
+      .y(d => ys(d))
+      .curve(d3.curveCatmullRom.alpha(0.5));
+
+    if (ser.area) {
+      const areaGen = d3.area()
+        .x((d,i) => xScale(xData[i]))
+        .y0(H).y1(d => ys(d))
+        .curve(d3.curveCatmullRom.alpha(0.5));
+      g.append('path').datum(ser.data).attr('clip-path','url(#rp-clip)')
+        .attr('fill', ser.areaColor || 'url(#rp-gap-grad)')
+        .attr('d', areaGen);
+    }
+
+    const path = g.append('path').datum(ser.data).attr('clip-path','url(#rp-clip)')
+      .attr('fill','none').attr('stroke', ser.color)
+      .attr('stroke-width', ser.width || 2).attr('d', lineGen);
+    if (ser.dash) path.attr('stroke-dasharray', ser.dash);
+  });
+
+  // X axis
+  const xFmt = mode === 'time'
+    ? v => { const m=Math.floor(v/60),s=Math.floor(v%60); return `${m}:${s.toString().padStart(2,'0')}`; }
+    : v => v.toFixed(2);
+  const xTicks = Math.min(8, Math.floor(W/70));
+  g.append('g').attr('transform',`translate(0,${H})`).call(d3.axisBottom(xScale).ticks(xTicks).tickFormat(xFmt))
+    .call(ax => { ax.select('.domain').attr('stroke','#1a2540'); ax.selectAll('text').attr('fill','#475569').attr('font-size','8px'); ax.selectAll('line').attr('stroke','#1a2540'); });
+
+  // Left axis (gap)
+  const axisColors = { gap:'#22d3ee', speed:'#22c55e', power:'#eab308', hr:'#ef4444', elev:'#94a3b8' };
+  const axisNames  = { gap:'Gap s',   speed:'km/h',    power:'W',       hr:'bpm',     elev:'m' };
+
+  if (rpChartVis.gap && yScales.gap) {
+    g.append('g').call(d3.axisLeft(yScales.gap).ticks(4))
+      .call(ax => { ax.select('.domain').attr('stroke', axisColors.gap+'44'); ax.selectAll('text').attr('fill', axisColors.gap).attr('font-size','7px'); ax.selectAll('line').attr('stroke', axisColors.gap+'44'); });
+    g.append('text').attr('transform','rotate(-90)').attr('x',-H/2).attr('y',-42).attr('fill', axisColors.gap).attr('font-size','7px').attr('text-anchor','middle').text(axisNames.gap);
+  }
+
+  // Elevation left axis (offset)
+  if (rpChartVis.elev && yScales.elev) {
+    g.append('g').attr('transform','translate(-36,0)').call(d3.axisLeft(yScales.elev).ticks(3))
+      .call(ax => { ax.select('.domain').attr('stroke', axisColors.elev+'44'); ax.selectAll('text').attr('fill', axisColors.elev).attr('font-size','7px'); ax.selectAll('line').attr('stroke', axisColors.elev+'44'); });
+    g.append('text').attr('transform','rotate(-90)').attr('x',-H/2).attr('y',-52).attr('fill', axisColors.elev).attr('font-size','7px').attr('text-anchor','middle').text(axisNames.elev);
+  }
+
+  // Right axes stacked at right edge
+  const rightAxes = [];
+  if (rpChartVis.speed && yScales.speed)  rightAxes.push({ yKey:'speed',  offset:0  });
+  if (rpChartVis.power && yScales.power)  rightAxes.push({ yKey:'power',  offset:28 });
+  if (rpChartVis.hr    && yScales.hr)     rightAxes.push({ yKey:'hr',     offset:56 });
+
+  rightAxes.forEach(ra => {
+    const ys = yScales[ra.yKey];
+    const col = axisColors[ra.yKey];
+    g.append('g').attr('transform',`translate(${W + ra.offset},0)`)
+      .call(d3.axisRight(ys).ticks(4))
+      .call(ax => { ax.select('.domain').attr('stroke', col+'44'); ax.selectAll('text').attr('fill', col).attr('font-size','7px'); ax.selectAll('line').attr('stroke', col+'44'); });
+    g.append('text').attr('transform','rotate(-90)').attr('x',-H/2).attr('y', W + ra.offset + 22).attr('fill', col).attr('font-size','7px').attr('text-anchor','middle').text(axisNames[ra.yKey]);
+  });
+
+  // Legend
+  const leg = svg.append('g').attr('transform',`translate(${totalW - m.right + 2}, ${m.top})`);
+  seriesDefs.forEach((ser,i) => {
+    const row = leg.append('g').attr('transform',`translate(0,${i*10})`);
+    row.append('line').attr('x1',-20).attr('x2',-8).attr('y1',4).attr('y2',4).attr('stroke',ser.color).attr('stroke-width',ser.width||2).attr('stroke-dasharray',ser.dash||null);
+    row.append('text').attr('x',-5).attr('y',8).attr('fill','#475569').attr('font-size','7px').text(ser.name);
+  });
+
+  // Cursor line (vertical)
+  const cursorLine = g.append('line')
+    .attr('x1',0).attr('x2',0).attr('y1',0).attr('y2',H)
+    .attr('stroke','rgba(255,255,255,.45)').attr('stroke-width',1.5)
+    .attr('display','none');
+  _rpD3.cursorLine = cursorLine;
+
+  // Tooltip
+  const tooltip = d3.select(container).append('div')
+    .style('position','absolute').style('pointer-events','none').style('display','none')
+    .style('background','rgba(8,12,20,.96)').style('border','1px solid #253560')
+    .style('border-radius','6px').style('padding','7px 11px')
+    .style('font-size','10px').style('color','#e2e8f0').style('font-family','Space Mono,monospace')
+    .style('line-height','1.8').style('z-index','200');
+
+  // Interaction overlay
+  svg.append('rect').attr('width',totalW).attr('height',totalH).attr('fill','none').attr('pointer-events','all')
+    .on('mousemove', function(event) {
+      const [mx] = d3.pointer(event, this);
+      const xi = mx - m.left;
+      if (xi < 0 || xi > W) { tooltip.style('display','none'); cursorLine.attr('display','none'); return; }
+      const xVal = xScale.invert(xi);
+      const idx = Math.max(0, Math.min(rpAligned.length-1, Math.round((xi/W)*(rpAligned.length-1))));
+      cursorLine.attr('x1',xi).attr('x2',xi).attr('display',null);
+      const xLabel = mode === 'time'
+        ? (() => { const mm=Math.floor(xVal/60),ss=Math.floor(xVal%60); return `${mm}:${ss.toString().padStart(2,'0')}`; })()
+        : xVal.toFixed(2)+'km';
+      let html = `<b style="color:#64748b">${xLabel}</b><br/>`;
+      seriesDefs.forEach(s => { html += `<span style="color:${s.color}">■</span> ${s.name}: <b>${s.data[idx]}</b><br/>`; });
+      tooltip.style('display','block').style('left',(mx+10)+'px').style('top','8px').html(html);
+    })
+    .on('click', function(event) {
+      const [mx] = d3.pointer(event, this);
+      const xi = mx - m.left;
+      if (xi < 0 || xi > W) return;
+      const idx = Math.max(0, Math.min(rpAligned.length-1, Math.round((xi/W)*(rpAligned.length-1))));
+      if (rpPlaying) rpStopPlay();
+      rpUpdateFrame(idx);
+    })
+    .on('mouseleave', () => { tooltip.style('display','none'); cursorLine.attr('display','none'); });
 }
-function rpToggleChart(k){
-  rpChartVis[k]=!rpChartVis[k];
-  const colorMap={gap:'gap',speed:'spd',power:'pwr',hr:'hr',elev:'el'};
-  const c=colorMap[k]||k;
-  const btn=document.getElementById(`rp-tog-${k}`);
-  btn.className=`chart-tog ct-${c}-${rpChartVis[k]?'on':'off'}`;
+
+function rpUpdateChartCursor(idx) {
+  if (!rpChart || !rpAligned.length || !_rpD3.cursorLine || !_rpD3.xScale) return;
+  const x = _rpD3.xScale(_rpD3.xData[Math.max(0,Math.min(idx,_rpD3.xData.length-1))]);
+  _rpD3.cursorLine.attr('x1', x).attr('x2', x).attr('display', null);
+}
+
+function rpToggleChart(k) {
+  rpChartVis[k] = !rpChartVis[k];
+  const colorMap = { gap:'gap', speed:'spd', power:'pwr', hr:'hr', elev:'el' };
+  const c = colorMap[k] || k;
+  const btn = document.getElementById(`rp-tog-${k}`);
+  btn.className = `chart-tog ct-${c}-${rpChartVis[k]?'on':'off'}`;
   rpRenderCharts();
 }
 
@@ -1604,7 +1972,7 @@ function rpResetBound(which) {
 
 function rpApplyBounds() {
   // Stop playback, rebuild alignment, re-render
-  if (rpPlaying) rpTogglePlay();
+  if (rpPlaying) rpStopPlay();
   rpBuildAlignment();
   rpRenderCharts();
   rpUpdateFrame(0);
@@ -1640,8 +2008,8 @@ function rpRemoveBoundsMarkers() {
 }
 
 function replayReset(){
-  if(rpPlaying)rpTogglePlay();
-  if(rpAnimFrame){cancelAnimationFrame(rpAnimFrame);rpAnimFrame=null;}
+  rpStopPlay();
+  if(rpAnimFrame){clearInterval(rpAnimFrame);rpAnimFrame=null;}
   rpRemoveBoundsMarkers();
   rpMapReady = false;
   rpBoundsPanelOpen=false;
@@ -1650,7 +2018,9 @@ function replayReset(){
   rpSA=rpSB=null; rpAligned=[]; rpCurrentT=0;
   rpBoundStartA=rpBoundEndA=rpBoundStartB=rpBoundEndB=0;
   if(rpMap){rpMap.remove();rpMap=null;}
-  if(rpChart){rpChart.dispose();rpChart=null;}
+  rpChart=null;
+  _rpD3 = { svg:null, g:null, xScale:null, yScales:{}, W:0, H:0, margin:{top:14,right:60,bottom:22,left:52}, cursorLine:null, xData:[], seriesData:{} };
+  document.getElementById('replay-multi-chart').innerHTML = '';
   rpMarkerA=rpMarkerB=null;
   document.getElementById('replay-app').style.display='none';
   document.getElementById('replay-upload').style.display='flex';
