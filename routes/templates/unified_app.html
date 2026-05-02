@@ -277,6 +277,12 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
 .ct-hr-off  { background:transparent; color:var(--muted); border-color:var(--border-hi); }
 .ct-el-on   { background:rgba(148,163,184,.1); color:var(--muted2); border-color:var(--muted2); }
 .ct-el-off  { background:transparent; color:var(--muted); border-color:var(--border-hi); }
+.ct-dspd-on  { background:rgba(59,130,246,.12); color:#3b82f6; border-color:#3b82f6; }
+.ct-dspd-off { background:transparent; color:var(--muted); border-color:var(--border-hi); }
+.ct-dpwr-on  { background:rgba(168,85,247,.12); color:#a855f7; border-color:#a855f7; }
+.ct-dpwr-off { background:transparent; color:var(--muted); border-color:var(--border-hi); }
+.ct-dhr-on   { background:rgba(251,146,60,.12); color:#fb923c; border-color:#fb923c; }
+.ct-dhr-off  { background:transparent; color:var(--muted); border-color:var(--border-hi); }
 
 #replay-multi-chart { width:100%; }
 
@@ -599,6 +605,9 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
             <button class="chart-tog ct-pwr-off" id="rp-tog-power" onclick="rpToggleChart('power')">POWER</button>
             <button class="chart-tog ct-hr-off"  id="rp-tog-hr"    onclick="rpToggleChart('hr')">HR</button>
             <button class="chart-tog ct-el-off"  id="rp-tog-elev"  onclick="rpToggleChart('elev')">ELEV</button>
+            <button class="chart-tog ct-dspd-off" id="rp-tog-dspd"  onclick="rpToggleChart('dspd')">ΔSPD</button>
+            <button class="chart-tog ct-dpwr-off" id="rp-tog-dpwr"  onclick="rpToggleChart('dpwr')">ΔPWR</button>
+            <button class="chart-tog ct-dhr-off"  id="rp-tog-dhr"   onclick="rpToggleChart('dhr')">ΔHR</button>
           </div>
           <div id="replay-multi-chart" style="height:155px;"></div>
         </div>
@@ -1190,7 +1199,7 @@ let rpMap=null,rpChart=null;
 let rpMarkerA=null,rpMarkerB=null;
 let rpAligned=[], rpMaxT=0, rpCurrentT=0, rpPlaySpeed=1, rpPlaying=false;
 let rpLastTs=null, rpIs3D=true, rpAnimFrame=null;
-let rpChartVis={gap:true,speed:false,power:false,hr:false,elev:false};
+let rpChartVis={gap:true,speed:false,power:false,hr:false,elev:false,dspd:false,dpwr:false,dhr:false};
 // Bounds: index into the raw stream arrays defining the active [start, end] window
 let rpBoundStartA=0, rpBoundEndA=0, rpBoundStartB=0, rpBoundEndB=0;
 let rpBoundsPanelOpen=false;
@@ -1795,8 +1804,8 @@ function rpRenderCharts() {
     seriesDefs.push({ key:'speedB', name:rpNameB.slice(0,10)+' spd', data: rpAligned.map(f=>+(f.speedB||0).toFixed(1)), color:'#f97316', width:1.5, axis:'right0', yKey:'speed' });
   }
   if (rpChartVis.power) {
-    seriesDefs.push({ key:'powerA', name:rpNameA.slice(0,10)+' W', data: rpAligned.map(f=>Math.round(f.powerA||0)), color:'#60a5fa', width:1.5, dash:'4,2', axis:'right1', yKey:'power' });
-    seriesDefs.push({ key:'powerB', name:rpNameB.slice(0,10)+' W', data: rpAligned.map(f=>Math.round(f.powerB||0)), color:'#fb923c', width:1.5, dash:'4,2', axis:'right1', yKey:'power' });
+    seriesDefs.push({ key:'powerA', name:rpNameA.slice(0,10)+' W', data: rpAligned.map(f=>Math.round(f.powerA||0)), color:'#60a5fa', width:1.5, axis:'right1', yKey:'power' });
+    seriesDefs.push({ key:'powerB', name:rpNameB.slice(0,10)+' W', data: rpAligned.map(f=>Math.round(f.powerB||0)), color:'#fb923c', width:1.5, axis:'right1', yKey:'power' });
   }
   if (rpChartVis.hr) {
     seriesDefs.push({ key:'hrA', name:rpNameA.slice(0,10)+' hr', data: rpAligned.map(f=>Math.round(f.hrA||0)), color:'#ef4444', width:1.5, axis:'right2', yKey:'hr' });
@@ -1804,6 +1813,15 @@ function rpRenderCharts() {
   }
   if (rpChartVis.elev) {
     seriesDefs.push({ key:'elev', name:'Alt', data: rpAligned.map(f=>Math.round(f.altA||0)), color:'#94a3b8', width:1, area:true, areaColor:'rgba(148,163,184,.08)', axis:'left2', yKey:'elev' });
+  }
+  if (rpChartVis.dspd) {
+    seriesDefs.push({ key:'dspd', name:'ΔSPD km/h', data: rpAligned.map(f=>+((f.speedA||0)-(f.speedB||0)).toFixed(2)), color:'#3b82f6', width:1.5, yKey:'dspd', axis:'right-dspd', zeroline:true });
+  }
+  if (rpChartVis.dpwr) {
+    seriesDefs.push({ key:'dpwr', name:'ΔPWR W', data: rpAligned.map(f=>Math.round((f.powerA||0)-(f.powerB||0))), color:'#a855f7', width:1.5, yKey:'dpwr', axis:'right-dpwr', zeroline:true });
+  }
+  if (rpChartVis.dhr) {
+    seriesDefs.push({ key:'dhr', name:'ΔHR bpm', data: rpAligned.map(f=>Math.round((f.hrA||0)-(f.hrB||0))), color:'#fb923c', width:1.5, yKey:'dhr', axis:'right-dhr', zeroline:true });
   }
 
   // Build Y scales (one per axis group)
@@ -1839,12 +1857,15 @@ function rpRenderCharts() {
       .call(ax => { ax.select('.domain').remove(); ax.selectAll('line').attr('stroke','#0d1420'); });
   }
 
-  // Zero line for gap
-  if (rpChartVis.gap && yScales.gap) {
-    const y0 = yScales.gap(0);
-    g.append('line').attr('x1',0).attr('x2',W).attr('y1',y0).attr('y2',y0)
-      .attr('stroke','rgba(255,255,255,.18)').attr('stroke-width',1).attr('stroke-dasharray','4,3');
-  }
+  // Zero line for gap and delta series
+  const zeroLineKeys = ['gap','dspd','dpwr','dhr'];
+  zeroLineKeys.forEach(k => {
+    if (rpChartVis[k] && yScales[k]) {
+      const y0 = yScales[k](0);
+      g.append('line').attr('x1',0).attr('x2',W).attr('y1',y0).attr('y2',y0)
+        .attr('stroke','rgba(255,255,255,.18)').attr('stroke-width',1).attr('stroke-dasharray','4,3');
+    }
+  });
 
   // Gap area gradient definition
   if (rpChartVis.gap && yScales.gap) {
@@ -1889,8 +1910,8 @@ function rpRenderCharts() {
     .call(ax => { ax.select('.domain').attr('stroke','#1a2540'); ax.selectAll('text').attr('fill','#475569').attr('font-size','8px'); ax.selectAll('line').attr('stroke','#1a2540'); });
 
   // Left axis (gap)
-  const axisColors = { gap:'#22d3ee', speed:'#22c55e', power:'#eab308', hr:'#ef4444', elev:'#94a3b8' };
-  const axisNames  = { gap:'Gap s',   speed:'km/h',    power:'W',       hr:'bpm',     elev:'m' };
+  const axisColors = { gap:'#22d3ee', speed:'#22c55e', power:'#eab308', hr:'#ef4444', elev:'#94a3b8', dspd:'#3b82f6', dpwr:'#a855f7', dhr:'#fb923c' };
+  const axisNames  = { gap:'Gap s',   speed:'km/h',    power:'W',       hr:'bpm',     elev:'m', dspd:'ΔSPD', dpwr:'ΔPWR', dhr:'ΔHR' };
 
   if (rpChartVis.gap && yScales.gap) {
     g.append('g').call(d3.axisLeft(yScales.gap).ticks(4))
@@ -1910,6 +1931,9 @@ function rpRenderCharts() {
   if (rpChartVis.speed && yScales.speed)  rightAxes.push({ yKey:'speed',  offset:0  });
   if (rpChartVis.power && yScales.power)  rightAxes.push({ yKey:'power',  offset:28 });
   if (rpChartVis.hr    && yScales.hr)     rightAxes.push({ yKey:'hr',     offset:56 });
+  if (rpChartVis.dspd  && yScales.dspd)  rightAxes.push({ yKey:'dspd',   offset:0  });
+  if (rpChartVis.dpwr  && yScales.dpwr)  rightAxes.push({ yKey:'dpwr',   offset:28 });
+  if (rpChartVis.dhr   && yScales.dhr)   rightAxes.push({ yKey:'dhr',    offset:56 });
 
   rightAxes.forEach(ra => {
     const ys = yScales[ra.yKey];
@@ -1928,13 +1952,6 @@ function rpRenderCharts() {
     row.append('text').attr('x',-5).attr('y',8).attr('fill','#475569').attr('font-size','7px').text(ser.name);
   });
 
-  // Cursor line (vertical)
-  const cursorLine = g.append('line')
-    .attr('x1',0).attr('x2',0).attr('y1',0).attr('y2',H)
-    .attr('stroke','rgba(255,255,255,.45)').attr('stroke-width',1.5)
-    .attr('display','none');
-  _rpD3.cursorLine = cursorLine;
-
   // Tooltip
   const tooltip = d3.select(container).append('div')
     .style('position','absolute').style('pointer-events','none').style('display','none')
@@ -1943,20 +1960,29 @@ function rpRenderCharts() {
     .style('font-size','10px').style('color','#e2e8f0').style('font-family','Space Mono,monospace')
     .style('line-height','1.8').style('z-index','200');
 
+  // Cursor line — declared BEFORE overlay rect so the closure captures it
+  const cursorLine = svg.append('line')
+    .attr('x1',m.left).attr('x2',m.left).attr('y1',m.top).attr('y2',m.top+H)
+    .attr('stroke','#ffffff').attr('stroke-width',1.5).attr('stroke-opacity','0.8')
+    .attr('pointer-events','none')
+    .attr('display','none');
+  _rpD3.cursorLine = cursorLine;
+  _rpD3.margin = m; _rpD3.H = H;
+
   // Interaction overlay
   svg.append('rect').attr('width',totalW).attr('height',totalH).attr('fill','none').attr('pointer-events','all')
     .on('mousemove', function(event) {
       const [mx] = d3.pointer(event, this);
       const xi = mx - m.left;
-      if (xi < 0 || xi > W) { tooltip.style('display','none'); cursorLine.attr('display','none'); return; }
+      if (xi < 0 || xi > W) { tooltip.style('display','none'); if (!rpPlaying) cursorLine.attr('display','none'); return; }
       const xVal = xScale.invert(xi);
       const idx = Math.max(0, Math.min(rpAligned.length-1, Math.round((xi/W)*(rpAligned.length-1))));
-      cursorLine.attr('x1',xi).attr('x2',xi).attr('display',null);
+      cursorLine.attr('x1', m.left+xi).attr('x2', m.left+xi).attr('display',null);
       const xLabel = mode === 'time'
         ? (() => { const mm=Math.floor(xVal/60),ss=Math.floor(xVal%60); return `${mm}:${ss.toString().padStart(2,'0')}`; })()
         : xVal.toFixed(2)+'km';
       let html = `<b style="color:#64748b">${xLabel}</b><br/>`;
-      seriesDefs.forEach(s => { html += `<span style="color:${s.color}">■</span> ${s.name}: <b>${s.data[idx]}</b><br/>`; });
+      seriesDefs.forEach(s => { html += `<span style="color:${s.color}">&#9632;</span> ${s.name}: <b>${s.data[idx]}</b><br/>`; });
       tooltip.style('display','block').style('left',(mx+10)+'px').style('top','8px').html(html);
     })
     .on('click', function(event) {
@@ -1967,18 +1993,20 @@ function rpRenderCharts() {
       if (rpPlaying) rpStopPlay();
       rpUpdateFrame(idx);
     })
-    .on('mouseleave', () => { tooltip.style('display','none'); cursorLine.attr('display','none'); });
+    .on('mouseleave', () => { tooltip.style('display','none'); if (!rpPlaying) cursorLine.attr('display','none'); });
 }
 
 function rpUpdateChartCursor(idx) {
   if (!rpChart || !rpAligned.length || !_rpD3.cursorLine || !_rpD3.xScale) return;
   const x = _rpD3.xScale(_rpD3.xData[Math.max(0,Math.min(idx,_rpD3.xData.length-1))]);
-  _rpD3.cursorLine.attr('x1', x).attr('x2', x).attr('display', null);
+  const m = _rpD3.margin;
+  const ax = m.left + x;
+  _rpD3.cursorLine.attr('x1', ax).attr('x2', ax).attr('y1', m.top).attr('y2', m.top + _rpD3.H).attr('display', null);
 }
 
 function rpToggleChart(k) {
   rpChartVis[k] = !rpChartVis[k];
-  const colorMap = { gap:'gap', speed:'spd', power:'pwr', hr:'hr', elev:'el' };
+  const colorMap = { gap:'gap', speed:'spd', power:'pwr', hr:'hr', elev:'el', dspd:'dspd', dpwr:'dpwr', dhr:'dhr' };
   const c = colorMap[k] || k;
   const btn = document.getElementById(`rp-tog-${k}`);
   btn.className = `chart-tog ct-${c}-${rpChartVis[k]?'on':'off'}`;
@@ -2106,8 +2134,8 @@ function replayReset(){
   document.getElementById('rp-file-a').value='';
   document.getElementById('rp-file-b').value='';
   document.getElementById('rp-btn-go').disabled=true;
-  rpChartVis={gap:true,speed:false,power:false,hr:false,elev:false};
-  ['gap','speed','power','hr','elev'].forEach(k=>{
+  rpChartVis={gap:true,speed:false,power:false,hr:false,elev:false,dspd:false,dpwr:false,dhr:false};
+  ['gap','speed','power','hr','elev','dspd','dpwr','dhr'].forEach(k=>{
     const colorMap={gap:'gap',speed:'spd',power:'pwr',hr:'hr',elev:'el'};
     const c=colorMap[k];
     document.getElementById(`rp-tog-${k}`).className=`chart-tog ct-${c}-${rpChartVis[k]?'on':'off'}`;
