@@ -1675,9 +1675,10 @@ function rpUpdateFrame(idx){
   document.getElementById('ov-hrd').style.color = (hA > 0 && hB > 0) ? hd.color : 'var(--muted2)';
 
   // Slider + time label
+  const _mode = document.getElementById('rp-align').value;
   document.getElementById('replay-slider').value = frameIdx;
-  const tL = mode === 'time' ? fmtTime(fr.t) : (fr.distA/1000).toFixed(2) + 'km';
-  const tT = mode === 'time' ? fmtTime(rpMaxT) : ((rpAligned[rpAligned.length-1]?.distA||0)/1000).toFixed(2) + 'km';
+  const tL = _mode === 'time' ? fmtTime(fr.t) : (fr.distA/1000).toFixed(2) + 'km';
+  const tT = _mode === 'time' ? fmtTime(rpMaxT) : ((rpAligned[rpAligned.length-1]?.distA||0)/1000).toFixed(2) + 'km';
   document.getElementById('replay-pb-time').textContent = `${tL} / ${tT}`;
 
   rpUpdateChartCursor(frameIdx);
@@ -1965,7 +1966,7 @@ function rpRenderCharts() {
     .attr('x1',m.left).attr('x2',m.left).attr('y1',m.top).attr('y2',m.top+H)
     .attr('stroke','#ffffff').attr('stroke-width',1.5).attr('stroke-opacity','0.8')
     .attr('pointer-events','none')
-    .attr('display','none');
+    .attr('visibility','hidden');
   _rpD3.cursorLine = cursorLine;
   _rpD3.margin = m; _rpD3.H = H;
 
@@ -1974,10 +1975,10 @@ function rpRenderCharts() {
     .on('mousemove', function(event) {
       const [mx] = d3.pointer(event, this);
       const xi = mx - m.left;
-      if (xi < 0 || xi > W) { tooltip.style('display','none'); if (!rpPlaying) cursorLine.attr('display','none'); return; }
+      if (xi < 0 || xi > W) { tooltip.style('display','none'); cursorLine.attr('visibility','hidden'); return; }
       const xVal = xScale.invert(xi);
       const idx = Math.max(0, Math.min(rpAligned.length-1, Math.round((xi/W)*(rpAligned.length-1))));
-      cursorLine.attr('x1', m.left+xi).attr('x2', m.left+xi).attr('display',null);
+      cursorLine.attr('x1', m.left+xi).attr('x2', m.left+xi).attr('visibility','visible');
       const xLabel = mode === 'time'
         ? (() => { const mm=Math.floor(xVal/60),ss=Math.floor(xVal%60); return `${mm}:${ss.toString().padStart(2,'0')}`; })()
         : xVal.toFixed(2)+'km';
@@ -1993,7 +1994,7 @@ function rpRenderCharts() {
       if (rpPlaying) rpStopPlay();
       rpUpdateFrame(idx);
     })
-    .on('mouseleave', () => { tooltip.style('display','none'); if (!rpPlaying) cursorLine.attr('display','none'); });
+    .on('mouseleave', () => { tooltip.style('display','none'); cursorLine.attr('visibility','hidden'); });
 }
 
 function rpUpdateChartCursor(idx) {
@@ -2001,7 +2002,7 @@ function rpUpdateChartCursor(idx) {
   const x = _rpD3.xScale(_rpD3.xData[Math.max(0,Math.min(idx,_rpD3.xData.length-1))]);
   const m = _rpD3.margin;
   const ax = m.left + x;
-  _rpD3.cursorLine.attr('x1', ax).attr('x2', ax).attr('y1', m.top).attr('y2', m.top + _rpD3.H).attr('display', null);
+  _rpD3.cursorLine.attr('x1', ax).attr('x2', ax).attr('y1', m.top).attr('y2', m.top + _rpD3.H).attr('visibility','visible');
 }
 
 function rpToggleChart(k) {
