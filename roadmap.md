@@ -1,1 +1,1 @@
-- aggiungere smoothing 3s e 5s?
+width:2.5

@@ -369,17 +369,17 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
       <h1>⚡ FIT TOOLS</h1>
     </div>
     <div class="tab-nav">
-      <button class="tab-btn active-comp" id="tab-comp" onclick="switchTab('comp')">
-        <div class="tab-dot" style="background:var(--a)"></div>⚔️ COMPARISON
-      </button>
-      <button class="tab-btn" id="tab-replay" onclick="switchTab('replay')">
+      <button class="tab-btn active-replay" id="tab-replay" onclick="switchTab('replay')">
         <div class="tab-dot" style="background:var(--b)"></div>🏁 RACE REPLAY
+      </button>
+      <button class="tab-btn" id="tab-comp" onclick="switchTab('comp')">
+        <div class="tab-dot" style="background:var(--a)"></div>⚔️ COMPARISON
       </button>
     </div>
   </div>
 
   <!-- ════════════════ COMPARISON VIEW ════════════════ -->
-  <div id="view-comparison" class="active">
+  <div id="view-comparison">
 
     <!-- Upload -->
     <div id="comp-upload" class="upload-panel">
@@ -480,7 +480,7 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
   </div>
 
   <!-- ════════════════ RACE REPLAY VIEW ════════════════ -->
-  <div id="view-replay">
+  <div id="view-replay" class="active">
 
     <!-- Upload -->
     <div id="replay-upload" class="upload-panel">
@@ -763,7 +763,51 @@ let sharedNameA = '', sharedNameB = '';
 // ═══════════════════════════════════════════════════════════════
 // TAB SWITCHING
 // ═══════════════════════════════════════════════════════════════
-let activeTab = 'comp';
+let activeTab = 'replay';
+// Auto-init Replay from shared streams (called when Comparison loads files)
+function rpAutoInitFromShared() {
+  if (!sharedStreamA || !sharedStreamB) return;
+  rpSA = sharedStreamA; rpSB = sharedStreamB;
+  rpSA._rawPower = rpSA.power ? rpSA.power.slice() : [];
+  rpSB._rawPower = rpSB.power ? rpSB.power.slice() : [];
+  rpSA._rawSpeed = rpSA.speed ? rpSA.speed.slice() : null;
+  rpSB._rawSpeed = rpSB.speed ? rpSB.speed.slice() : null;
+  rpNameA = sharedNameA || 'A';
+  rpNameB = sharedNameB || 'B';
+  ['rp-lbl-a','rp-leg-a'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=rpNameA.slice(0,16); });
+  ['rp-lbl-b','rp-leg-b'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=rpNameB.slice(0,16); });
+  rpBoundStartA=0; rpBoundEndA=rpSA.lat.length-1;
+  rpBoundStartB=0; rpBoundEndB=rpSB.lat.length-1;
+  rpUpdateBoundsPanelUI();
+  document.getElementById('replay-upload').style.display='none';
+  document.getElementById('replay-app').style.display='flex';
+  rpApplySmoothing();
+  rpBuildAlignment();
+  rpInitChart();
+  rpRenderCharts();
+  rpSetSpeed(1);
+  setTimeout(() => {
+    if (!rpMap) rpInitMap();
+    else { rpMap.resize(); rpUpdateFrame(0); }
+  }, 80);
+}
+
+// Auto-init Comparison from shared streams (called when Replay loads files)
+function compAutoInitFromShared(streamA, streamB, nameA, nameB) {
+  if (!streamA || !streamB) return;
+  compStreamA = streamA; compStreamB = streamB;
+  compNameA = nameA || 'A'; compNameB = nameB || 'B';
+  ['comp-lbl-a','comp-leg-a'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=compNameA.slice(0,16); });
+  ['comp-lbl-b','comp-leg-b'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=compNameB.slice(0,16); });
+  document.getElementById('comp-upload').style.display='none';
+  document.getElementById('comp-app').style.display='flex';
+  if (!compMap) {
+    // Map not yet initialized — will init when user switches to Comparison tab
+    // Store a flag so switchTab triggers it
+    window._compPendingInit = true;
+  }
+}
+
 function switchTab(tab) {
   document.getElementById('view-comparison').classList.toggle('active', tab === 'comp');
   document.getElementById('view-replay').classList.toggle('active', tab === 'replay');
@@ -772,7 +816,12 @@ function switchTab(tab) {
   activeTab = tab;
   // After display:flex kicks in, resize everything so maps/charts get proper dimensions
   setTimeout(() => {
-    if (tab === 'comp' && compElevChart) compResizeChart();
+    if (tab === 'comp') {
+      if (window._compPendingInit && compStreamA && compStreamB) {
+        window._compPendingInit = false;
+        compInitMap();
+      } else if (compElevChart) compResizeChart();
+    }
     if (tab === 'replay') {
       rpUpdateSharedBadge();
       if (rpChart) rpResizeChart();
@@ -836,12 +885,13 @@ async function compStart() {
     // Share globally so Race Replay can reuse without re-uploading
     sharedStreamA = d.stream_a; sharedStreamB = d.stream_b;
     sharedNameA = compNameA; sharedNameB = compNameB;
-    rpUpdateSharedBadge();
     ['comp-lbl-a','comp-leg-a'].forEach(id => document.getElementById(id).textContent = compNameA.slice(0,16));
     ['comp-lbl-b','comp-leg-b'].forEach(id => document.getElementById(id).textContent = compNameB.slice(0,16));
     document.getElementById('comp-upload').style.display = 'none';
     document.getElementById('comp-app').style.display = 'flex';
     compInitMap();
+    // Auto-init Race Replay with same files
+    rpAutoInitFromShared();
     hideLoading();
   } catch(e) { hideLoading(); alert('Errore: '+e.message); }
 }
@@ -1380,6 +1430,8 @@ async function replayStart() {
     sharedNameA=rpNameA; sharedNameB=rpNameB;
     ['rp-lbl-a','rp-leg-a'].forEach(id=>document.getElementById(id).textContent=rpNameA.slice(0,16));
     ['rp-lbl-b','rp-leg-b'].forEach(id=>document.getElementById(id).textContent=rpNameB.slice(0,16));
+    // Auto-init Comparison with same files
+    compAutoInitFromShared(d.stream_a, d.stream_b, rpNameA, rpNameB);
     rpBoundStartA=0; rpBoundEndA=rpSA.lat.length-1;
     rpBoundStartB=0; rpBoundEndB=rpSB.lat.length-1;
     rpUpdateBoundsPanelUI();
