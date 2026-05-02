@@ -602,12 +602,12 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
             <span style="font-size:.64rem;color:var(--muted);font-family:var(--font-mono);margin-right:4px;">GRAFICI:</span>
             <button class="chart-tog ct-gap-on"  id="rp-tog-gap"   onclick="rpToggleChart('gap')">GAP</button>
             <button class="chart-tog ct-spd-off" id="rp-tog-speed" onclick="rpToggleChart('speed')">SPEED</button>
-            <button class="chart-tog ct-pwr-off" id="rp-tog-power" onclick="rpToggleChart('power')">POWER</button>
-            <button class="chart-tog ct-hr-off"  id="rp-tog-hr"    onclick="rpToggleChart('hr')">HR</button>
-            <button class="chart-tog ct-el-off"  id="rp-tog-elev"  onclick="rpToggleChart('elev')">ELEV</button>
             <button class="chart-tog ct-dspd-off" id="rp-tog-dspd"  onclick="rpToggleChart('dspd')">ΔSPD</button>
+            <button class="chart-tog ct-pwr-off" id="rp-tog-power" onclick="rpToggleChart('power')">POWER</button>
             <button class="chart-tog ct-dpwr-off" id="rp-tog-dpwr"  onclick="rpToggleChart('dpwr')">ΔPWR</button>
+            <button class="chart-tog ct-hr-off"  id="rp-tog-hr"    onclick="rpToggleChart('hr')">HR</button>
             <button class="chart-tog ct-dhr-off"  id="rp-tog-dhr"   onclick="rpToggleChart('dhr')">ΔHR</button>
+            <button class="chart-tog ct-el-off"  id="rp-tog-elev"  onclick="rpToggleChart('elev')">ELEV</button>
           </div>
           <div id="replay-multi-chart" style="height:155px;"></div>
         </div>
@@ -1878,9 +1878,52 @@ function rpRenderCharts() {
   }
 
   // Draw series
+  const deltaSeries = new Set(['dspd','dpwr','dhr']);
   seriesDefs.forEach(ser => {
     const ys = yScales[ser.yKey];
     if (!ys) return;
+
+    // Delta series: two-color rendering (blue = A>B positive, orange = B>A negative)
+    if (deltaSeries.has(ser.key)) {
+      const y0 = ys(0);
+      const colorPos = '#3b82f6'; // blue — A leads
+      const colorNeg = '#f97316'; // orange — B leads
+
+      // Clip rects for positive (A>B, blue) and negative (B>A, orange) zones
+      // Each clipPath includes x-bounds [0,W] so no need for a second clip
+      const clipIdPos = `rp-clip-${ser.key}-pos`;
+      const clipIdNeg = `rp-clip-${ser.key}-neg`;
+      const defs = svg.select('defs');
+      defs.append('clipPath').attr('id', clipIdPos)
+        .append('rect').attr('x',0).attr('y',0).attr('width',W).attr('height', Math.max(0, y0));
+      defs.append('clipPath').attr('id', clipIdNeg)
+        .append('rect').attr('x',0).attr('y', Math.max(0, y0)).attr('width',W).attr('height', Math.max(0, H - y0));
+
+      const areaGen = d3.area()
+        .x((d,i) => xScale(xData[i]))
+        .y0(y0).y1(d => ys(d))
+        .curve(d3.curveCatmullRom.alpha(0.5));
+      const lineGen2 = d3.line()
+        .x((d,i) => xScale(xData[i]))
+        .y(d => ys(d))
+        .curve(d3.curveCatmullRom.alpha(0.5));
+
+      // Positive zone: A>B (value > 0) → blue, above zero line
+      g.append('path').datum(ser.data).attr('clip-path',`url(#${clipIdPos})`)
+        .attr('fill', 'rgba(59,130,246,.15)').attr('d', areaGen);
+      g.append('path').datum(ser.data).attr('clip-path',`url(#${clipIdPos})`)
+        .attr('fill','none').attr('stroke', colorPos)
+        .attr('stroke-width', ser.width || 1.5).attr('d', lineGen2);
+
+      // Negative zone: B>A (value < 0) → orange, below zero line
+      g.append('path').datum(ser.data).attr('clip-path',`url(#${clipIdNeg})`)
+        .attr('fill', 'rgba(249,115,22,.15)').attr('d', areaGen);
+      g.append('path').datum(ser.data).attr('clip-path',`url(#${clipIdNeg})`)
+        .attr('fill','none').attr('stroke', colorNeg)
+        .attr('stroke-width', ser.width || 1.5).attr('d', lineGen2);
+      return;
+    }
+
     const lineGen = d3.line()
       .x((d,i) => xScale(xData[i]))
       .y(d => ys(d))
