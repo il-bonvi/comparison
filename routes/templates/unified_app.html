@@ -1635,8 +1635,11 @@ function rpBuildChartFrames(gAlign) {
 
   if (!sA_t.length || !sB_t.length) return [];
 
-  // Normalizza distanze a partire da 0
+  // Normalizza tempi e distanze a partire da 0
+  const t0A = sA_t[0], t0B = sB_t[0];
   const d0A = sA_d[0], d0B = sB_d[0];
+  const tA = sA_t.map(t => t - t0A);
+  const tB = sB_t.map(t => t - t0B);
   const dA = sA_d.map(d => d - d0A);
   const dB = sB_d.map(d => d - d0B);
 
@@ -1660,7 +1663,7 @@ function rpBuildChartFrames(gAlign) {
           t: sA_t[iA_local],
           iA: iA,
           iB: iB,
-          gap: sA_t[iA_local] - sB_t[iB_local],
+          gap: tA[iA_local] - tB[iB_local],
           distA: distA_m,
           distB: dB[iB_local],
           speedA: rpSA.speed ? rpSA.speed[iA]||0 : 0,
@@ -1693,7 +1696,7 @@ function rpBuildChartFrames(gAlign) {
           t: sA_t[iA_local],
           iA: iA,
           iB: iB,
-          gap: sA_t[iA_local] - sB_t[iB_local],
+          gap: tA[iA_local] - tB[iB_local],
           distA: dA[iA_local],
           distB: dB[iB_local],
           speedA: rpSA.speed ? rpSA.speed[iA]||0 : 0,
@@ -1724,7 +1727,7 @@ function rpBuildChartFrames(gAlign) {
           t: sB_t[iB_local],
           iA: iA,
           iB: iB,
-          gap: sA_t[iA_local] - sB_t[iB_local],
+          gap: tA[iA_local] - tB[iB_local],
           distA: dA[iA_local],
           distB: distB_m,
           speedA: rpSA.speed ? rpSA.speed[iA]||0 : 0,
@@ -1757,7 +1760,7 @@ function rpBuildChartFrames(gAlign) {
           t: sB_t[iB_local],
           iA: iA,
           iB: iB,
-          gap: sA_t[iA_local] - sB_t[iB_local],
+          gap: tA[iA_local] - tB[iB_local],
           distA: dA[iA_local],
           distB: dB[iB_local],
           speedA: rpSA.speed ? rpSA.speed[iA]||0 : 0,
@@ -1920,8 +1923,27 @@ function rpUpdateFrame(idx){
     } catch(e) { /* map sources not ready yet, skip */ }
   }
 
+  const gAlign = (document.getElementById('rp-graph-align')||{value:'distA'}).value;
+  const distA0 = (rpSA && rpSA.distance_m && rpSA.distance_m[rpBoundStartA]) ? rpSA.distance_m[rpBoundStartA] : 0;
+  const distB0 = (rpSB && rpSB.distance_m && rpSB.distance_m[rpBoundStartB]) ? rpSB.distance_m[rpBoundStartB] : 0;
+  const chartX = gAlign === 'distA'
+    ? (fr.distA - distA0) / 1000
+    : gAlign === 'distB'
+      ? (fr.distB - distB0) / 1000
+      : fr.t;
+
   // Stats overlay — always update regardless of map state
-  const g = fr.gap;
+  let g = lerp(fr0.gap, fr1.gap, t);
+  if (gAlign !== 'time' && Array.isArray(rpChartFrames) && rpChartFrames.length) {
+    let best = rpChartFrames[0];
+    let bestDist = Infinity;
+    for (const f of rpChartFrames) {
+      const fx = gAlign === 'distA' ? f.distA / 1000 : f.distB / 1000;
+      const d = Math.abs(fx - chartX);
+      if (d < bestDist) { bestDist = d; best = f; }
+    }
+    if (best && typeof best.gap === 'number') g = best.gap;
+  }
   const gc = g >= 0 ? 'var(--gap-neg)' : 'var(--gap-pos)';
   const gs = (g >= 0 ? '+' : '') + g.toFixed(1) + 's';
 
@@ -2018,19 +2040,18 @@ function rpUpdateFrame(idx){
   document.getElementById('ov-hrd').style.color = (hA > 0 && hB > 0) ? hd.color : 'var(--muted2)';
 
   // Slider + time label
-  const _gAlign = (document.getElementById('rp-graph-align')||{value:'distA'}).value;
   document.getElementById('replay-slider').value = frameIdx;
   let tL, tT;
-  if (_gAlign === 'distA') {
+  if (gAlign === 'distA') {
     tL = (fr.distA/1000).toFixed(2)+'km'; tT = ((rpAligned[rpAligned.length-1]?.distA||0)/1000).toFixed(2)+'km';
-  } else if (_gAlign === 'distB') {
+  } else if (gAlign === 'distB') {
     tL = (fr.distB/1000).toFixed(2)+'km'; tT = ((rpAligned[rpAligned.length-1]?.distB||0)/1000).toFixed(2)+'km';
   } else {
     tL = fmtTime(fr.t); tT = fmtTime(rpMaxT);
   }
   document.getElementById('replay-pb-time').textContent = `${tL} / ${tT}`;
 
-  rpUpdateChartCursor(frameIdx);
+  rpUpdateChartCursor(chartX);
 }
 
 // Playback
@@ -2121,6 +2142,9 @@ function rpInitChart() {
     rpResizeChart();
   });
   document.addEventListener('mouseup', () => { drag=false; });
+  
+  // Inizializza gli stili dei bottoni dei grafici
+  rpUpdateChartToggleButtons();
 }
 
 function rpRenderCharts() {
@@ -2463,12 +2487,26 @@ function rpRenderCharts() {
     .on('mouseleave', () => { tooltip.style('display','none'); cursorLine.attr('visibility','hidden'); });
 }
 
-function rpUpdateChartCursor(idx) {
-  if (!rpChart || !rpAligned.length || !_rpD3.cursorLine || !_rpD3.xScale) return;
-  const x = _rpD3.xScale(_rpD3.xData[Math.max(0,Math.min(idx,_rpD3.xData.length-1))]);
+function rpUpdateChartCursor(xVal) {
+  if (!rpChart || !_rpD3.cursorLine || !_rpD3.xScale) return;
+  if (typeof xVal !== 'number' || !isFinite(xVal)) return;
+  const domain = _rpD3.xScale.domain();
+  const clamped = Math.max(domain[0], Math.min(domain[1], xVal));
+  const x = _rpD3.xScale(clamped);
   const m = _rpD3.margin;
   const ax = m.left + x;
   _rpD3.cursorLine.attr('x1', ax).attr('x2', ax).attr('y1', m.top).attr('y2', m.top + _rpD3.H).attr('visibility','visible');
+}
+
+// Aggiorna gli stili CSS dei bottoni di toggle dei grafici in base a rpChartVis
+function rpUpdateChartToggleButtons() {
+  const colorMap = { gap:'gap', speed:'spd', speedavg:'spda', dspdavg:'dspda', power:'pwr', poweravg:'pwra', dpwravg:'dpwra', hr:'hr', elev:'el', dspd:'dspd', dpwr:'dpwr', dhr:'dhr' };
+  for (const [k, c] of Object.entries(colorMap)) {
+    const btn = document.getElementById(`rp-tog-${k}`);
+    if (btn) {
+      btn.className = `chart-tog ct-${c}-${rpChartVis[k]?'on':'off'}`;
+    }
+  }
 }
 
 function rpToggleChart(k) {
