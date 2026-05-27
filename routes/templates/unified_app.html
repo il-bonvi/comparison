@@ -530,9 +530,9 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
         <span style="font-size:.72rem;color:var(--muted2);font-family:var(--font-mono);">Tempo</span>
         <label style="margin-left:10px;">Grafici:</label>
         <select id="rp-graph-align" onchange="rpOnGraphAlignChange()">
+          <option value="distA" selected>Dist. 🔵</option>
+          <option value="distB">Dist. 🟠</option>
           <option value="time">Tempo</option>
-          <option value="distA">Dist. Blu</option>
-          <option value="distB">Dist. Arancio</option>
         </select>
         <label style="margin-left:8px;">Mappa:</label>
         <select id="rp-style" onchange="replayChangeStyle(this.value)">
@@ -1342,7 +1342,7 @@ function compReset() {
 let rpSA=null,rpSB=null,rpNameA='A',rpNameB='B';
 let rpMap=null,rpChart=null;
 let rpMarkerA=null,rpMarkerB=null;
-let rpAligned=[], rpMaxT=0, rpCurrentT=0, rpPlaySpeed=1, rpPlaying=false;
+let rpAligned=[], rpChartFrames=[], rpMaxT=0, rpCurrentT=0, rpPlaySpeed=1, rpPlaying=false;
 let rpLastTs=null, rpIs3D=true, rpAnimFrame=null;
 let rpChartVis={gap:true,speed:false,speedavg:false,dspdavg:false,power:false,poweravg:false,dpwravg:false,hr:false,elev:false,dspd:false,dpwr:false,dhr:false};
 // Bounds: index into the raw stream arrays defining the active [start, end] window
@@ -1617,6 +1617,167 @@ function rpBuildAlignment(){
   document.getElementById('replay-status').textContent =
     `${rpAligned.length} frame • ${fmtTime(rpMaxT)}`;
 }
+
+// ── BUILD CHART FRAMES (separate data for graphing with proper distance-based sampling) ──
+function rpBuildChartFrames(gAlign) {
+  // Modalità tempo: usa rpAligned direttamente
+  if (gAlign === 'time') {
+    return rpAligned;
+  }
+
+  if (!rpSA || !rpSB) return [];
+
+  // Windowed slices (rispetta i bound)
+  const sA_t  = rpSA.time_sec.slice(rpBoundStartA, rpBoundEndA+1);
+  const sA_d  = rpSA.distance_m.slice(rpBoundStartA, rpBoundEndA+1);
+  const sB_t  = rpSB.time_sec.slice(rpBoundStartB, rpBoundEndB+1);
+  const sB_d  = rpSB.distance_m.slice(rpBoundStartB, rpBoundEndB+1);
+
+  if (!sA_t.length || !sB_t.length) return [];
+
+  // Normalizza distanze a partire da 0
+  const d0A = sA_d[0], d0B = sB_d[0];
+  const dA = sA_d.map(d => d - d0A);
+  const dB = sB_d.map(d => d - d0B);
+
+  const frames = [];
+  
+  // Determina se stiamo visualizzando raw data (non campionato) o smooth data (campionato)
+  const showRawData = rpChartVis.speed || rpChartVis.power;
+
+  if (gAlign === 'distA') {
+    if (showRawData) {
+      // Raw data: includi TUTTI i punti di A senza campionamento
+      for (let iA_local = 0; iA_local < dA.length; iA_local++) {
+        const iA = iA_local + rpBoundStartA;
+        const distA_m = dA[iA_local];
+        
+        // Indice in B alla stessa distanza
+        const iB_local = rpNearestByVal(dB, Math.min(distA_m, dB[dB.length-1]));
+        const iB = iB_local + rpBoundStartB;
+        
+        frames.push({
+          t: sA_t[iA_local],
+          iA: iA,
+          iB: iB,
+          gap: sA_t[iA_local] - sB_t[iB_local],
+          distA: distA_m,
+          distB: dB[iB_local],
+          speedA: rpSA.speed ? rpSA.speed[iA]||0 : 0,
+          speedB: rpSB.speed ? rpSB.speed[iB]||0 : 0,
+          powerA: rpSA.power[iA]||0,
+          powerB: rpSB.power[iB]||0,
+          rawSpeedA: rpSA._rawSpeed ? rpSA._rawSpeed[iA]||0 : (rpSA.speed ? rpSA.speed[iA]||0 : 0),
+          rawSpeedB: rpSB._rawSpeed ? rpSB._rawSpeed[iB]||0 : (rpSB.speed ? rpSB.speed[iB]||0 : 0),
+          rawPowerA: rpSA._rawPower ? rpSA._rawPower[iA]||0 : rpSA.power[iA]||0,
+          rawPowerB: rpSB._rawPower ? rpSB._rawPower[iB]||0 : rpSB.power[iB]||0,
+          hrA: rpSA.hr[iA]||0, hrB: rpSB.hr[iB]||0,
+          altA: rpSA.alt[iA]||0, altB: rpSB.alt[iB]||0,
+        });
+      }
+    } else {
+      // Smooth data: campiona uniformemente sulla distanza di A
+      const maxDistA = dA[dA.length-1];
+      const interval = Math.max(50, Math.ceil(maxDistA / 200)); // ~200 punti o 50m minimo
+      
+      for (let distM = 0; distM <= maxDistA; distM += interval) {
+        // Indice in A a questa distanza
+        const iA_local = rpNearestByVal(dA, distM);
+        const iA = iA_local + rpBoundStartA;
+        
+        // Indice in B alla stessa distanza
+        const iB_local = rpNearestByVal(dB, Math.min(distM, dB[dB.length-1]));
+        const iB = iB_local + rpBoundStartB;
+        
+        frames.push({
+          t: sA_t[iA_local],
+          iA: iA,
+          iB: iB,
+          gap: sA_t[iA_local] - sB_t[iB_local],
+          distA: dA[iA_local],
+          distB: dB[iB_local],
+          speedA: rpSA.speed ? rpSA.speed[iA]||0 : 0,
+          speedB: rpSB.speed ? rpSB.speed[iB]||0 : 0,
+          powerA: rpSA.power[iA]||0,
+          powerB: rpSB.power[iB]||0,
+          rawSpeedA: rpSA._rawSpeed ? rpSA._rawSpeed[iA]||0 : (rpSA.speed ? rpSA.speed[iA]||0 : 0),
+          rawSpeedB: rpSB._rawSpeed ? rpSB._rawSpeed[iB]||0 : (rpSB.speed ? rpSB.speed[iB]||0 : 0),
+          rawPowerA: rpSA._rawPower ? rpSA._rawPower[iA]||0 : rpSA.power[iA]||0,
+          rawPowerB: rpSB._rawPower ? rpSB._rawPower[iB]||0 : rpSB.power[iB]||0,
+          hrA: rpSA.hr[iA]||0, hrB: rpSB.hr[iB]||0,
+          altA: rpSA.alt[iA]||0, altB: rpSB.alt[iB]||0,
+        });
+      }
+    }
+  } else if (gAlign === 'distB') {
+    if (showRawData) {
+      // Raw data: includi TUTTI i punti di B senza campionamento
+      for (let iB_local = 0; iB_local < dB.length; iB_local++) {
+        const iB = iB_local + rpBoundStartB;
+        const distB_m = dB[iB_local];
+        
+        // Indice in A alla stessa distanza
+        const iA_local = rpNearestByVal(dA, Math.min(distB_m, dA[dA.length-1]));
+        const iA = iA_local + rpBoundStartA;
+        
+        frames.push({
+          t: sB_t[iB_local],
+          iA: iA,
+          iB: iB,
+          gap: sA_t[iA_local] - sB_t[iB_local],
+          distA: dA[iA_local],
+          distB: distB_m,
+          speedA: rpSA.speed ? rpSA.speed[iA]||0 : 0,
+          speedB: rpSB.speed ? rpSB.speed[iB]||0 : 0,
+          powerA: rpSA.power[iA]||0,
+          powerB: rpSB.power[iB]||0,
+          rawSpeedA: rpSA._rawSpeed ? rpSA._rawSpeed[iA]||0 : (rpSA.speed ? rpSA.speed[iA]||0 : 0),
+          rawSpeedB: rpSB._rawSpeed ? rpSB._rawSpeed[iB]||0 : (rpSB.speed ? rpSB.speed[iB]||0 : 0),
+          rawPowerA: rpSA._rawPower ? rpSA._rawPower[iA]||0 : rpSA.power[iA]||0,
+          rawPowerB: rpSB._rawPower ? rpSB._rawPower[iB]||0 : rpSB.power[iB]||0,
+          hrA: rpSA.hr[iA]||0, hrB: rpSB.hr[iB]||0,
+          altA: rpSA.alt[iA]||0, altB: rpSB.alt[iB]||0,
+        });
+      }
+    } else {
+      // Smooth data: campiona uniformemente sulla distanza di B
+      const maxDistB = dB[dB.length-1];
+      const interval = Math.max(50, Math.ceil(maxDistB / 200));
+      
+      for (let distM = 0; distM <= maxDistB; distM += interval) {
+        // Indice in B a questa distanza
+        const iB_local = rpNearestByVal(dB, distM);
+        const iB = iB_local + rpBoundStartB;
+        
+        // Indice in A alla stessa distanza
+        const iA_local = rpNearestByVal(dA, Math.min(distM, dA[dA.length-1]));
+        const iA = iA_local + rpBoundStartA;
+        
+        frames.push({
+          t: sB_t[iB_local],
+          iA: iA,
+          iB: iB,
+          gap: sA_t[iA_local] - sB_t[iB_local],
+          distA: dA[iA_local],
+          distB: dB[iB_local],
+          speedA: rpSA.speed ? rpSA.speed[iA]||0 : 0,
+          speedB: rpSB.speed ? rpSB.speed[iB]||0 : 0,
+          powerA: rpSA.power[iA]||0,
+          powerB: rpSB.power[iB]||0,
+          rawSpeedA: rpSA._rawSpeed ? rpSA._rawSpeed[iA]||0 : (rpSA.speed ? rpSA.speed[iA]||0 : 0),
+          rawSpeedB: rpSB._rawSpeed ? rpSB._rawSpeed[iB]||0 : (rpSB.speed ? rpSB.speed[iB]||0 : 0),
+          rawPowerA: rpSA._rawPower ? rpSA._rawPower[iA]||0 : rpSA.power[iA]||0,
+          rawPowerB: rpSB._rawPower ? rpSB._rawPower[iB]||0 : rpSB.power[iB]||0,
+          hrA: rpSA.hr[iA]||0, hrB: rpSB.hr[iB]||0,
+          altA: rpSA.alt[iA]||0, altB: rpSB.alt[iB]||0,
+        });
+      }
+    }
+  }
+
+  return frames;
+}
+
 function rpOnAlignChange(){ rpBuildAlignment(); rpRenderCharts(); rpUpdateFrame(0); }
 function rpOnGraphAlignChange(){ rpRenderCharts(); rpUpdateFrame(rpCurrentT); }
 
@@ -1857,7 +2018,7 @@ function rpUpdateFrame(idx){
   document.getElementById('ov-hrd').style.color = (hA > 0 && hB > 0) ? hd.color : 'var(--muted2)';
 
   // Slider + time label
-  const _gAlign = (document.getElementById('rp-graph-align')||{value:'time'}).value;
+  const _gAlign = (document.getElementById('rp-graph-align')||{value:'distA'}).value;
   document.getElementById('replay-slider').value = frameIdx;
   let tL, tT;
   if (_gAlign === 'distA') {
@@ -1969,7 +2130,13 @@ function rpRenderCharts() {
   container.innerHTML = '';
   container.style.position = 'relative';
 
-  const gAlign = (document.getElementById('rp-graph-align')||{value:'time'}).value; // time | distA | distB
+  const gAlign = (document.getElementById('rp-graph-align')||{value:'distA'}).value; // time | distA | distB
+  
+  // Costruisci i frame specifici per il grafico con allineamento corrente
+  const chartFrames = rpBuildChartFrames(gAlign);
+  rpChartFrames = chartFrames; // Memorizza globalmente per il mousemove/click
+  if (!chartFrames.length) return;
+  
   const totalW = container.clientWidth || 700;
   const totalH = container.clientHeight || 160;
   const m = _rpD3.margin;
@@ -1979,80 +2146,75 @@ function rpRenderCharts() {
 
   // X axis data — depends on graph alignment
   let xData;
-  if (gAlign === 'distA') xData = rpAligned.map(f => f.distA/1000);
-  else if (gAlign === 'distB') xData = rpAligned.map(f => f.distB/1000);
-  else xData = rpAligned.map(f => f.t);
+  if (gAlign === 'distA') xData = chartFrames.map(f => f.distA/1000);
+  else if (gAlign === 'distB') xData = chartFrames.map(f => f.distB/1000);
+  else xData = chartFrames.map(f => f.t);
   _rpD3.xData = xData;
   _rpD3.gAlign = gAlign;
   const xScale = d3.scaleLinear().domain([xData[0], xData[xData.length-1]]).range([0, W]);
   _rpD3.xScale = xScale;
 
-  // Helper: pick correct field suffix based on graph alignment
-  // distA → _dA suffix (B re-indexed at same dist as A), distB → _dB, time → no suffix
-  const fA = (f, key) => gAlign==='distA' ? (f[key+'_dA']||f[key]||0) : gAlign==='distB' ? (f[key+'_dB']||f[key]||0) : (f[key]||0);
-  const fB = (f, key) => gAlign==='distA' ? (f[key+'B_dA']||f['speedB']!==undefined ? f[key.replace('A','B')+'_dA']||0 : 0) : gAlign==='distB' ? (f[key.replace('A','B')+'_dB']||0) : (f[key.replace('A','B')]||0);
-
-  // Simpler direct field accessors
-  const getSpeedA = f => gAlign==='distA' ? (f.speedA_dA||0) : gAlign==='distB' ? (f.speedA_dB||0) : (f.speedA||0);
-  const getSpeedB = f => gAlign==='distA' ? (f.speedB_dA||0) : gAlign==='distB' ? (f.speedB_dB||0) : (f.speedB||0);
-  const getPowerA = f => gAlign==='distA' ? (f.powerA_dA||0) : gAlign==='distB' ? (f.powerA_dB||0) : (f.powerA||0);
-  const getPowerB = f => gAlign==='distA' ? (f.powerB_dA||0) : gAlign==='distB' ? (f.powerB_dB||0) : (f.powerB||0);
-  const getHrA    = f => gAlign==='distA' ? (f.hrA_dA||0)    : gAlign==='distB' ? (f.hrA_dB||0)    : (f.hrA||0);
-  const getHrB    = f => gAlign==='distA' ? (f.hrB_dA||0)    : gAlign==='distB' ? (f.hrB_dB||0)    : (f.hrB||0);
-  const getAltA   = f => gAlign==='distA' ? (f.altA_dA||0)   : gAlign==='distB' ? (f.altA_dB||0)   : (f.altA||0);
+  // Simpler direct field accessors — chartFrames ha già i dati corretti per l'allineamento
+  const getSpeedA = f => f.speedA||0;
+  const getSpeedB = f => f.speedB||0;
+  const getPowerA = f => f.powerA||0;
+  const getPowerB = f => f.powerB||0;
+  const getHrA    = f => f.hrA||0;
+  const getHrB    = f => f.hrB||0;
+  const getAltA   = f => f.altA||0;
 
   // Build active series definitions
   const seriesDefs = [];
   if (rpChartVis.gap) {
-    seriesDefs.push({ key:'gap', name:'Gap s', data: rpAligned.map(f=>+f.gap.toFixed(2)), color:'#22d3ee', width:2, axis:'left', yKey:'gap', area:true });
+    seriesDefs.push({ key:'gap', name:'Gap s', data: chartFrames.map(f=>+f.gap.toFixed(2)), color:'#22d3ee', width:2, axis:'left', yKey:'gap', area:true });
   }
   if (rpChartVis.speed) {
     // Raw speed
-    seriesDefs.push({ key:'speedA_raw', name:rpNameA.slice(0,10)+' SPD', data: rpAligned.map(f=>+(f.rawSpeedA||0).toFixed(1)), color:'#3b82f6', width:1.5, axis:'right0', yKey:'speed' });
-    seriesDefs.push({ key:'speedB_raw', name:rpNameB.slice(0,10)+' SPD', data: rpAligned.map(f=>+(f.rawSpeedB||0).toFixed(1)), color:'#f97316', width:1.5, axis:'right0', yKey:'speed' });
+    seriesDefs.push({ key:'speedA_raw', name:rpNameA.slice(0,10)+' SPD', data: chartFrames.map(f=>+(f.rawSpeedA||0).toFixed(1)), color:'#3b82f6', width:1.5, axis:'right0', yKey:'speed' });
+    seriesDefs.push({ key:'speedB_raw', name:rpNameB.slice(0,10)+' SPD', data: chartFrames.map(f=>+(f.rawSpeedB||0).toFixed(1)), color:'#f97316', width:1.5, axis:'right0', yKey:'speed' });
   }
   if (rpChartVis.speedavg) {
     const wSpdA = rpGetSmoothWin('rp-smooth-spd-a','rp-smooth-spd-a-custom');
     const wSpdB = rpGetSmoothWin('rp-smooth-spd-b','rp-smooth-spd-b-custom');
-    seriesDefs.push({ key:'speedA_avg', name:rpNameA.slice(0,10)+` SPD${wSpdA}s`, data: rpAligned.map(f=>+getSpeedA(f).toFixed(1)), color:'#60a5fa', width:2, axis:'right0', yKey:'speed' });
-    seriesDefs.push({ key:'speedB_avg', name:rpNameB.slice(0,10)+` SPD${wSpdB}s`, data: rpAligned.map(f=>+getSpeedB(f).toFixed(1)), color:'#fb923c', width:2, axis:'right0', yKey:'speed' });
+    seriesDefs.push({ key:'speedA_avg', name:rpNameA.slice(0,10)+` SPD${wSpdA}s`, data: chartFrames.map(f=>+getSpeedA(f).toFixed(1)), color:'#60a5fa', width:2, axis:'right0', yKey:'speed' });
+    seriesDefs.push({ key:'speedB_avg', name:rpNameB.slice(0,10)+` SPD${wSpdB}s`, data: chartFrames.map(f=>+getSpeedB(f).toFixed(1)), color:'#fb923c', width:2, axis:'right0', yKey:'speed' });
   }
   if (rpChartVis.power) {
     // Raw power
-    seriesDefs.push({ key:'powerA_raw', name:rpNameA.slice(0,10)+' PWR', data: rpAligned.map(f=>Math.round(f.rawPowerA||0)), color:'#60a5fa', width:1.5, axis:'right1', yKey:'power' });
-    seriesDefs.push({ key:'powerB_raw', name:rpNameB.slice(0,10)+' PWR', data: rpAligned.map(f=>Math.round(f.rawPowerB||0)), color:'#fb923c', width:1.5, axis:'right1', yKey:'power' });
+    seriesDefs.push({ key:'powerA_raw', name:rpNameA.slice(0,10)+' PWR', data: chartFrames.map(f=>Math.round(f.rawPowerA||0)), color:'#60a5fa', width:1.5, axis:'right1', yKey:'power' });
+    seriesDefs.push({ key:'powerB_raw', name:rpNameB.slice(0,10)+' PWR', data: chartFrames.map(f=>Math.round(f.rawPowerB||0)), color:'#fb923c', width:1.5, axis:'right1', yKey:'power' });
   }
   if (rpChartVis.poweravg) {
     const wPwrA = rpGetSmoothWin('rp-smooth-pwr-a','rp-smooth-pwr-a-custom');
     const wPwrB = rpGetSmoothWin('rp-smooth-pwr-b','rp-smooth-pwr-b-custom');
-    seriesDefs.push({ key:'powerA_avg', name:rpNameA.slice(0,10)+` PWR${wPwrA}s`, data: rpAligned.map(f=>Math.round(getPowerA(f))), color:'#818cf8', width:2, axis:'right1', yKey:'power' });
-    seriesDefs.push({ key:'powerB_avg', name:rpNameB.slice(0,10)+` PWR${wPwrB}s`, data: rpAligned.map(f=>Math.round(getPowerB(f))), color:'#f97316', width:2, axis:'right1', yKey:'power' });
+    seriesDefs.push({ key:'powerA_avg', name:rpNameA.slice(0,10)+` PWR${wPwrA}s`, data: chartFrames.map(f=>Math.round(getPowerA(f))), color:'#818cf8', width:2, axis:'right1', yKey:'power' });
+    seriesDefs.push({ key:'powerB_avg', name:rpNameB.slice(0,10)+` PWR${wPwrB}s`, data: chartFrames.map(f=>Math.round(getPowerB(f))), color:'#f97316', width:2, axis:'right1', yKey:'power' });
   }
   if (rpChartVis.hr) {
-    seriesDefs.push({ key:'hrA', name:rpNameA.slice(0,10)+' hr', data: rpAligned.map(f=>Math.round(getHrA(f))), color:'#ef4444', width:1.5, axis:'right2', yKey:'hr' });
-    seriesDefs.push({ key:'hrB', name:rpNameB.slice(0,10)+' hr', data: rpAligned.map(f=>Math.round(getHrB(f))), color:'#f87171', width:1.5, dash:'4,2', axis:'right2', yKey:'hr' });
+    seriesDefs.push({ key:'hrA', name:rpNameA.slice(0,10)+' hr', data: chartFrames.map(f=>Math.round(getHrA(f))), color:'#ef4444', width:1.5, axis:'right2', yKey:'hr' });
+    seriesDefs.push({ key:'hrB', name:rpNameB.slice(0,10)+' hr', data: chartFrames.map(f=>Math.round(getHrB(f))), color:'#f87171', width:1.5, dash:'4,2', axis:'right2', yKey:'hr' });
   }
   if (rpChartVis.elev) {
-    seriesDefs.push({ key:'elev', name:'Alt', data: rpAligned.map(f=>Math.round(getAltA(f))), color:'#94a3b8', width:1, area:true, areaColor:'rgba(148,163,184,.08)', axis:'left2', yKey:'elev' });
+    seriesDefs.push({ key:'elev', name:'Alt', data: chartFrames.map(f=>Math.round(getAltA(f))), color:'#94a3b8', width:1, area:true, areaColor:'rgba(148,163,184,.08)', axis:'left2', yKey:'elev' });
   }
   if (rpChartVis.dspd) {
-    seriesDefs.push({ key:'dspd', name:'ΔSPD km/h', data: rpAligned.map(f=>+((f.rawSpeedA||0)-(f.rawSpeedB||0)).toFixed(2)), color:'#3b82f6', width:1.5, yKey:'dspd', axis:'right-dspd', zeroline:true });
+    seriesDefs.push({ key:'dspd', name:'ΔSPD km/h', data: chartFrames.map(f=>+((f.rawSpeedA||0)-(f.rawSpeedB||0)).toFixed(2)), color:'#3b82f6', width:1.5, yKey:'dspd', axis:'right-dspd', zeroline:true });
   }
   if (rpChartVis.dspdavg) {
     const wSpdA = rpGetSmoothWin('rp-smooth-spd-a','rp-smooth-spd-a-custom');
     const wSpdB = rpGetSmoothWin('rp-smooth-spd-b','rp-smooth-spd-b-custom');
-    seriesDefs.push({ key:'dspdavg', name:`ΔAVG${wSpdA}s SPD`, data: rpAligned.map(f=>+(getSpeedA(f)-getSpeedB(f)).toFixed(2)), color:'#22c55e', width:2, yKey:'dspd', axis:'right-dspd', zeroline:true });
+    seriesDefs.push({ key:'dspdavg', name:`ΔAVG${wSpdA}s SPD`, data: chartFrames.map(f=>+(getSpeedA(f)-getSpeedB(f)).toFixed(2)), color:'#22c55e', width:2, yKey:'dspd', axis:'right-dspd', zeroline:true });
   }
   if (rpChartVis.dpwr) {
-    seriesDefs.push({ key:'dpwr', name:'ΔPWR W', data: rpAligned.map(f=>Math.round((f.rawPowerA||0)-(f.rawPowerB||0))), color:'#a855f7', width:1.5, yKey:'dpwr', axis:'right-dpwr', zeroline:true });
+    seriesDefs.push({ key:'dpwr', name:'ΔPWR W', data: chartFrames.map(f=>Math.round((f.rawPowerA||0)-(f.rawPowerB||0))), color:'#a855f7', width:1.5, yKey:'dpwr', axis:'right-dpwr', zeroline:true });
   }
   if (rpChartVis.dpwravg) {
     const wPwrA = rpGetSmoothWin('rp-smooth-pwr-a','rp-smooth-pwr-a-custom');
     const wPwrB = rpGetSmoothWin('rp-smooth-pwr-b','rp-smooth-pwr-b-custom');
-    seriesDefs.push({ key:'dpwravg', name:`ΔAVG${wPwrA}s PWR`, data: rpAligned.map(f=>Math.round(getPowerA(f)-getPowerB(f))), color:'#a855f7', width:2, yKey:'dpwr', axis:'right-dpwr', zeroline:true });
+    seriesDefs.push({ key:'dpwravg', name:`ΔAVG${wPwrA}s PWR`, data: chartFrames.map(f=>Math.round(getPowerA(f)-getPowerB(f))), color:'#a855f7', width:2, yKey:'dpwr', axis:'right-dpwr', zeroline:true });
   }
   if (rpChartVis.dhr) {
-    seriesDefs.push({ key:'dhr', name:'ΔHR bpm', data: rpAligned.map(f=>Math.round(getHrA(f)-getHrB(f))), color:'#fb923c', width:1.5, yKey:'dhr', axis:'right-dhr', zeroline:true });
+    seriesDefs.push({ key:'dhr', name:'ΔHR bpm', data: chartFrames.map(f=>Math.round(getHrA(f)-getHrB(f))), color:'#fb923c', width:1.5, yKey:'dhr', axis:'right-dhr', zeroline:true });
   }
 
   // Build Y scales (one per axis group)
@@ -2252,7 +2414,15 @@ function rpRenderCharts() {
       const xi = mx - m.left;
       if (xi < 0 || xi > W) { tooltip.style('display','none'); cursorLine.attr('visibility','hidden'); return; }
       const xVal = xScale.invert(xi);
-      const idx = Math.max(0, Math.min(rpAligned.length-1, Math.round((xi/W)*(rpAligned.length-1))));
+      // Find the chartFrame whose X value (in current graph alignment) is closest to xVal
+      let idx = 0;
+      let bestDist = Infinity;
+      for (let i = 0; i < chartFrames.length; i++) {
+        const f = chartFrames[i];
+        const fx = gAlign === 'distA' ? f.distA/1000 : gAlign === 'distB' ? f.distB/1000 : f.t;
+        const d = Math.abs(fx - xVal);
+        if (d < bestDist) { bestDist = d; idx = i; }
+      }
       cursorLine.attr('x1', m.left+xi).attr('x2', m.left+xi).attr('visibility','visible');
       const xLabel = gAlign === 'time'
         ? (() => { const mm=Math.floor(xVal/60),ss=Math.floor(xVal%60); return `${mm}:${ss.toString().padStart(2,'0')}`; })()
@@ -2266,17 +2436,29 @@ function rpRenderCharts() {
       const xi = mx - m.left;
       if (xi < 0 || xi > W) return;
       const xVal = xScale.invert(xi);
-      // Find the rpAligned frame whose X value (in current graph alignment) is closest to xVal
+      // Find the chartFrame whose X value (in current graph alignment) is closest to xVal
       let idx = 0;
       let bestDist = Infinity;
-      for (let i = 0; i < rpAligned.length; i++) {
-        const f = rpAligned[i];
+      for (let i = 0; i < chartFrames.length; i++) {
+        const f = chartFrames[i];
         const fx = gAlign === 'distA' ? f.distA/1000 : gAlign === 'distB' ? f.distB/1000 : f.t;
         const d = Math.abs(fx - xVal);
         if (d < bestDist) { bestDist = d; idx = i; }
       }
       if (rpPlaying) rpStopPlay();
-      rpUpdateFrame(idx);
+      // Map idx from chartFrame back to rpAligned frame for playback
+      const chartFrame = chartFrames[idx];
+      if (chartFrame) {
+        // Find the rpAligned frame closest to this chart frame
+        let closestIdx = 0;
+        let closestDist = Infinity;
+        for (let i = 0; i < rpAligned.length; i++) {
+          const af = rpAligned[i];
+          const d = Math.abs(af.t - chartFrame.t);
+          if (d < closestDist) { closestDist = d; closestIdx = i; }
+        }
+        rpUpdateFrame(closestIdx);
+      }
     })
     .on('mouseleave', () => { tooltip.style('display','none'); cursorLine.attr('visibility','hidden'); });
 }
