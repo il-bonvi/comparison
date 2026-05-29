@@ -100,25 +100,51 @@ def _parse_fit_stream(file_bytes: bytes) -> Dict[str, Any]:
 
 
 # ─────────────────────────────────────────────
+# TEMPLATE ASSEMBLY
+# ─────────────────────────────────────────────
+
+TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "routes", "templates")
+
+
+def _load_template(filename: str) -> str:
+    """Legge un file template dalla directory dei template."""
+    path = os.path.join(TEMPLATES_DIR, filename)
+    with open(path, encoding="utf-8") as f:
+        return f.read()
+
+
+def _build_html(maptiler_key: str) -> str:
+    """
+    Assembla i tre file template in un unico HTML da servire.
+
+    unified_app.html  — shell, CSS condiviso, JS condiviso (switchTab ecc.)
+    tab_replay.html   — HTML + JS del modulo Race Replay
+    tab_comparison.html — HTML + JS del modulo Comparison
+    """
+    shell = _load_template("unified_app.html")
+    tab_replay = _load_template("tab_replay.html")
+    tab_comparison = _load_template("tab_comparison.html")
+
+    html = shell.replace("{tab_replay}", tab_replay)
+    html = html.replace("{tab_comparison}", tab_comparison)
+    html = html.replace("{maptiler_key}", maptiler_key)
+    return html
+
+
+# ─────────────────────────────────────────────
 # ENDPOINTS
 # ─────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
     """Serve la single-page app unificata."""
-    template = os.path.join(
-        os.path.dirname(__file__), "routes", "templates", "unified_app.html"
-    )
-    with open(template, encoding="utf-8") as f:
-        html = f.read()
-
     try:
         from config import get_maptiler_key
         key = get_maptiler_key()
     except Exception:
         key = ""
 
-    return HTMLResponse(content=html.replace("{maptiler_key}", key))
+    return HTMLResponse(content=_build_html(key))
 
 
 @app.post("/api/upload")

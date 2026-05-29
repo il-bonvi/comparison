@@ -1,0 +1,602 @@
+
+    <!-- Upload -->
+    <div id="comp-upload" class="upload-panel">
+      <div style="font-size:3rem">⚔️</div>
+      <div class="upload-title" style="color:var(--a)">COMPARISON</div>
+      <div class="upload-desc">Confronta sezioni finali di gara punto per punto su mappa 3D con analisi sezioni temporali</div>
+      <div class="upload-slots">
+        <div class="upload-slot" id="comp-slot-a">
+          <div class="slot-icon">🔵</div>
+          <div class="slot-label">ATLETA A</div>
+          <div class="slot-name" id="comp-name-a">Seleziona .fit</div>
+          <input type="file" id="comp-file-a" accept=".fit"/>
+        </div>
+        <div class="upload-slot slot-b" id="comp-slot-b">
+          <div class="slot-icon">🟠</div>
+          <div class="slot-label">ATLETA B</div>
+          <div class="slot-name" id="comp-name-b">Seleziona .fit</div>
+          <input type="file" id="comp-file-b" accept=".fit"/>
+        </div>
+      </div>
+      <button class="btn btn-primary-a" id="comp-btn-go" onclick="compStart()" disabled>▶ CARICA E CONFRONTA</button>
+    </div>
+
+    <!-- Main app (hidden until upload) -->
+    <div id="comp-app" style="display:none;flex:1;flex-direction:column;overflow:hidden;min-height:0;">
+      <!-- Topbar -->
+      <div id="comp-topbar">
+        <span class="badge badge-a">🔵 <span id="comp-lbl-a">A</span></span>
+        <span class="badge badge-b">🟠 <span id="comp-lbl-b">B</span></span>
+        <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
+        <label>Ultimi km:</label>
+        <input type="number" id="comp-km" value="3" min="0.1" max="100" step="0.1"/>
+        <label>Sezione (s):</label>
+        <input type="number" id="comp-sec" value="20" min="5" max="300" step="5"/>
+        <button class="btn btn-warn" onclick="compRunAnalysis()">🔍 Analizza Sezioni</button>
+        <button class="btn btn-ghost" id="comp-btn-arrivals" onclick="compToggleArrivalPanel()">🏁 Regola Arrivi</button>
+        <button class="btn btn-ghost" id="comp-btn-va" onclick="compToggleLayer('traceA')">A ON</button>
+        <button class="btn btn-ghost" id="comp-btn-vb" onclick="compToggleLayer('traceB')">B ON</button>
+        <button class="btn btn-ghost" id="comp-btn-vs" onclick="compToggleLayer('sections')">Sezioni ON</button>
+        <button class="btn btn-danger" onclick="compReset()">⟲ Reset</button>
+        <span id="comp-status"></span>
+      </div>
+
+      <!-- Map + chart -->
+      <div id="comp-main">
+        <div id="comp-map"></div>
+        <div id="comp-legend">
+          <h4>Legenda</h4>
+          <div class="leg-item"><div class="leg-line" style="background:var(--a)"></div><span id="comp-leg-a">Atleta A</span></div>
+          <div class="leg-item"><div class="leg-line" style="background:var(--b)"></div><span id="comp-leg-b">Atleta B</span></div>
+        </div>
+        <div id="comp-map-controls">
+          <select onchange="compChangeStyle(this.value)" style="padding:5px 7px;background:rgba(8,12,20,.9);border:1px solid var(--border-hi);border-radius:6px;color:var(--text);font-size:.72rem;">
+            <option value="outdoor">Outdoor</option>
+            <option value="streets" selected>Streets</option>
+            <option value="topo">Topo</option>
+            <option value="satellite">Satellite</option>
+            <option value="dark">Dark</option>
+          </select>
+          <button class="map-mini-btn" onclick="compFit()">🎯 Fit</button>
+          <button class="map-mini-btn" onclick="compToggle3D()">🏔️ 3D</button>
+        </div>
+        <div id="comp-arrival-panel">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span style="color:var(--a);font-weight:700;font-size:.75rem;min-width:70px;">🔵 Arrivo A</span>
+            <button class="btn btn-ghost" style="padding:2px 8px;font-size:.74rem" onclick="compShiftArrival('A',-1000)">◀◀1km</button>
+            <button class="btn btn-ghost" style="padding:2px 8px;font-size:.74rem" onclick="compShiftArrival('A',-100)">◀100m</button>
+            <button class="btn btn-ghost" style="padding:2px 8px;font-size:.74rem" onclick="compShiftArrival('A',-10)">◀10m</button>
+            <button class="btn btn-ghost" style="padding:2px 8px;font-size:.74rem" onclick="compShiftArrival('A',-1)">◀1m</button>
+            <span id="comp-arr-a-pos" style="color:var(--a);font-family:var(--font-mono);font-size:.8rem;min-width:80px;text-align:center">—</span>
+            <button class="btn btn-ghost" style="padding:2px 8px;font-size:.74rem" onclick="compShiftArrival('A',1)">1m▶</button>
+            <button class="btn btn-ghost" style="padding:2px 8px;font-size:.74rem" onclick="compShiftArrival('A',10)">10m▶</button>
+            <button class="btn btn-ghost" style="padding:2px 8px;font-size:.74rem" onclick="compShiftArrival('A',100)">100m▶</button>
+            <button class="btn btn-ghost" style="padding:2px 8px;font-size:.74rem" onclick="compShiftArrival('A',1000)">1km▶▶</button>
+            <button class="btn btn-ghost" style="padding:2px 8px;font-size:.74rem" onclick="compResetArrival('A')">↺ Fine</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span style="color:var(--b);font-weight:700;font-size:.75rem;min-width:70px;">🟠 Arrivo B</span>
+            <button class="btn btn-ghost" style="padding:2px 8px;font-size:.74rem" onclick="compShiftArrival('B',-1000)">◀◀1km</button>
+            <button class="btn btn-ghost" style="padding:2px 8px;font-size:.74rem" onclick="compShiftArrival('B',-100)">◀100m</button>
+            <button class="btn btn-ghost" style="padding:2px 8px;font-size:.74rem" onclick="compShiftArrival('B',-10)">◀10m</button>
+            <button class="btn btn-ghost" style="padding:2px 8px;font-size:.74rem" onclick="compShiftArrival('B',-1)">◀1m</button>
+            <span id="comp-arr-b-pos" style="color:var(--b);font-family:var(--font-mono);font-size:.8rem;min-width:80px;text-align:center">—</span>
+            <button class="btn btn-ghost" style="padding:2px 8px;font-size:.74rem" onclick="compShiftArrival('B',1)">1m▶</button>
+            <button class="btn btn-ghost" style="padding:2px 8px;font-size:.74rem" onclick="compShiftArrival('B',10)">10m▶</button>
+            <button class="btn btn-ghost" style="padding:2px 8px;font-size:.74rem" onclick="compShiftArrival('B',100)">100m▶</button>
+            <button class="btn btn-ghost" style="padding:2px 8px;font-size:.74rem" onclick="compShiftArrival('B',1000)">1km▶▶</button>
+            <button class="btn btn-ghost" style="padding:2px 8px;font-size:.74rem" onclick="compResetArrival('B')">↺ Fine</button>
+          </div>
+        </div>
+        <div id="comp-hover-tip"></div>
+        <div id="comp-chart-panel">
+          <div id="comp-chart-resize"></div>
+          <div id="comp-elevation-chart"></div>
+        </div>
+      </div>
+    </div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// ═══════════ COMPARISON MODULE ═══════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+let compStreamA = null, compStreamB = null, compStreamBAligned = null;
+let compNameA = 'Atleta A', compNameB = 'Atleta B';
+let compMap = null, compElevChart = null;
+let compMarkerA = null, compMarkerB = null;
+let compArrivalA = null, compArrivalB = null;
+let compAnalysisLayers = [];
+let compLayerVis = { traceA:true, traceB:true, sections:true };
+let compIs3D = true;
+let compArrivalPanelOpen = false;
+let compDragSel = false, compDragStart = null, compDragEnd = null;
+let compSelectedRange = null;
+let compElevMode = true;
+
+// File inputs
+document.getElementById('comp-file-a').addEventListener('change', e => {
+  if (e.target.files[0]) {
+    document.getElementById('comp-slot-a').classList.add('filled-a');
+    document.getElementById('comp-name-a').textContent = e.target.files[0].name.slice(0,22);
+    compCheckReady();
+  }
+});
+document.getElementById('comp-file-b').addEventListener('change', e => {
+  if (e.target.files[0]) {
+    document.getElementById('comp-slot-b').classList.add('filled-b');
+    document.getElementById('comp-name-b').textContent = e.target.files[0].name.slice(0,22);
+    compCheckReady();
+  }
+});
+function compCheckReady() {
+  const ok = document.getElementById('comp-file-a').files[0] && document.getElementById('comp-file-b').files[0];
+  document.getElementById('comp-btn-go').disabled = !ok;
+}
+
+async function compStart() {
+  const fA = document.getElementById('comp-file-a').files[0];
+  const fB = document.getElementById('comp-file-b').files[0];
+  if (!fA || !fB) return;
+  showLoading('Parsing FIT...');
+  try {
+    const fd = new FormData(); fd.append('file_a', fA); fd.append('file_b', fB);
+    const r = await fetch('/api/upload', { method:'POST', body:fd });
+    const d = await r.json();
+    if (!d.success) throw new Error(d.detail || 'Error');
+    compStreamA = d.stream_a; compStreamB = d.stream_b;
+    compNameA = (d.filename_a || 'A').replace('.fit','');
+    compNameB = (d.filename_b || 'B').replace('.fit','');
+    // Share globally so Race Replay can reuse without re-uploading
+    sharedStreamA = d.stream_a; sharedStreamB = d.stream_b;
+    sharedNameA = compNameA; sharedNameB = compNameB;
+    ['comp-lbl-a','comp-leg-a'].forEach(id => document.getElementById(id).textContent = compNameA.slice(0,16));
+    ['comp-lbl-b','comp-leg-b'].forEach(id => document.getElementById(id).textContent = compNameB.slice(0,16));
+    document.getElementById('comp-upload').style.display = 'none';
+    document.getElementById('comp-app').style.display = 'flex';
+    compInitMap();
+    // Auto-init Race Replay with same files
+    rpAutoInitFromShared();
+    hideLoading();
+  } catch(e) { hideLoading(); alert('Errore: '+e.message); }
+}
+
+function compCenter(s) {
+  const n = s.lat.length;
+  return { lat:s.lat.reduce((a,b)=>a+b,0)/n, lon:s.lon.reduce((a,b)=>a+b,0)/n };
+}
+function compInitMap() {
+  const c = compCenter(compStreamA);
+  compMap = new maplibregl.Map({
+    container:'comp-map', style:STYLES.streets,
+    center:[c.lon,c.lat], zoom:13, pitch:45, bearing:0, antialias:true
+  });
+  compMap.addControl(new maplibregl.NavigationControl(),'top-left');
+  compMap.on('load', () => {
+    compAddTerrain(); compDrawTrace('comp-ta',compStreamA,'#3b82f6'); compDrawTrace('comp-tb',compStreamB,'#f97316');
+    compFit();
+    compArrivalA = compStreamA.lat.length - 1;
+    compArrivalB = compStreamB.lat.length - 1;
+    compInitElevChart();
+    compUpdateArrivalMarkers();
+    compUpdateArrivalPanel();
+  });
+  compMap.on('mousemove', compHandleHover);
+}
+function compAddTerrain() {
+  if (!MAPTILER_KEY) return;
+  try {
+    map_addTerrain_to(compMap);
+  } catch(e) {}
+}
+function map_addTerrain_to(m) {
+  if (!m.getSource('terrain-dem')) {
+    m.addSource('terrain-dem', { type:'raster-dem', url:`https://api.maptiler.com/tiles/terrain-rgb/tiles.json?key=${MAPTILER_KEY}`, tileSize:256 });
+  }
+  m.setTerrain({ source:'terrain-dem', exaggeration:1.5 });
+}
+function compDrawTrace(id, s, color) {
+  const coords = s.lat.map((la,i) => [s.lon[i],la,s.alt[i]||0]);
+  const geo = { type:'FeatureCollection', features:[{ type:'Feature', geometry:{ type:'LineString', coordinates:coords }}]};
+  if (compMap.getSource(id)) compMap.getSource(id).setData(geo);
+  else {
+    compMap.addSource(id, { type:'geojson', data:geo });
+    compMap.addLayer({ id:`${id}-line`, type:'line', source:id, paint:{ 'line-color':color,'line-width':3,'line-opacity':0.85 }});
+  }
+}
+function compFit() {
+  if (!compMap||!compStreamA) return;
+  const lats=[...compStreamA.lat,...(compStreamB?.lat||[])], lons=[...compStreamA.lon,...(compStreamB?.lon||[])];
+  compMap.fitBounds([[Math.min(...lons),Math.min(...lats)],[Math.max(...lons),Math.max(...lats)]],{padding:60,duration:800});
+}
+function compChangeStyle(k) {
+  if (!STYLES[k]) return;
+  compMap.setStyle(STYLES[k]);
+  compMap.once('styledata', () => {
+    compAddTerrain();
+    compDrawTrace('comp-ta',compStreamA,'#3b82f6');
+    compDrawTrace('comp-tb',compStreamB,'#f97316');
+    compAnalysisLayers=[];
+  });
+}
+function compToggle3D() { compIs3D=!compIs3D; compMap.easeTo({pitch:compIs3D?45:0,duration:600}); }
+
+// Arrivals
+function compUpdateArrivalMarkers() {
+  if (compMarkerA) compMarkerA.remove();
+  if (compMarkerB) compMarkerB.remove();
+  if (compArrivalA!==null) {
+    const el=document.createElement('div'); el.innerHTML='🏁'; el.style.cssText='font-size:24px;filter:drop-shadow(0 1px 3px #1e40af);cursor:pointer;';
+    compMarkerA = new maplibregl.Marker({element:el}).setLngLat([compStreamA.lon[compArrivalA],compStreamA.lat[compArrivalA]]).addTo(compMap);
+  }
+  if (compArrivalB!==null) {
+    const el=document.createElement('div'); el.innerHTML='🏴'; el.style.cssText='font-size:24px;filter:drop-shadow(0 1px 3px #c2410c);cursor:pointer;';
+    compMarkerB = new maplibregl.Marker({element:el}).setLngLat([compStreamB.lon[compArrivalB],compStreamB.lat[compArrivalB]]).addTo(compMap);
+  }
+}
+function compUpdateArrivalPanel() {
+  if (compArrivalA!==null) document.getElementById('comp-arr-a-pos').textContent = ((compStreamA.distance_m[compArrivalA]||0)/1000).toFixed(2)+' km';
+  if (compArrivalB!==null) document.getElementById('comp-arr-b-pos').textContent = ((compStreamB.distance_m[compArrivalB]||0)/1000).toFixed(2)+' km';
+}
+function compShiftArrival(who, dm) {
+  const s = who==='A' ? compStreamA : compStreamB;
+  let idx = who==='A' ? compArrivalA : compArrivalB;
+  if (Math.abs(dm)===1) idx+=dm>0?1:-1;
+  else {
+    const cur = s.distance_m[idx]||0, maxD = s.distance_m[s.distance_m.length-1]||1;
+    idx = compNearestByDist(s, Math.max(0,Math.min(maxD, cur+dm)));
+  }
+  idx = Math.max(0, Math.min(s.lat.length-1, idx));
+  if (who==='A') compArrivalA=idx; else compArrivalB=idx;
+  compUpdateArrivalMarkers(); compUpdateArrivalPanel(); compUpdateArrivalChartLines();
+}
+function compResetArrival(who) {
+  if (who==='A') compArrivalA=compStreamA.lat.length-1; else compArrivalB=compStreamB.lat.length-1;
+  compUpdateArrivalMarkers(); compUpdateArrivalPanel(); compUpdateArrivalChartLines();
+}
+function compToggleArrivalPanel() {
+  compArrivalPanelOpen=!compArrivalPanelOpen;
+  document.getElementById('comp-arrival-panel').style.display=compArrivalPanelOpen?'flex':'none';
+}
+function compNearestByDist(s, d) {
+  let best=0, bd=Infinity;
+  for (let i=0;i<s.distance_m.length;i++) { const diff=Math.abs((s.distance_m[i]||0)-d); if(diff<bd){bd=diff;best=i;} }
+  return best;
+}
+
+// Analysis
+function compRunAnalysis() {
+  const km = parseFloat(document.getElementById('comp-km').value)||3;
+  const sec = parseInt(document.getElementById('comp-sec').value)||20;
+  showLoading('Calcolo sezioni...');
+  setTimeout(() => {
+    try {
+      compClearAnalysis();
+      compLayerVis.traceA=false; compLayerVis.traceB=false; compLayerVis.sections=true;
+      const sA = compBuildSections(compStreamA, compArrivalA, km*1000, sec);
+      const sB = compBuildSections(compStreamB, compArrivalB, km*1000, sec);
+      compDrawSections(sA, sB);
+      compApplyLayerVis(); compUpdateVisBtns();
+      compDrawElevSections(sA, sB);
+      compBuildPowerChart(km);
+      document.getElementById('comp-status').textContent = `${sA.length} sezioni × ${sec}s`;
+    } catch(e) { alert(e.message); } finally { hideLoading(); }
+  },50);
+}
+function compBuildSections(s, arrIdx, distM, secInt) {
+  if (arrIdx===null||arrIdx===undefined) arrIdx=s.lat.length-1;
+  const dist=s.distance_m, time=s.time_sec;
+  const arrDist=dist[arrIdx], startDist=Math.max(0,arrDist-distM);
+  let startIdx=0;
+  for(let i=0;i<=arrIdx;i++) { if(dist[i]>=startDist){startIdx=i;break;} }
+  const secs=[];
+  let curEnd=arrIdx;
+  while(curEnd>startIdx) {
+    const curT=time[curEnd], sT=curT-secInt;
+    let sIdx=startIdx;
+    for(let i=curEnd-1;i>=startIdx;i--) { if(time[i]<=sT){sIdx=i;break;} }
+    if(sIdx>=curEnd) break;
+    const pts=[];
+    for(let i=sIdx;i<=curEnd&&i<=arrIdx;i++) pts.push(i);
+    if(pts.length>=2) {
+      let sp=0,sh=0,ss=0;
+      for(const p of pts){sp+=(s.power[p]||0);sh+=(s.hr[p]||0);ss+=(s.speed?s.speed[p]||0:0);}
+      secs.push({ coords:pts.map(p=>[s.lon[p],s.lat[p],s.alt[p]||0]), sectionIdx:secs.length,
+        avgPower:sp/pts.length, avgHr:sh/pts.length, avgSpeed:ss/pts.length,
+        startDist:dist[pts[0]], endDist:dist[pts[pts.length-1]] });
+    }
+    curEnd=sIdx-1;
+  }
+  return secs;
+}
+function compDrawSections(sA, sB) {
+  [...sA.map(s=>({...s,ath:'a'})),...sB.map(s=>({...s,ath:'b'}))].forEach((sec,i) => {
+    const col=SECTION_PALETTE[sec.sectionIdx%SECTION_PALETTE.length];
+    const lid=`csec-${sec.ath}-${sec.sectionIdx}-${i}`, sid=`csrc-${lid}`;
+    const geo={ type:'Feature', geometry:{type:'LineString',coordinates:sec.coords},
+      properties:{sectionIdx:sec.sectionIdx,athlete:sec.ath,avgPower:Math.round(sec.avgPower),avgHr:Math.round(sec.avgHr),startDist:(sec.startDist/1000).toFixed(2),endDist:(sec.endDist/1000).toFixed(2)} };
+    compMap.addSource(sid,{type:'geojson',data:geo});
+    compMap.addLayer({id:lid,type:'line',source:sid,paint:{'line-color':col,'line-width':sec.ath==='a'?5:4,'line-opacity':sec.ath==='a'?0.95:0.85,'line-dasharray':sec.ath==='b'?[3,1.5]:[1]}});
+    compAnalysisLayers.push({layerId:lid,sourceId:sid});
+  });
+  compApplyLayerVis();
+}
+function compClearAnalysis() {
+  compAnalysisLayers.forEach(l=>{ if(compMap.getLayer(l.layerId))compMap.removeLayer(l.layerId); if(compMap.getSource(l.sourceId))compMap.removeSource(l.sourceId); });
+  compAnalysisLayers=[];
+}
+function compApplyLayerVis() {
+  if (!compMap) return;
+  const setVis = (id,v) => { if(compMap.getLayer(id)) compMap.setLayoutProperty(id,'visibility',v?'visible':'none'); };
+  setVis('comp-ta-line', compLayerVis.traceA);
+  setVis('comp-tb-line', compLayerVis.traceB);
+  compAnalysisLayers.forEach(l => setVis(l.layerId, compLayerVis.sections));
+}
+function compToggleLayer(k) {
+  compLayerVis[k]=!compLayerVis[k]; compApplyLayerVis(); compUpdateVisBtns();
+}
+function compUpdateVisBtns() {
+  const upd = (id, on, label) => { const b=document.getElementById(id); b.textContent=`${label} ${on?'ON':'OFF'}`; b.classList.toggle('off',!on); };
+  upd('comp-btn-va', compLayerVis.traceA,'A');
+  upd('comp-btn-vb', compLayerVis.traceB,'B');
+  upd('comp-btn-vs', compLayerVis.sections,'Sezioni');
+}
+
+// ─────────────────────────────────────────────────────────────
+// COMPARISON CHART — D3.js implementation
+// ─────────────────────────────────────────────────────────────
+
+// Internal state for the D3 chart
+let _compChartSections = { sA: [], sB: [] };
+
+function compResizeChart() {
+  if (!compElevChart) return;
+  if (compElevMode) compUpdateElevChart();
+  else {
+    // rebuild power chart with last known km value
+    const km = parseFloat(document.getElementById('comp-km').value)||3;
+    compBuildPowerChart(km);
+  }
+}
+
+function compInitElevChart() {
+  const dom = document.getElementById('comp-elevation-chart');
+  // Prepare SVG container — D3 will own this element
+  dom.innerHTML = '';
+  compElevChart = true; // truthy sentinel so callers can check existence
+  compUpdateElevChart();
+  compUpdateArrivalChartLines();
+  compUpdateVisBtns();
+
+  // Resize handle (drag to change panel height)
+  const h = document.getElementById('comp-chart-resize');
+  let drag=false, sy=0, sh=0;
+  h.addEventListener('mousedown', e => { drag=true; sy=e.clientY; sh=document.getElementById('comp-chart-panel').offsetHeight; e.preventDefault(); });
+  document.addEventListener('mousemove', e => { if(!drag) return; const d=sy-e.clientY, nh=Math.max(100,Math.min(500,sh+d)); document.getElementById('comp-chart-panel').style.height=nh+'px'; compResizeChart(); });
+  document.addEventListener('mouseup', () => { drag=false; });
+  window.addEventListener('resize', () => { if(compElevChart) compResizeChart(); });
+}
+
+/* Shared D3 render helper for the Comparison chart.
+   Draws a two-series area+line chart with optional dual y-axis,
+   arrival markLines, and section markAreas.
+   opts = {
+     series: [ {name, data:[[x,y],...], color, area?, dash?} ],
+     yLeft:  { name, color },
+     yRight: { name, color } | null,
+     xLabel: string,
+     arrivalLines: [ {x, color, label} ],
+     sections: [ {x0, x1, color, opacity} ],
+     tooltip: fn(xVal, pts) => HTMLstring
+   }
+*/
+function _compD3Render(opts) {
+  const container = document.getElementById('comp-elevation-chart');
+  container.innerHTML = '';
+
+  const totalW = container.clientWidth || 600;
+  const totalH = container.clientHeight || 180;
+  const margin = { top: 28, right: opts.yRight ? 55 : 20, bottom: 28, left: 50 };
+  const W = totalW - margin.left - margin.right;
+  const H = totalH - margin.top - margin.bottom;
+
+  const svg = d3.select(container).append('svg')
+    .attr('width', totalW).attr('height', totalH)
+    .style('display','block');
+
+  // Clip path
+  svg.append('defs').append('clipPath').attr('id','comp-clip')
+    .append('rect').attr('width', W).attr('height', H);
+
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+  // X scale
+  const allX = opts.series.flatMap(s => s.data.map(d => d[0]));
+  const xScale = d3.scaleLinear().domain(d3.extent(allX)).range([0, W]);
+
+  // Left Y scale
+  const allYL = opts.series.filter(s => !s.yRight).flatMap(s => s.data.map(d => d[1]));
+  const yScaleL = d3.scaleLinear().domain([d3.min(allYL)*0.97, d3.max(allYL)*1.03]).range([H, 0]).nice();
+
+  // Right Y scale (optional)
+  let yScaleR = null;
+  if (opts.yRight) {
+    const allYR = opts.series.filter(s => s.yRight).flatMap(s => s.data.map(d => d[1]));
+    yScaleR = d3.scaleLinear().domain([d3.min(allYR)*0.97, d3.max(allYR)*1.03]).range([H, 0]).nice();
+  }
+
+  // Grid lines (left axis)
+  g.append('g').attr('class','grid')
+    .call(d3.axisLeft(yScaleL).tickSize(-W).tickFormat(''))
+    .call(ax => { ax.select('.domain').remove(); ax.selectAll('line').attr('stroke','#1e293b'); });
+
+  // Section markAreas (behind lines)
+  opts.sections.forEach(sec => {
+    g.append('rect')
+      .attr('x', xScale(sec.x0)).attr('y', 0)
+      .attr('width', Math.max(0, xScale(sec.x1) - xScale(sec.x0)))
+      .attr('height', H)
+      .attr('fill', sec.color).attr('opacity', sec.opacity);
+  });
+
+  // Axes
+  const xAxis = d3.axisBottom(xScale).ticks(6).tickFormat(v => v.toFixed(1));
+  g.append('g').attr('transform',`translate(0,${H})`).call(xAxis)
+    .call(ax => { ax.select('.domain').attr('stroke','#1a2540'); ax.selectAll('text').attr('fill','#94a3b8').attr('font-size','8px'); ax.selectAll('line').attr('stroke','#1a2540'); });
+
+  // X axis label
+  g.append('text').attr('x', W/2).attr('y', H+24).attr('fill','#64748b').attr('font-size','8px').attr('text-anchor','middle').text(opts.xLabel||'km');
+
+  const yAxisL = d3.axisLeft(yScaleL).ticks(4);
+  g.append('g').call(yAxisL)
+    .call(ax => { ax.select('.domain').attr('stroke','#1a2540'); ax.selectAll('text').attr('fill','#94a3b8').attr('font-size','8px'); ax.selectAll('line').attr('stroke','#1a2540'); });
+
+  // Left Y label
+  g.append('text').attr('transform','rotate(-90)').attr('x',-H/2).attr('y',-38).attr('fill',opts.yLeft.color||'#64748b').attr('font-size','8px').attr('text-anchor','middle').text(opts.yLeft.name);
+
+  if (opts.yRight && yScaleR) {
+    const yAxisR = d3.axisRight(yScaleR).ticks(4);
+    g.append('g').attr('transform',`translate(${W},0)`).call(yAxisR)
+      .call(ax => { ax.select('.domain').attr('stroke','#1a2540'); ax.selectAll('text').attr('fill', opts.yRight.color||'#94a3b8').attr('font-size','8px'); ax.selectAll('line').attr('stroke','#1a2540'); });
+    g.append('text').attr('transform','rotate(-90)').attr('x',-H/2).attr('y', W+46).attr('fill',opts.yRight.color||'#22c55e').attr('font-size','8px').attr('text-anchor','middle').text(opts.yRight.name);
+  }
+
+  // Series
+  opts.series.forEach(ser => {
+    const ys = (ser.yRight && yScaleR) ? yScaleR : yScaleL;
+    const lineGen = d3.line().x(d => xScale(d[0])).y(d => ys(d[1])).curve(d3.curveCatmullRom.alpha(0.5));
+
+    // Area fill
+    if (ser.area) {
+      const areaGen = d3.area().x(d => xScale(d[0])).y0(H).y1(d => ys(d[1])).curve(d3.curveCatmullRom.alpha(0.5));
+      g.append('path').datum(ser.data).attr('clip-path','url(#comp-clip)')
+        .attr('fill', ser.area).attr('d', areaGen);
+    }
+
+    // Line
+    const path = g.append('path').datum(ser.data).attr('clip-path','url(#comp-clip)')
+      .attr('fill','none').attr('stroke', ser.color).attr('stroke-width', ser.width||2)
+      .attr('d', lineGen);
+    if (ser.dash) path.attr('stroke-dasharray', ser.dash);
+  });
+
+  // Arrival markLines (vertical dashed)
+  opts.arrivalLines.forEach(al => {
+    const x = xScale(al.x);
+    g.append('line').attr('x1',x).attr('x2',x).attr('y1',0).attr('y2',H)
+      .attr('stroke',al.color).attr('stroke-width',2).attr('stroke-dasharray','5,4');
+    g.append('text').attr('x',x+3).attr('y',12).attr('fill',al.color).attr('font-size','9px').attr('font-weight','700').text(al.label);
+  });
+
+  // Legend (top right)
+  const leg = svg.append('g').attr('transform',`translate(${totalW - margin.right - 10},${6})`);
+  opts.series.forEach((ser,i) => {
+    const row = leg.append('g').attr('transform',`translate(0,${i*14})`);
+    row.append('line').attr('x1',-38).attr('x2',-24).attr('y1',5).attr('y2',5).attr('stroke',ser.color).attr('stroke-width',ser.width||2).attr('stroke-dasharray', ser.dash||null);
+    row.append('text').attr('x',-21).attr('y',9).attr('fill','#94a3b8').attr('font-size','9px').text(ser.name);
+  });
+
+  // Tooltip
+  const tooltip = d3.select(container).append('div')
+    .style('position','absolute').style('pointer-events','none').style('display','none')
+    .style('background','rgba(8,12,20,.96)').style('border','1px solid #334155')
+    .style('border-radius','6px').style('padding','7px 11px')
+    .style('font-size','11px').style('color','#e2e8f0').style('font-family','Space Mono,monospace')
+    .style('line-height','1.8').style('z-index','200');
+
+  // Make container relative for tooltip positioning
+  container.style.position = 'relative';
+
+  const bisect = d3.bisector(d => d[0]).left;
+  svg.append('rect').attr('width',totalW).attr('height',totalH).attr('fill','none').attr('pointer-events','all')
+    .on('mousemove', function(event) {
+      const [mx] = d3.pointer(event, this);
+      const xVal = xScale.invert(mx - margin.left);
+      // Find nearest point in first series
+      const ser0 = opts.series[0]; if(!ser0||!ser0.data.length) return;
+      const idx = Math.max(0, bisect(ser0.data, xVal, 1) - 1);
+      const pts = opts.series.map(s => ({ name:s.name, color:s.color, val: (s.data[idx]||s.data[s.data.length-1])[1] }));
+      const xv = (ser0.data[idx]||ser0.data[0])[0];
+      tooltip.style('display','block').style('left',(mx+10)+'px').style('top','8px')
+        .html(opts.tooltip ? opts.tooltip(xv,pts) : `<b>${xv.toFixed(2)} km</b><br/>${pts.map(p=>`<span style="color:${p.color}">■</span> ${p.name}: <b>${Math.round(p.val)}</b>`).join('<br/>')}`);
+    })
+    .on('mouseleave', () => tooltip.style('display','none'));
+}
+
+function compUpdateElevChart() {
+  if (!compElevChart) return;
+  compElevMode = true;
+  const series = [
+    { name: compNameA.slice(0,14), data: compStreamA.distance_m.map((d,i)=>[d/1000, compStreamA.alt[i]||0]), color:'#3b82f6', area:'rgba(59,130,246,.10)', width:2 },
+    { name: compNameB.slice(0,14), data: compStreamB.distance_m.map((d,i)=>[d/1000, compStreamB.alt[i]||0]), color:'#f97316', area:'rgba(249,115,22,.08)', width:2 },
+  ];
+  const arrivalLines = [];
+  if (compArrivalA !== null) arrivalLines.push({ x: (compStreamA.distance_m[compArrivalA]||0)/1000, color:'#60a5fa', label:'A' });
+  if (compArrivalB !== null) arrivalLines.push({ x: (compStreamB.distance_m[compArrivalB]||0)/1000, color:'#fb923c', label:'B' });
+  _compD3Render({
+    series, arrivalLines, sections: _compChartSections.sA.map((s,i) => ({x0:s.startDist/1000,x1:s.endDist/1000,color:SECTION_PALETTE[s.sectionIdx%SECTION_PALETTE.length],opacity:.14})).concat(_compChartSections.sB.map(s=>({x0:s.startDist/1000,x1:s.endDist/1000,color:SECTION_PALETTE[s.sectionIdx%SECTION_PALETTE.length],opacity:.08}))),
+    yLeft:{ name:'m', color:'#64748b' }, xLabel:'km',
+    tooltip:(xv,pts) => `<b>${xv.toFixed(2)} km</b><br/>${pts.map(p=>`<span style="color:${p.color}">■</span> ${p.name}: <b>${Math.round(p.val)}m</b>`).join('<br/>')}`
+  });
+}
+
+function compUpdateArrivalChartLines() {
+  // In D3 we simply re-render with updated arrival lines
+  if (!compElevChart) return;
+  if (compElevMode) compUpdateElevChart();
+  // In power mode, arrival lines are not shown — no action needed
+}
+
+function compDrawElevSections(sA, sB) {
+  _compChartSections = { sA, sB };
+  if (compElevMode) compUpdateElevChart();
+}
+
+function compBuildPowerChart(kmW) {
+  const dA=compStreamA.distance_m, dB=compStreamB.distance_m;
+  const arrDA=dA[compArrivalA], arrDB=dB[compArrivalB];
+  const startDA=Math.max(0,arrDA-kmW*1000), startDB=Math.max(0,arrDB-kmW*1000);
+  let siA=0, siB=0;
+  for(let i=0;i<=compArrivalA;i++){if(dA[i]>=startDA){siA=i;break;}}
+  for(let i=0;i<=compArrivalB;i++){if(dB[i]>=startDB){siB=i;break;}}
+  const pts=[], interval=10;
+  const maxD=Math.max(dA[compArrivalA]-dA[siA],dB[compArrivalB]-dB[siB]);
+  for(let d=0;d<=maxD;d+=interval){
+    const iA=compNearestByDist(compStreamA,dA[siA]+d), iB=compNearestByDist(compStreamB,dB[siB]+d);
+    if(iA>compArrivalA||iB>compArrivalB) break;
+    pts.push({d,pA:compStreamA.power[iA]||0,pB:compStreamB.power[iB]||0,sA:compStreamA.speed?compStreamA.speed[iA]||0:0,sB:compStreamB.speed?compStreamB.speed[iB]||0:0});
+  }
+  _compD3Render({
+    series: [
+      { name:`${compNameA.slice(0,10)} W`,   data:pts.map(p=>[p.d/1000,p.pA]), color:'#3b82f6', width:2 },
+      { name:`${compNameB.slice(0,10)} W`,   data:pts.map(p=>[p.d/1000,p.pB]), color:'#f97316', width:2 },
+      { name:`${compNameA.slice(0,10)} spd`, data:pts.map(p=>[p.d/1000,p.sA]), color:'#60a5fa', width:1.5, dash:'4,2', yRight:true },
+      { name:`${compNameB.slice(0,10)} spd`, data:pts.map(p=>[p.d/1000,p.sB]), color:'#fb923c', width:1.5, dash:'4,2', yRight:true },
+    ],
+    arrivalLines: [], sections: [],
+    yLeft:  { name:'W',    color:'#64748b' },
+    yRight: { name:'km/h', color:'#22c55e' },
+    xLabel: 'km',
+    tooltip:(xv,pts) => `<b>${xv.toFixed(2)} km</b><br/>${pts.map(p=>`<span style="color:${p.color}">■</span> ${p.name}: <b>${p.val.toFixed(p.name.includes('spd')?1:0)}${p.name.includes('spd')?'km/h':'W'}</b>`).join('<br/>')}`
+  });
+  compElevMode = false;
+}
+function compHandleHover(e) {
+  const tip=document.getElementById('comp-hover-tip');
+  const feats=compMap.queryRenderedFeatures(e.point,{layers:compAnalysisLayers.map(l=>l.layerId)});
+  if(feats.length>0){
+    const f=feats[0].properties, col=SECTION_PALETTE[f.sectionIdx%SECTION_PALETTE.length];
+    tip.innerHTML=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><div style="width:10px;height:10px;border-radius:50%;background:${col}"></div><b>Sez.${f.sectionIdx+1}</b></div>Potenza: <b>${f.avgPower}W</b><br/>HR: <b>${f.avgHr}bpm</b><br/>${f.startDist}→${f.endDist}km`;
+    tip.style.cssText=`display:block;left:${e.point.x+12}px;top:${e.point.y-16}px;`;
+    compMap.getCanvas().style.cursor='pointer';
+  } else { tip.style.display='none'; compMap.getCanvas().style.cursor=''; }
+}
+function compReset() {
+  compClearAnalysis();
+  if(compArrivalA!==null) {compArrivalA=compStreamA.lat.length-1; compArrivalB=compStreamB.lat.length-1;}
+  compLayerVis={traceA:true,traceB:true,sections:true};
+  _compChartSections = { sA:[], sB:[] };
+  compApplyLayerVis(); compUpdateVisBtns(); compUpdateArrivalMarkers();
+  compUpdateElevChart(); compUpdateArrivalChartLines(); compUpdateArrivalPanel();
+  document.getElementById('comp-status').textContent='';
+}
+</script>
