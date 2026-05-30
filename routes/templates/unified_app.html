@@ -454,6 +454,11 @@ function rpAutoInitFromShared() {
 function compAutoInitFromShared(streamA, streamB, nameA, nameB) {
   if (!streamA || !streamB) return;
   compStreamA = streamA; compStreamB = streamB;
+  compStreamA._rawPower = compStreamA.power ? compStreamA.power.slice() : [];
+  compStreamB._rawPower = compStreamB.power ? compStreamB.power.slice() : [];
+  compStreamA._rawSpeed = compStreamA.speed ? compStreamA.speed.slice() : null;
+  compStreamB._rawSpeed = compStreamB.speed ? compStreamB.speed.slice() : null;
+  if (typeof compApplySmoothing === 'function') compApplySmoothing();
   compNameA = nameA || 'A'; compNameB = nameB || 'B';
   ['comp-lbl-a','comp-leg-a'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=compNameA.slice(0,16); });
   ['comp-lbl-b','comp-leg-b'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=compNameB.slice(0,16); });
