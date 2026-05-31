@@ -230,10 +230,15 @@
           <span style="font-size:.8rem;font-weight:800;letter-spacing:.06em;color:var(--text);">📊 TABELLA METRICHE</span>
           <div id="comp-table-sector-info" style="font-size:.7rem;color:var(--muted);font-family:var(--font-mono);margin-left:4px;"></div>
           <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+            <button class="btn btn-ghost" onclick="event.stopPropagation();compSaveCustomPreset()" style="padding:2px 10px;font-size:.68rem;">💾 Salva preset</button>
+            <button class="btn btn-ghost" onclick="event.stopPropagation();compResetTablePrefs()" style="padding:2px 10px;font-size:.68rem;">⟲ Reset</button>
             <button class="btn btn-ghost" onclick="event.stopPropagation();compExportCSV()" style="padding:2px 10px;font-size:.68rem;">⬇ CSV</button>
             <span style="color:var(--muted);font-size:.8rem;" id="comp-table-close-icon">▼</span>
           </div>
         </div>
+        <!-- Column presets + toggles -->
+        <div id="comp-table-presets" style="display:flex;flex-wrap:wrap;gap:8px;padding:6px 12px;border-bottom:1px solid var(--border);" onclick="event.stopPropagation()"></div>
+        <div id="comp-table-cols" style="display:flex;flex-wrap:wrap;gap:8px;padding:6px 12px;border-bottom:1px solid var(--border);" onclick="event.stopPropagation()"></div>
         <!-- Table container -->
         <div id="comp-table-scroll" style="overflow:auto;flex:1;padding:0 6px 8px;">
           <table id="comp-metrics-table" style="
@@ -302,6 +307,20 @@
 .td-label { color:var(--text); font-weight:600; }
 .td-delta-pos { color:#22c55e; font-weight:700; }
 .td-delta-neg { color:#f43f5e; font-weight:700; }
+.col-hidden { display:none; }
+.comp-row-selected { background:rgba(59,130,246,.10); }
+.col-toggle {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:2px 6px; border:1px solid var(--border-hi); border-radius:999px;
+  font-size:.66rem; color:var(--muted2); cursor:pointer; user-select:none;
+}
+.col-toggle input { accent-color: var(--a); }
+.col-presets { display:flex; flex-wrap:wrap; gap:6px; }
+.preset-btn {
+  padding:2px 8px; border:1px solid var(--border-hi); border-radius:999px;
+  font-size:.66rem; color:var(--muted2); background:transparent; cursor:pointer;
+}
+.preset-btn.active { border-color:var(--a); color:var(--a); }
 .sector-row-hdr td {
   background:rgba(59,130,246,.08) !important;
   color:var(--muted2); font-size:.64rem; letter-spacing:.06em; text-transform:uppercase;
@@ -324,8 +343,13 @@
 let compStreamA = null, compStreamB = null;
 let compNameA = 'A', compNameB = 'B';
 let compMap = null, compElevChart = null;
+let compMapReady = false;
 let compIs3D = true;
 let compLayerVis = { traceA:true, traceB:true, sections:true };
+let compHighlightedSection = null;
+let compHoverSection = null;
+let compChartHoverMarkers = { a:null, b:null, lineSourceId:'comp-hover-line', lineLayerId:'comp-hover-line-ln' };
+let compSectionHighlightMarker = null;
 let compAnalysisLayers = [];
 let compTableOpen = false;
 let compSectorPanelOpen = false;
@@ -417,21 +441,113 @@ function compCenter(s) {
 }
 function compInitMap() {
   const c = compCenter(compStreamA);
+  compMapReady = false;
   compMap = new maplibregl.Map({
     container:'comp-map', style:STYLES.streets,
     center:[c.lon,c.lat], zoom:13, pitch:45, bearing:0, antialias:true
   });
   compMap.addControl(new maplibregl.NavigationControl(),'top-left');
   compMap.on('load', () => {
+    compMapReady = true;
     map_addTerrain_to(compMap);
     compDrawTrace('comp-ta', compStreamA, '#3b82f6');
     compDrawTrace('comp-tb', compStreamB, '#f97316');
+    compInitChartHoverOnMap();
     compFit();
     compInitElevChart();
     compRenderSectorMarkersAll();
     compUpdateSectorPanelUI();
   });
   compMap.on('mousemove', compHandleHover);
+  compMap.on('click', (e) => {
+    if (!compHighlightedSection) return;
+    const layerIds = compAnalysisLayers.map(l=>l.layerId).filter(id=>compMap.getLayer(id));
+    if (!layerIds.length) { compClearSectionHighlight(); return; }
+    const feats = compMap.queryRenderedFeatures(e.point, { layers: layerIds });
+    if (!feats.length) compClearSectionHighlight();
+  });
+}
+
+function compInitChartHoverOnMap() {
+  if (!compMap || !compMapReady) return;
+  const mk = (color) => {
+    const el = document.createElement('div');
+    el.style.cssText = `width:10px;height:10px;border-radius:50%;background:${color};border:2px solid #0b1220;box-shadow:0 0 6px ${color};`;
+    return new maplibregl.Marker({element:el, anchor:'center'});
+  };
+  if (!compChartHoverMarkers.a) compChartHoverMarkers.a = mk('#3b82f6');
+  if (!compChartHoverMarkers.b) compChartHoverMarkers.b = mk('#f97316');
+
+  const sid = compChartHoverMarkers.lineSourceId;
+  const lid = compChartHoverMarkers.lineLayerId;
+  if (!compMap.getSource(sid)) {
+    compMap.addSource(sid, { type:'geojson', data:{type:'FeatureCollection',features:[]} });
+  }
+  if (!compMap.getLayer(lid)) {
+    compMap.addLayer({
+      id: lid,
+      type: 'line',
+      source: sid,
+      paint: { 'line-color':'#ffffff', 'line-width':2, 'line-opacity':0.5, 'line-dasharray':[2,2] }
+    });
+  }
+  compClearMapHoverFromChart();
+}
+
+function compClearMapHoverFromChart() {
+  const sid = compChartHoverMarkers.lineSourceId;
+  if (compMap && compMapReady && compMap.getSource(sid)) {
+    compMap.getSource(sid).setData({type:'FeatureCollection',features:[]});
+  }
+  compHideChartHoverMarkers();
+}
+
+function compEnsureChartHoverMarkers(lonA, latA, lonB, latB) {
+  if (!compMap || !compMapReady) return;
+  if (compChartHoverMarkers.a) {
+    compChartHoverMarkers.a.setLngLat([lonA, latA]);
+    if (!compChartHoverMarkers.a._map) compChartHoverMarkers.a.addTo(compMap);
+  }
+  if (compChartHoverMarkers.b) {
+    compChartHoverMarkers.b.setLngLat([lonB, latB]);
+    if (!compChartHoverMarkers.b._map) compChartHoverMarkers.b.addTo(compMap);
+  }
+}
+
+function compHideChartHoverMarkers() {
+  if (compChartHoverMarkers.a && compChartHoverMarkers.a._map) compChartHoverMarkers.a.remove();
+  if (compChartHoverMarkers.b && compChartHoverMarkers.b._map) compChartHoverMarkers.b.remove();
+}
+
+function compUpdateMapHoverFromChart(xKm) {
+  if (!compMap || !compMapReady || !compStreamA || !compStreamB) { compClearMapHoverFromChart(); return; }
+  const sec = compGetActiveSector();
+  const s0A = sec ? sec.startIdxA : 0;
+  const e0A = sec ? sec.endIdxA : compStreamA.lat.length-1;
+  const s0B = sec ? sec.startIdxB : 0;
+  const e0B = sec ? sec.endIdxB : compStreamB.lat.length-1;
+  const d0A = compStreamA.distance_m[s0A] || 0;
+  const d0B = compStreamB.distance_m[s0B] || 0;
+  const dA = d0A + (xKm * 1000);
+  const dB = d0B + (xKm * 1000);
+  const iA = compNearestByDistRange(compStreamA, dA, s0A, e0A);
+  const iB = compNearestByDistRange(compStreamB, dB, s0B, e0B);
+  if (iA == null || iB == null) { compClearMapHoverFromChart(); return; }
+  const lonA = compStreamA.lon[iA], latA = compStreamA.lat[iA];
+  const lonB = compStreamB.lon[iB], latB = compStreamB.lat[iB];
+  if (!Number.isFinite(lonA) || !Number.isFinite(latA) || !Number.isFinite(lonB) || !Number.isFinite(latB)) {
+    compClearMapHoverFromChart();
+    return;
+  }
+
+  compEnsureChartHoverMarkers(lonA, latA, lonB, latB);
+  const sid = compChartHoverMarkers.lineSourceId;
+  if (compMap.getSource(sid)) {
+    compMap.getSource(sid).setData({
+      type:'FeatureCollection',
+      features:[{type:'Feature',geometry:{type:'LineString',coordinates:[[lonA, latA],[lonB, latB]]}}]
+    });
+  }
 }
 function compDrawTrace(id, s, color) {
   const coords = s.lat.map((la,i) => [s.lon[i],la,s.alt[i]||0]);
@@ -449,12 +565,15 @@ function compFit() {
 }
 function compChangeStyle(k) {
   if (!STYLES[k]) return;
+  compMapReady = false;
   compMap.setStyle(STYLES[k]);
   compMap.once('styledata', () => {
+    compMapReady = true;
     map_addTerrain_to(compMap);
     compDrawTrace('comp-ta',compStreamA,'#3b82f6');
     compDrawTrace('comp-tb',compStreamB,'#f97316');
     compAnalysisLayers=[];
+    compInitChartHoverOnMap();
     compRenderSectorMarkersAll();
   });
 }
@@ -613,7 +732,7 @@ let _compSectorMarkers = {};
 function compRenderSectorMarkersAll() {
   Object.values(_compSectorMarkers).forEach(m => m.remove());
   _compSectorMarkers = {};
-  if (!compMap || !compStreamA) return;
+  if (!compMap || !compMapReady || !compStreamA) return;
 
   compSectors.forEach(sec => {
     const items = [
@@ -625,12 +744,14 @@ function compRenderSectorMarkersAll() {
       items.push({ key:`${sec.id}-eB`, s:compStreamB, idx:sec.endIdxB,   emoji:'🔴', title:`${sec.name} End B`   });
     }
     items.forEach(({key,s,idx,emoji,title}) => {
+      const lon = s.lon[idx], lat = s.lat[idx];
+      if (!Number.isFinite(lon) || !Number.isFinite(lat)) return;
       const el = document.createElement('div');
       el.textContent = emoji; el.title = title;
       el.style.cssText = `font-size:14px;opacity:${sec.id===compActiveSectorId?1:.55};`;
       try {
         _compSectorMarkers[key] = new maplibregl.Marker({element:el})
-          .setLngLat([s.lon[idx], s.lat[idx]])
+          .setLngLat([lon, lat])
           .addTo(compMap);
       } catch(e) {}
     });
@@ -879,6 +1000,68 @@ function compDrawSectionsOnMap(sec, sA, sB) {
   };
   drawSet(sA,'a',0.95,null);
   drawSet(sB,'b',0.80,null);
+  compApplySectionHighlight();
+}
+
+function compApplySectionHighlight() {
+  if (!compMap || !compAnalysisLayers.length) return;
+  const sel = compHighlightedSection || compHoverSection;
+  compAnalysisLayers.forEach(l => {
+    if (!compMap.getLayer(l.layerId)) return;
+    const parts = l.layerId.split('-');
+    const secId = parseInt(parts[1], 10);
+    const athlete = parts[2];
+    const idx = parseInt(parts[3], 10);
+    const baseWidth = athlete === 'a' ? 5 : 3.5;
+    const baseOpacity = athlete === 'a' ? 0.95 : 0.8;
+    if (!sel) {
+      compMap.setPaintProperty(l.layerId, 'line-width', baseWidth);
+      compMap.setPaintProperty(l.layerId, 'line-opacity', baseOpacity);
+      return;
+    }
+    const isMatch = sel && secId === sel.sectorId && idx === sel.sectionIdx;
+    compMap.setPaintProperty(l.layerId, 'line-width', isMatch ? baseWidth + 2 : Math.max(2, baseWidth - 2));
+    compMap.setPaintProperty(l.layerId, 'line-opacity', isMatch ? 1 : 0.25);
+  });
+  compUpdateSectionHighlightMarker();
+}
+
+function compUpdateSectionHighlightMarker() {
+  if (!compMap || !compMapReady) return;
+  const sel = compHighlightedSection || compHoverSection;
+  if (!sel) {
+    if (compSectionHighlightMarker) {
+      try { compSectionHighlightMarker.remove(); } catch (e) {}
+      compSectionHighlightMarker = null;
+    }
+    return;
+  }
+  const sec = compSectors.find(s => s.id === sel.sectorId);
+  if (!sec || !sec.sections) return;
+  const sA = sec.sections.sA[sel.sectionIdx];
+  const sB = sec.sections.sB[sel.sectionIdx];
+  const s = sA || sB;
+  if (!s || !Array.isArray(s.coords) || !s.coords.length) return;
+  const mid = s.coords[Math.floor(s.coords.length / 2)];
+  const lon = mid[0], lat = mid[1];
+  if (!Number.isFinite(lon) || !Number.isFinite(lat)) return;
+
+  const col = SECTION_PALETTE[s.sectionIdx % SECTION_PALETTE.length];
+  const label = `Sez.${s.sectionIdx + 1} · ${sec.name}`;
+  if (!compSectionHighlightMarker) {
+    const el = document.createElement('div');
+    el.textContent = '▲';
+    el.title = label;
+    el.style.cssText = `font-size:18px;color:${col};text-shadow:0 0 6px ${col};`;
+    compSectionHighlightMarker = new maplibregl.Marker({element:el, anchor:'bottom'});
+  }
+  const el = compSectionHighlightMarker.getElement();
+  if (el) {
+    el.title = label;
+    el.style.color = col;
+    el.style.textShadow = `0 0 6px ${col}`;
+  }
+  try { compSectionHighlightMarker.setLngLat([lon, lat]).addTo(compMap); } catch (e) {}
 }
 
 function compClearAnalysis() {
@@ -887,6 +1070,12 @@ function compClearAnalysis() {
     if(compMap&&compMap.getSource(l.sourceId)) compMap.removeSource(l.sourceId);
   });
   compAnalysisLayers=[];
+  compHighlightedSection = null;
+  compHoverSection = null;
+  if (compSectionHighlightMarker) {
+    try { compSectionHighlightMarker.remove(); } catch (e) {}
+    compSectionHighlightMarker = null;
+  }
 }
 
 function compHandleHover(e) {
@@ -1039,7 +1228,9 @@ function compUpdateElevChart() {
     arrivalLines: boundLines,
     sections: markAreas,
     xLabel:'km (relativo settore)',
-    tooltip:(xv,pts) => `<b>${xv.toFixed(2)} km</b><br/>${pts.map(p=>`<span style="color:${p.color}">■</span> ${p.name}: <b>${p.val.toFixed(tab==='speed'?1:0)}${yLabel}</b>`).join('<br/>')}`
+    tooltip:(xv,pts) => `<b>${xv.toFixed(2)} km</b><br/>${pts.map(p=>`<span style="color:${p.color}">■</span> ${p.name}: <b>${p.val.toFixed(tab==='speed'?1:0)}${yLabel}</b>`).join('<br/>')}`,
+    onHover:(xv) => compUpdateMapHoverFromChart(xv),
+    onLeave:() => compClearMapHoverFromChart()
   });
 }
 
@@ -1138,6 +1329,8 @@ function _compD3Render(opts) {
     .style('padding','7px 11px').style('font-size','10px').style('color','#e2e8f0')
     .style('font-family','Space Mono,monospace').style('line-height','1.8').style('z-index','200');
 
+  if (typeof opts.onLeave === 'function') opts.onLeave();
+
   const bisect=d3.bisector(d=>d[0]).left;
   svg.append('rect').attr('width',totalW).attr('height',totalH).attr('fill','none').attr('pointer-events','all')
     .on('mousemove',function(event){
@@ -1152,8 +1345,9 @@ function _compD3Render(opts) {
       cursorLine.attr('x1', mx).attr('x2', mx).attr('visibility','visible');
       tooltip.style('display','block').style('left',(mx+10)+'px').style('top','8px')
         .html(opts.tooltip?opts.tooltip(xv,pts):`<b>${xv.toFixed(2)} km</b><br/>${pts.map(p=>`<span style="color:${p.color}">■</span> ${p.name}: <b>${Math.round(p.val)}</b>`).join('<br/>')}`);
+      if (typeof opts.onHover === 'function') opts.onHover(xv, idx);
     })
-    .on('mouseleave',()=>{ tooltip.style('display','none'); cursorLine.attr('visibility','hidden'); });
+    .on('mouseleave',()=>{ tooltip.style('display','none'); cursorLine.attr('visibility','hidden'); if (typeof opts.onLeave === 'function') opts.onLeave(); });
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -1172,32 +1366,64 @@ function compBuildMetricsTable() {
   info.textContent = `${analyzedSectors.length} settori · ${totalSec} sezioni`;
 
   // Header
+  const isColHidden = (key) => compTableColVis && compTableColVis[key] === false;
   const tr = document.createElement('tr');
   const cols = [
-    {label:'#',          key:'num',       tip:'Numero sezione'},
-    {label:'Dist A',     key:'distA',     tip:'Distanza coperta A'},
-    {label:'Dist B',     key:'distB',     tip:'Distanza coperta B'},
-    {label:'Tempo A',    key:'timeA',     tip:'Tempo sezione A'},
-    {label:'Tempo B',    key:'timeB',     tip:'Tempo sezione B'},
-    {label:'ΔTempo',     key:'dTime',     tip:'B - A (neg = A più veloce)'},
-    {label:'Pwr A',      key:'pwrA',      tip:'Potenza media A'},
-    {label:'Pwr B',      key:'pwrB',      tip:'Potenza media B'},
-    {label:'ΔPwr',       key:'dPwr',      tip:'B - A'},
-    {label:'Spd A',      key:'spdA',      tip:'Velocità media A'},
-    {label:'Spd B',      key:'spdB',      tip:'Velocità media B'},
-    {label:'ΔSpd',       key:'dSpd',      tip:'B - A'},
-    {label:'HR A',       key:'hrA',       tip:'FC media A'},
-    {label:'HR B',       key:'hrB',       tip:'FC media B'},
-    {label:'ΔHR',        key:'dHr',       tip:'B - A'},
-    {label:'VAM A',      key:'vamA',      tip:'Velocità ascensionale media A'},
-    {label:'VAM B',      key:'vamB',      tip:'Velocità ascensionale media B'},
-    {label:'ΔVAM',       key:'dVam',      tip:'B - A'},
-    {label:'Disliv',     key:'altDiff',   tip:'Dislivello sezione A'},
-    {label:'Pend %',     key:'grade',     tip:'Pendenza media A'},
+    {label:'#',            key:'num',        tip:'Numero sezione'},
+    {label:'Dist A',       key:'distA',      tip:'Distanza coperta A'},
+    {label:'Dist B',       key:'distB',      tip:'Distanza coperta B'},
+    {label:'Dist A Tot',   key:'distA_c',    tip:'Distanza cumulativa A'},
+    {label:'Dist B Tot',   key:'distB_c',    tip:'Distanza cumulativa B'},
+    {label:'Tempo A',      key:'timeA',      tip:'Tempo sezione A'},
+    {label:'Tempo B',      key:'timeB',      tip:'Tempo sezione B'},
+    {label:'ΔTempo',       key:'dTime',      tip:'A - B (neg = A più veloce)'},
+    {label:'Tempo A Tot',  key:'timeA_c',    tip:'Tempo cumulativo A'},
+    {label:'Tempo B Tot',  key:'timeB_c',    tip:'Tempo cumulativo B'},
+    {label:'ΔTempo Tot',   key:'dTime_c',    tip:'A - B cumulativo'},
+    {label:'Pwr A',        key:'pwrA',       tip:'Potenza media A'},
+    {label:'Pwr B',        key:'pwrB',       tip:'Potenza media B'},
+    {label:'ΔPwr',         key:'dPwr',       tip:'B - A'},
+    {label:'Pwr A Tot',    key:'pwrA_c',     tip:'Potenza media cumulativa A'},
+    {label:'Pwr B Tot',    key:'pwrB_c',     tip:'Potenza media cumulativa B'},
+    {label:'ΔPwr Tot',     key:'dPwr_c',     tip:'B - A cumulativo'},
+    {label:'Spd A',        key:'spdA',       tip:'Velocità media A'},
+    {label:'Spd B',        key:'spdB',       tip:'Velocità media B'},
+    {label:'ΔSpd',         key:'dSpd',       tip:'B - A'},
+    {label:'Spd A Tot',    key:'spdA_c',     tip:'Velocità media cumulativa A'},
+    {label:'Spd B Tot',    key:'spdB_c',     tip:'Velocità media cumulativa B'},
+    {label:'ΔSpd Tot',     key:'dSpd_c',     tip:'B - A cumulativo'},
+    {label:'HR A',         key:'hrA',        tip:'FC media A'},
+    {label:'HR B',         key:'hrB',        tip:'FC media B'},
+    {label:'ΔHR',          key:'dHr',        tip:'B - A'},
+    {label:'HR A Tot',     key:'hrA_c',      tip:'FC media cumulativa A'},
+    {label:'HR B Tot',     key:'hrB_c',      tip:'FC media cumulativa B'},
+    {label:'ΔHR Tot',      key:'dHr_c',      tip:'B - A cumulativo'},
+    {label:'VAM A',        key:'vamA',       tip:'Velocità ascensionale media A'},
+    {label:'VAM B',        key:'vamB',       tip:'Velocità ascensionale media B'},
+    {label:'ΔVAM',         key:'dVam',       tip:'B - A'},
+    {label:'VAM A Tot',    key:'vamA_c',     tip:'Velocità ascensionale cumulativa A'},
+    {label:'VAM B Tot',    key:'vamB_c',     tip:'Velocità ascensionale cumulativa B'},
+    {label:'ΔVAM Tot',     key:'dVam_c',     tip:'B - A cumulativo'},
+    {label:'Disliv',       key:'altDiff',    tip:'Dislivello sezione A'},
+    {label:'Disliv Tot',   key:'altDiff_c',  tip:'Dislivello cumulativo A'},
+    {label:'Pend %',       key:'grade',      tip:'Pendenza media A'},
+    {label:'Pend % Tot',   key:'grade_c',    tip:'Pendenza media cumulativa A'},
   ];
+  compTableColsCache = cols;
+  if (!compTableColVis._init) {
+    compLoadCustomPresets();
+    compLoadTablePrefs();
+    const hasPreset = compFindPreset(compTableColVis._preset);
+    if (!hasPreset) compApplyTablePreset('flat', false, cols);
+    compTableColVis._init = true;
+  }
+  compRenderTablePresets();
+  compRenderTableColToggles(cols);
   cols.forEach(c=>{
     const th=document.createElement('th');
     th.textContent=c.label; th.title=c.tip||'';
+    th.dataset.col = c.key;
+    if (isColHidden(c.key)) th.classList.add('col-hidden');
     tr.appendChild(th);
   });
   thead.appendChild(tr);
@@ -1218,11 +1444,27 @@ function compBuildMetricsTable() {
     tbody.appendChild(hdr);
 
     const maxSec = Math.max(sector.sections.sA.length, sector.sections.sB.length);
+    let cumTimeA = 0, cumTimeB = 0;
+    let cumDistA = 0, cumDistB = 0;
+    let cumAltA = 0,  cumAltB = 0;
+    let cumPwrTimeA = 0, cumPwrTimeB = 0;
+    let cumHrTimeA = 0,  cumHrTimeB = 0;
+
     for (let i=0; i<maxSec; i++) {
       const sA = sector.sections.sA[i];
       const sB = sector.sections.sB[i];
       const tr2=document.createElement('tr');
-      const c=(k,cls='')=>{const td=document.createElement('td');td.textContent=k;td.className=cls;tr2.appendChild(td);return td;};
+      tr2.dataset.sectorId = sector.id;
+      tr2.dataset.sectionIdx = i;
+      tr2.addEventListener('mouseenter', () => compPreviewSectionFromTable(sector.id, i));
+      tr2.addEventListener('mouseleave', () => compClearSectionPreview());
+      tr2.addEventListener('click', () => compSelectSectionFromTable(sector.id, i));
+      const c=(k,cls='',colKey='')=>{
+        const td=document.createElement('td');
+        td.textContent=k;td.className=cls;td.dataset.col=colKey;
+        if (colKey && isColHidden(colKey)) td.classList.add('col-hidden');
+        tr2.appendChild(td);return td;
+      };
       const dSign=(v,favorLower)=>{
         if (Math.abs(v) < 0.05) return 'td-neutral';
         if (favorLower) return v < 0 ? 'td-win-a' : 'td-win-b';
@@ -1231,51 +1473,332 @@ function compBuildMetricsTable() {
       const secColor = SECTION_PALETTE[i % SECTION_PALETTE.length];
       const numTd=document.createElement('td');
       numTd.innerHTML=`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${secColor};margin-right:4px;"></span>${i+1}`;
-      numTd.className='td-label'; tr2.appendChild(numTd);
+      numTd.className='td-label'; numTd.dataset.col='num';
+      if (isColHidden('num')) numTd.classList.add('col-hidden');
+      tr2.appendChild(numTd);
 
-      if (sA) { c((sA.dDist/1000).toFixed(2)+'km'); } else c('—','td-neutral');
-      if (sB) { c((sB.dDist/1000).toFixed(2)+'km'); } else c('—','td-neutral');
+      if (sA) {
+        cumTimeA += sA.dTime;
+        cumDistA += sA.dDist;
+        cumAltA  += sA.dAlt;
+        if (sA.dTime > 0) {
+          cumPwrTimeA += (sA.avgPower||0) * sA.dTime;
+          cumHrTimeA  += (sA.avgHr||0) * sA.dTime;
+        }
+      }
+      if (sB) {
+        cumTimeB += sB.dTime;
+        cumDistB += sB.dDist;
+        cumAltB  += sB.dAlt;
+        if (sB.dTime > 0) {
+          cumPwrTimeB += (sB.avgPower||0) * sB.dTime;
+          cumHrTimeB  += (sB.avgHr||0) * sB.dTime;
+        }
+      }
 
-      if (sA) { c(fmtTime(sA.dTime)); } else c('—','td-neutral');
-      if (sB) { c(fmtTime(sB.dTime)); } else c('—','td-neutral');
+      const cumPwrA = cumTimeA > 0 ? cumPwrTimeA / cumTimeA : 0;
+      const cumPwrB = cumTimeB > 0 ? cumPwrTimeB / cumTimeB : 0;
+      const cumSpdA = cumTimeA > 0 ? (cumDistA / cumTimeA) * 3.6 : 0;
+      const cumSpdB = cumTimeB > 0 ? (cumDistB / cumTimeB) * 3.6 : 0;
+      const cumHrA  = cumTimeA > 0 ? cumHrTimeA / cumTimeA : 0;
+      const cumHrB  = cumTimeB > 0 ? cumHrTimeB / cumTimeB : 0;
+      const cumVamA = cumTimeA > 0 ? (cumAltA / cumTimeA) * 3600 : 0;
+      const cumVamB = cumTimeB > 0 ? (cumAltB / cumTimeB) * 3600 : 0;
+      const cumGradeA = cumDistA > 0 ? (cumAltA / cumDistA) * 100 : 0;
+      const cumGradeB = cumDistB > 0 ? (cumAltB / cumDistB) * 100 : 0;
+
+      if (sA) { c((sA.dDist/1000).toFixed(2)+'km','', 'distA'); } else c('—','td-neutral','distA');
+      if (sB) { c((sB.dDist/1000).toFixed(2)+'km','', 'distB'); } else c('—','td-neutral','distB');
+      if (sA && cumDistA > 0) { c((cumDistA/1000).toFixed(2)+'km','', 'distA_c'); } else c('—','td-neutral','distA_c');
+      if (sB && cumDistB > 0) { c((cumDistB/1000).toFixed(2)+'km','', 'distB_c'); } else c('—','td-neutral','distB_c');
+
+      if (sA) { c(fmtTime(sA.dTime),'', 'timeA'); } else c('—','td-neutral','timeA');
+      if (sB) { c(fmtTime(sB.dTime),'', 'timeB'); } else c('—','td-neutral','timeB');
+      if (sA && cumTimeA > 0) { c(fmtTime(cumTimeA),'', 'timeA_c'); } else c('—','td-neutral','timeA_c');
+      if (sB && cumTimeB > 0) { c(fmtTime(cumTimeB),'', 'timeB_c'); } else c('—','td-neutral','timeB_c');
 
       if (sA&&sB) {
         const dt=sA.dTime-sB.dTime;
-        c((dt>=0?'+':'')+dt.toFixed(1)+'s', dSign(dt,true));
-      } else c('—','td-neutral');
+        c((dt>=0?'+':'')+dt.toFixed(1)+'s', dSign(dt,true), 'dTime');
+      } else c('—','td-neutral','dTime');
+      if (sA&&sB&&cumTimeA>0&&cumTimeB>0) {
+        const dtc = cumTimeA - cumTimeB;
+        c((dtc>=0?'+':'')+dtc.toFixed(1)+'s', dSign(dtc,true), 'dTime_c');
+      } else c('—','td-neutral','dTime_c');
 
-      if (sA) { c(Math.round(sA.avgPower)+'W', sA.avgPower>0?'':'td-neutral'); } else c('—','td-neutral');
-      if (sB) { c(Math.round(sB.avgPower)+'W', sB.avgPower>0?'':'td-neutral'); } else c('—','td-neutral');
+      if (sA) { c(Math.round(sA.avgPower)+'W', sA.avgPower>0?'':'td-neutral', 'pwrA'); } else c('—','td-neutral','pwrA');
+      if (sB) { c(Math.round(sB.avgPower)+'W', sB.avgPower>0?'':'td-neutral', 'pwrB'); } else c('—','td-neutral','pwrB');
+      if (sA && cumTimeA > 0) { c(Math.round(cumPwrA)+'W', cumPwrA>0?'':'td-neutral', 'pwrA_c'); } else c('—','td-neutral','pwrA_c');
+      if (sB && cumTimeB > 0) { c(Math.round(cumPwrB)+'W', cumPwrB>0?'':'td-neutral', 'pwrB_c'); } else c('—','td-neutral','pwrB_c');
       if (sA&&sB&&sA.avgPower>0&&sB.avgPower>0) {
         const dp=sB.avgPower-sA.avgPower;
-        c((dp>=0?'+':'')+dp.toFixed(0)+'W', dSign(dp,false));
-      } else c('—','td-neutral');
+        c((dp>=0?'+':'')+dp.toFixed(0)+'W', dSign(dp,false), 'dPwr');
+      } else c('—','td-neutral','dPwr');
+      if (sA&&sB&&cumTimeA>0&&cumTimeB>0) {
+        const dpC = cumPwrB - cumPwrA;
+        c((dpC>=0?'+':'')+dpC.toFixed(0)+'W', dSign(dpC,false), 'dPwr_c');
+      } else c('—','td-neutral','dPwr_c');
 
-      if (sA) { c(sA.avgSpeed.toFixed(1)+'km/h', sA.avgSpeed>0?'':'td-neutral'); } else c('—','td-neutral');
-      if (sB) { c(sB.avgSpeed.toFixed(1)+'km/h', sB.avgSpeed>0?'':'td-neutral'); } else c('—','td-neutral');
+      if (sA) { c(sA.avgSpeed.toFixed(1)+'km/h', sA.avgSpeed>0?'':'td-neutral', 'spdA'); } else c('—','td-neutral','spdA');
+      if (sB) { c(sB.avgSpeed.toFixed(1)+'km/h', sB.avgSpeed>0?'':'td-neutral', 'spdB'); } else c('—','td-neutral','spdB');
+      if (sA && cumTimeA > 0) { c(cumSpdA.toFixed(1)+'km/h', cumSpdA>0?'':'td-neutral', 'spdA_c'); } else c('—','td-neutral','spdA_c');
+      if (sB && cumTimeB > 0) { c(cumSpdB.toFixed(1)+'km/h', cumSpdB>0?'':'td-neutral', 'spdB_c'); } else c('—','td-neutral','spdB_c');
       if (sA&&sB&&sA.avgSpeed>0&&sB.avgSpeed>0) {
         const ds=sB.avgSpeed-sA.avgSpeed;
-        c((ds>=0?'+':'')+ds.toFixed(1)+'km/h', dSign(ds,false));
-      } else c('—','td-neutral');
+        c((ds>=0?'+':'')+ds.toFixed(1)+'km/h', dSign(ds,false), 'dSpd');
+      } else c('—','td-neutral','dSpd');
+      if (sA&&sB&&cumTimeA>0&&cumTimeB>0) {
+        const dsC = cumSpdB - cumSpdA;
+        c((dsC>=0?'+':'')+dsC.toFixed(1)+'km/h', dSign(dsC,false), 'dSpd_c');
+      } else c('—','td-neutral','dSpd_c');
 
-      if (sA) { c(Math.round(sA.avgHr)>0?Math.round(sA.avgHr)+'bpm':'—', 'td-neutral'); } else c('—','td-neutral');
-      if (sB) { c(Math.round(sB.avgHr)>0?Math.round(sB.avgHr)+'bpm':'—', 'td-neutral'); } else c('—','td-neutral');
+      if (sA) { c(Math.round(sA.avgHr)>0?Math.round(sA.avgHr)+'bpm':'—', 'td-neutral', 'hrA'); } else c('—','td-neutral','hrA');
+      if (sB) { c(Math.round(sB.avgHr)>0?Math.round(sB.avgHr)+'bpm':'—', 'td-neutral', 'hrB'); } else c('—','td-neutral','hrB');
+      if (sA && cumTimeA > 0) { c(cumHrA>0?Math.round(cumHrA)+'bpm':'—', 'td-neutral', 'hrA_c'); } else c('—','td-neutral','hrA_c');
+      if (sB && cumTimeB > 0) { c(cumHrB>0?Math.round(cumHrB)+'bpm':'—', 'td-neutral', 'hrB_c'); } else c('—','td-neutral','hrB_c');
       if (sA&&sB&&sA.avgHr>0&&sB.avgHr>0) {
         const dh=sB.avgHr-sA.avgHr;
-        c((dh>=0?'+':'')+dh.toFixed(0)+'bpm', dSign(dh,false));
-      } else c('—','td-neutral');
+        c((dh>=0?'+':'')+dh.toFixed(0)+'bpm', dSign(dh,false), 'dHr');
+      } else c('—','td-neutral','dHr');
+      if (sA&&sB&&cumTimeA>0&&cumTimeB>0) {
+        const dhC = cumHrB - cumHrA;
+        c((dhC>=0?'+':'')+dhC.toFixed(0)+'bpm', dSign(dhC,false), 'dHr_c');
+      } else c('—','td-neutral','dHr_c');
 
-      if (sA) { c(sA.vam>0?Math.round(sA.vam)+'m/h':'—','td-neutral'); } else c('—','td-neutral');
-      if (sB) { c(sB.vam>0?Math.round(sB.vam)+'m/h':'—','td-neutral'); } else c('—','td-neutral');
+      if (sA) { c(sA.vam>0?Math.round(sA.vam)+'m/h':'—','td-neutral','vamA'); } else c('—','td-neutral','vamA');
+      if (sB) { c(sB.vam>0?Math.round(sB.vam)+'m/h':'—','td-neutral','vamB'); } else c('—','td-neutral','vamB');
+      if (sA && cumTimeA > 0) { c(cumVamA>0?Math.round(cumVamA)+'m/h':'—','td-neutral','vamA_c'); } else c('—','td-neutral','vamA_c');
+      if (sB && cumTimeB > 0) { c(cumVamB>0?Math.round(cumVamB)+'m/h':'—','td-neutral','vamB_c'); } else c('—','td-neutral','vamB_c');
       if (sA&&sB&&sA.vam>0&&sB.vam>0) {
-        const dv=sB.vam-sA.vam; c((dv>=0?'+':'')+Math.round(dv)+'m/h',dSign(dv,false));
-      } else c('—','td-neutral');
+        const dv=sB.vam-sA.vam; c((dv>=0?'+':'')+Math.round(dv)+'m/h',dSign(dv,false),'dVam');
+      } else c('—','td-neutral','dVam');
+      if (sA&&sB&&cumTimeA>0&&cumTimeB>0) {
+        const dvC = cumVamB - cumVamA;
+        c((dvC>=0?'+':'')+Math.round(dvC)+'m/h', dSign(dvC,false), 'dVam_c');
+      } else c('—','td-neutral','dVam_c');
 
-      if (sA) { c((sA.dAlt>=0?'+':'')+sA.dAlt.toFixed(1)+'m','td-neutral'); } else c('—','td-neutral');
-      if (sA) { c(sA.avgGrade.toFixed(1)+'%','td-neutral'); } else c('—','td-neutral');
+      if (sA) { c((sA.dAlt>=0?'+':'')+sA.dAlt.toFixed(1)+'m','td-neutral','altDiff'); } else c('—','td-neutral','altDiff');
+      if (sA && cumAltA) { c((cumAltA>=0?'+':'')+cumAltA.toFixed(1)+'m','td-neutral','altDiff_c'); } else c('—','td-neutral','altDiff_c');
+      if (sA) { c(sA.avgGrade.toFixed(1)+'%','td-neutral','grade'); } else c('—','td-neutral','grade');
+      if (sA && cumDistA > 0) { c(cumGradeA.toFixed(1)+'%','td-neutral','grade_c'); } else c('—','td-neutral','grade_c');
 
       tbody.appendChild(tr2);
     }
+  });
+}
+
+function compSelectSectionFromTable(sectorId, sectionIdx) {
+  if (compHighlightedSection && compHighlightedSection.sectorId === sectorId && compHighlightedSection.sectionIdx === sectionIdx) {
+    compClearSectionHighlight();
+    return;
+  }
+  compHoverSection = null;
+  compHighlightedSection = { sectorId, sectionIdx };
+  compActiveSectorId = sectorId;
+  compRebuildSectorSelect();
+  compUpdateSectorPanelUI();
+  compUpdateSectorLegend();
+  compUpdateSectorChips();
+  compUpdateElevChart();
+  compApplySectionHighlight();
+  document.querySelectorAll('#comp-table-body tr').forEach(tr => tr.classList.remove('comp-row-selected'));
+  const row = document.querySelector(`#comp-table-body tr[data-sector-id="${sectorId}"][data-section-idx="${sectionIdx}"]`);
+  if (row) row.classList.add('comp-row-selected');
+}
+
+function compClearSectionHighlight() {
+  compHighlightedSection = null;
+  compApplySectionHighlight();
+  if (compSectionHighlightMarker) {
+    try { compSectionHighlightMarker.remove(); } catch (e) {}
+    compSectionHighlightMarker = null;
+  }
+  document.querySelectorAll('#comp-table-body tr').forEach(tr => tr.classList.remove('comp-row-selected'));
+}
+
+function compPreviewSectionFromTable(sectorId, sectionIdx) {
+  if (compHighlightedSection) return;
+  compHoverSection = { sectorId, sectionIdx };
+  compApplySectionHighlight();
+}
+
+function compClearSectionPreview() {
+  if (compHighlightedSection) return;
+  compHoverSection = null;
+  compApplySectionHighlight();
+}
+
+let compTableColVis = {};
+let compTableColsCache = null;
+const compTablePresets = [
+  {
+    id:'flat', label:'Flat',
+    cols:[
+      'num','distA_c',
+      'timeA','timeB','dTime','timeA_c','timeB_c','dTime_c',
+      'pwrA','pwrB','dPwr','pwrA_c','pwrB_c','dPwr_c',
+      'spdA','spdB','dSpd','spdA_c','spdB_c','dSpd_c',
+      'hrA','hrB','dHr','hrA_c','hrB_c','dHr_c',
+      'grade','grade_c'
+    ]
+  },
+  {
+    id:'all', label:'Tutto', cols:'*'
+  },
+  {
+    id:'base', label:'Base',
+    cols:['num','distA','distB','timeA','timeB','dTime','timeA_c','timeB_c','dTime_c']
+  }
+];
+let compCustomPresets = [];
+
+function compRenderTablePresets() {
+  const wrap = document.getElementById('comp-table-presets');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  const row = document.createElement('div');
+  row.className = 'col-presets';
+  compTablePresets.forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'preset-btn';
+    if (compTableColVis._preset === p.id) btn.classList.add('active');
+    btn.textContent = p.label;
+    btn.addEventListener('click', () => compApplyTablePreset(p.id, true));
+    row.appendChild(btn);
+  });
+  compCustomPresets.forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'preset-btn';
+    if (compTableColVis._preset === p.id) btn.classList.add('active');
+    const label = document.createElement('span');
+    label.textContent = p.label;
+    const del = document.createElement('span');
+    del.textContent = ' ✕';
+    del.style.color = 'var(--muted2)';
+    del.style.marginLeft = '2px';
+    del.addEventListener('click', (e) => {
+      e.stopPropagation();
+      compDeleteCustomPreset(p.id);
+    });
+    btn.appendChild(label);
+    btn.appendChild(del);
+    btn.addEventListener('click', () => compApplyTablePreset(p.id, true));
+    row.appendChild(btn);
+  });
+  wrap.appendChild(row);
+}
+
+function compFindPreset(presetId) {
+  return compTablePresets.find(p => p.id === presetId) || compCustomPresets.find(p => p.id === presetId) || null;
+}
+
+function compApplyTablePreset(presetId, rebuild, allCols) {
+  const preset = compFindPreset(presetId);
+  if (!preset) return;
+  const colKeys = Array.isArray(preset.cols) ? preset.cols : null;
+  const allKeys = Array.isArray(allCols) && allCols.length
+    ? allCols.map(c => c.key)
+    : Object.keys(compTableColVis);
+  if (preset.cols === '*') {
+    allKeys.forEach(k => { compTableColVis[k] = true; });
+  } else if (colKeys) {
+    allKeys.forEach(k => { compTableColVis[k] = false; });
+    colKeys.forEach(k => { compTableColVis[k] = true; });
+  }
+  compTableColVis._preset = presetId;
+  compSaveTablePrefs();
+  if (rebuild) compBuildMetricsTable();
+}
+
+function compSaveTablePrefs() {
+  try {
+    const data = JSON.stringify(compTableColVis);
+    localStorage.setItem('compTablePrefs', data);
+  } catch (e) { /* ignore */ }
+}
+
+function compLoadTablePrefs() {
+  try {
+    const raw = localStorage.getItem('compTablePrefs');
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') compTableColVis = parsed;
+  } catch (e) { /* ignore */ }
+}
+
+function compSaveCustomPreset() {
+  const name = prompt('Nome preset:', 'Custom');
+  if (!name) return;
+  const cols = Object.keys(compTableColVis)
+    .filter(k => !k.startsWith('_') && compTableColVis[k] !== false);
+  const id = `user-${Date.now()}`;
+  compCustomPresets.push({ id, label: name, cols });
+  compTableColVis._preset = id;
+  compSaveCustomPresets();
+  compSaveTablePrefs();
+  compRenderTablePresets();
+}
+
+function compDeleteCustomPreset(presetId) {
+  const preset = compCustomPresets.find(p => p.id === presetId);
+  if (!preset) return;
+  const ok = confirm(`Eliminare il preset "${preset.label}"?`);
+  if (!ok) return;
+  compCustomPresets = compCustomPresets.filter(p => p.id !== presetId);
+  if (compTableColVis._preset === presetId) compTableColVis._preset = 'flat';
+  compSaveCustomPresets();
+  compSaveTablePrefs();
+  compRenderTablePresets();
+}
+
+function compSaveCustomPresets() {
+  try {
+    localStorage.setItem('compTableCustomPresets', JSON.stringify(compCustomPresets));
+  } catch (e) { /* ignore */ }
+}
+
+function compLoadCustomPresets() {
+  try {
+    const raw = localStorage.getItem('compTableCustomPresets');
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) compCustomPresets = parsed;
+  } catch (e) { /* ignore */ }
+}
+
+function compResetTablePrefs() {
+  try { localStorage.removeItem('compTablePrefs'); } catch (e) { /* ignore */ }
+  try { localStorage.removeItem('compTableCustomPresets'); } catch (e) { /* ignore */ }
+  compCustomPresets = [];
+  compTableColVis = {};
+  if (Array.isArray(compTableColsCache) && compTableColsCache.length) {
+    compApplyTablePreset('flat', false, compTableColsCache);
+  } else {
+    compApplyTablePreset('flat', false);
+  }
+  compBuildMetricsTable();
+}
+function compRenderTableColToggles(cols) {
+  const wrap = document.getElementById('comp-table-cols');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  cols.forEach(c => {
+    if (compTableColVis[c.key] === undefined) compTableColVis[c.key] = true;
+    const label = document.createElement('label');
+    label.className = 'col-toggle';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = compTableColVis[c.key] !== false;
+    cb.addEventListener('change', () => {
+      compTableColVis[c.key] = cb.checked;
+      compSaveTablePrefs();
+      compBuildMetricsTable();
+    });
+    const text = document.createElement('span');
+    text.textContent = c.label;
+    label.appendChild(cb);
+    label.appendChild(text);
+    wrap.appendChild(label);
   });
 }
 
@@ -1286,7 +1809,18 @@ function compToggleTable() {
   drawer.style.transform = compTableOpen ? 'translateY(0)' : 'translateY(100%)';
   document.getElementById('comp-table-close-icon').textContent = compTableOpen ? '▼' : '▲';
   document.getElementById('comp-btn-table').classList.toggle('off', !compTableOpen);
-  if (compTableOpen) compBuildMetricsTable();
+  if (compTableOpen) {
+    compLoadCustomPresets();
+    compLoadTablePrefs();
+    if (!compFindPreset(compTableColVis._preset)) {
+      if (Array.isArray(compTableColsCache) && compTableColsCache.length) {
+        compApplyTablePreset('flat', false, compTableColsCache);
+      } else {
+        compApplyTablePreset('flat', false);
+      }
+    }
+    compBuildMetricsTable();
+  }
 }
 
 // ── CSV Export ──
