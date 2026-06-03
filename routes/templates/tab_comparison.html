@@ -24,40 +24,38 @@
     <div id="comp-app" style="display:none;flex:1;flex-direction:column;overflow:hidden;min-height:0;">
 
       <!-- TOP BAR -->
+      <style>
+        .comp-layer-toggle-group .btn.off {
+          opacity: 0.4 !important;
+          background: transparent !important;
+          text-decoration: line-through;
+          color: var(--muted) !important;
+        }
+        .comp-layer-toggle-group .btn:not(.off) {
+          opacity: 1 !important;
+          background: var(--surface) !important;
+          font-weight: 600;
+        }
+      </style>
+
       <div id="comp-topbar">
         <span class="badge badge-a">🔵 <span id="comp-lbl-a">A</span></span>
         <span class="badge badge-b">🟠 <span id="comp-lbl-b">B</span></span>
         <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
 
-        <!-- Sector selector -->
         <label style="font-size:.7rem;color:var(--muted2)">Settore:</label>
         <select id="comp-sector-sel" onchange="compOnSectorChange()" style="background:var(--bg);border:1px solid var(--border-hi);color:var(--text);padding:2px 7px;border-radius:5px;font-size:.74rem;max-width:130px;"></select>
-        <button class="btn btn-ghost" onclick="compAddSector()" title="Aggiungi settore" style="padding:3px 9px;font-size:.8rem;">＋</button>
-        <button class="btn btn-ghost" onclick="compDeleteSector()" title="Elimina settore" style="padding:3px 9px;font-size:.8rem;color:#f43f5e;">✕</button>
-        <button class="btn btn-ghost" id="comp-btn-edit-sector" onclick="compToggleSectorPanel()" style="padding:3px 9px;font-size:.72rem;">🎯 Modifica</button>
+        <button class="btn btn-ghost" id="comp-btn-edit-sector" onclick="compToggleSectorPanel()" style="padding:4px 10px;font-size:.72rem;font-weight:bold;background:var(--border);border-radius:6px;margin-left:4px;">🛠️ Gestisci Settori</button>
 
         <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
 
-        <!-- Section settings -->
-        <label style="font-size:.7rem;color:var(--muted2)">Sezione:</label>
-        <select id="comp-sec-mode" onchange="compOnSecModeChange()" style="background:var(--bg);border:1px solid var(--border-hi);color:var(--text);padding:2px 7px;border-radius:5px;font-size:.74rem;">
-          <option value="dist" selected>Distanza</option>
-          <option value="time">Tempo</option>
-        </select>
-        <input type="number" id="comp-sec-val" value="200" min="10" max="5000" step="10"
-          style="width:68px;padding:3px 7px;background:var(--bg);border:1px solid var(--border-hi);border-radius:5px;color:var(--text);font-size:.8rem;"/>
-        <span id="comp-sec-unit" style="font-size:.7rem;color:var(--muted2);margin-left:-6px;">m</span>
-        <button class="btn btn-warn" onclick="compRunAnalysis()">🔍 Analizza</button>
-
-        <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
-
-        <!-- Layer toggles -->
-        <button class="btn btn-ghost" id="comp-btn-va" onclick="compToggleLayer('traceA')">🔵 ON</button>
-        <button class="btn btn-ghost" id="comp-btn-vb" onclick="compToggleLayer('traceB')">🟠 ON</button>
-        <button class="btn btn-ghost" id="comp-btn-vs" onclick="compToggleLayer('sections')">Sez ON</button>
+        <div class="comp-layer-toggle-group" style="display:flex;background:var(--bg);padding:2px;border-radius:6px;border:1px solid var(--border-hi);gap:2px;align-items:center;">
+          <button class="btn btn-ghost" id="comp-btn-va" onclick="compToggleLayer('traceA')" style="padding:3px 8px;font-size:.72rem;border-radius:4px;border:none;min-width:55px;transition:all 0.2s;">🔵 ON</button>
+          <button class="btn btn-ghost" id="comp-btn-vb" onclick="compToggleLayer('traceB')" style="padding:3px 8px;font-size:.72rem;border-radius:4px;border:none;min-width:55px;transition:all 0.2s;">🟠 ON</button>
+          <button class="btn btn-ghost" id="comp-btn-vs" onclick="compToggleLayer('sections')" style="padding:3px 8px;font-size:.72rem;border-radius:4px;border:none;min-width:65px;transition:all 0.2s;">Sez ON</button>
+        </div>
         <button class="btn btn-ghost" id="comp-btn-smooth" onclick="compToggleSmoothPanel()" style="margin-left:4px;">〜 Smoothing</button>
 
-        <!-- ── WEIGHT PANEL ── -->
         <div class="weight-panel" style="margin-left:4px; gap:10px;">
           <span class="wp-label">⚖️ kg</span>
           <span class="wp-sep"></span>
@@ -84,9 +82,7 @@
           </div>
         </div>
 
-        <!-- Metrics table button -->
         <button class="btn btn-ghost" id="comp-btn-table" onclick="compToggleTable()" style="margin-left:4px;">📊 Tabella</button>
-
         <button class="btn btn-danger" onclick="compReset()" style="margin-left:4px;">⟲ Reset</button>
         <span id="comp-status" style="font-size:.72rem;color:var(--muted);margin-left:auto;font-family:var(--font-mono);"></span>
       </div>
@@ -134,68 +130,88 @@
       </div>
 
       <!-- SECTOR EDIT PANEL (collapsible) -->
-      <div id="comp-sector-panel" style="display:none;background:var(--surface2);border-bottom:1px solid var(--border);padding:8px 14px;flex-shrink:0;">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:.72rem;font-family:var(--font-mono);">
-          <span style="color:var(--muted2);font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;margin-right:4px;">SETTORE ATTIVO</span>
+      <div id="comp-sector-panel" style="display:none; background:var(--surface2); border-bottom:1px solid var(--border); padding:10px 14px; flex-shrink:0;">
+        <div style="display:flex; flex-direction:column; gap:8px; font-family:var(--font-mono); font-size:.72rem;">
+          
+          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; border-bottom:1px solid rgba(255,255,255,0.04); padding-bottom:6px;">
+            <span style="color:var(--a); font-weight:bold; font-size:.68rem; text-transform:uppercase; letter-spacing:.06em;">⚙️ OPZIONI ANALISI:</span>
+            
+            <div style="display:flex; align-items:center; gap:4px;">
+              <label style="color:var(--muted2)">Nome Settore:</label>
+              <input id="comp-sec-name" type="text" maxlength="20" value="Settore 1"
+                style="width:110px; padding:2px 6px; background:var(--bg); border:1px solid var(--border-hi); border-radius:4px; color:var(--text); font-family:var(--font-mono); font-size:.72rem;"
+                oninput="compUpdateSectorName(this.value)"/>
+            </div>
 
-          <!-- Name -->
-          <label style="color:var(--muted2)">Nome:</label>
-          <input id="comp-sec-name" type="text" maxlength="20" value="Settore 1"
-            style="width:110px;padding:2px 6px;background:var(--bg);border:1px solid var(--border-hi);border-radius:4px;color:var(--text);font-family:var(--font-mono);font-size:.72rem;"
-            oninput="compUpdateSectorName(this.value)"/>
+            <div style="width:1px; height:14px; background:var(--border-hi)"></div>
 
-          <div style="width:1px;height:16px;background:var(--border-hi)"></div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <label style="color:var(--muted2)">Dividi in Sezioni per:</label>
+              <select id="comp-sec-mode" onchange="compOnSecModeChange()" style="background:var(--bg); border:1px solid var(--border-hi); color:var(--text); padding:2px 5px; border-radius:4px; font-size:.72rem;">
+                <option value="dist" selected>Distanza</option>
+                <option value="time">Tempo</option>
+              </select>
+              <input type="number" id="comp-sec-val" value="200" min="10" max="5000" step="10"
+                style="width:95px; padding:2px 8px; background:var(--bg); border:1px solid var(--border-hi); border-radius:4px; color:var(--text); font-size:.72rem; text-align:center; font-weight:bold;"
+                oninput="localStorage.setItem('comp_saved_val_' + document.getElementById('comp-sec-mode').value, this.value)"/>
+              <span id="comp-sec-unit" style="color:var(--muted2); margin-right:4px;">m</span>
+              <button class="btn btn-warn" onclick="compRunAnalysis()" style="padding:2px 8px; font-size:.7rem; font-weight:bold; border-radius:4px;">🔍 Ricalcola Sezioni</button>
+            </div>
 
-          <!-- START A -->
-          <span style="color:var(--a);font-weight:700;min-width:58px;">🔵 Start A</span>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorShift('startA',-1000)">◀1km</button>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorShift('startA',-100)">◀100m</button>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorShift('startA',-10)">◀10</button>
-          <span id="comp-sp-startA" style="color:var(--a);min-width:60px;text-align:center">—</span>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorShift('startA',10)">10▶</button>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorShift('startA',100)">100m▶</button>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorShift('startA',1000)">1km▶</button>
+            <div style="margin-left:auto; display:flex; align-items:center; gap:6px;">
+              <button class="btn btn-ghost" onclick="compAddSector()" title="Crea un nuovo settore personalizzato" style="padding:2px 8px; font-size:.7rem; background:rgba(59,130,246,0.1); border:1px solid var(--a); color:#fff; border-radius:4px;">＋ Nuovo Settore</button>
+              <button class="btn btn-ghost" onclick="compDeleteSector()" title="Elimina il settore selezionato" style="padding:2px 8px; font-size:.7rem; background:rgba(244,63,94,0.1); border:1px solid #f43f5e; color:#f43f5e; border-radius:4px;">✕ Elimina</button>
+            </div>
+          </div>
 
-          <div style="width:1px;height:16px;background:var(--border-hi)"></div>
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span style="color:var(--a); font-weight:700; min-width:85px;">🔵 ATLETA A:</span>
+            
+            <span style="color:var(--muted2); margin-left:4px;">Inizio:</span>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startA',-1000)">◀1km</button>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startA',-100)">◀100m</button>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startA',-10)">◀10m</button>
+            <span id="comp-sp-startA" style="color:var(--a); min-width:65px; text-align:center; font-weight:bold; background:var(--bg); padding:1px 4px; border-radius:3px;">—</span>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startA',10)">10m▶</button>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startA',100)">100m▶</button>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startA',1000)">1km▶</button>
+            
+            <span style="width:1px; height:12px; background:var(--border); margin:0 8px"></span>
+            
+            <span style="color:var(--muted2);">Fine:</span>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endA',-1000)">◀1km</button>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endA',-100)">◀100m</button>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endA',-10)">◀10m</button>
+            <span id="comp-sp-endA" style="color:var(--a); min-width:65px; text-align:center; font-weight:bold; background:var(--bg); padding:1px 4px; border-radius:3px;">—</span>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endA',10)">10m▶</button>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endA',100)">100m▶</button>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endA',1000)">1km▶</button>
+          </div>
 
-          <!-- END A -->
-          <span style="color:var(--a);font-weight:700;min-width:50px;">🔵 End A</span>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorShift('endA',-1000)">◀1km</button>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorShift('endA',-100)">◀100m</button>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorShift('endA',-10)">◀10</button>
-          <span id="comp-sp-endA" style="color:var(--a);min-width:60px;text-align:center">—</span>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorShift('endA',10)">10▶</button>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorShift('endA',100)">100m▶</button>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorShift('endA',1000)">1km▶</button>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorResetEnd('A')">↺Fine</button>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:.72rem;font-family:var(--font-mono);margin-top:5px;">
-          <span style="color:var(--muted2);font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;margin-right:4px;min-width:90px;"></span>
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span style="color:var(--b); font-weight:700; min-width:85px;">🟠 ATLETA B:</span>
+            
+            <span style="color:var(--muted2); margin-left:4px;">Inizio:</span>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startB',-1000)">◀1km</button>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startB',-100)">◀100m</button>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startB',-10)">◀10m</button>
+            <span id="comp-sp-startB" style="color:var(--b); min-width:65px; text-align:center; font-weight:bold; background:var(--bg); padding:1px 4px; border-radius:3px;">—</span>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startB',10)">10m▶</button>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startB',100)">100m▶</button>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startB',1000)">1km▶</button>
+            
+            <span style="width:1px; height:12px; background:var(--border); margin:0 8px"></span>
+            
+            <span style="color:var(--muted2);">Fine:</span>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endB',-1000)">◀1km</button>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endB',-100)">◀100m</button>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endB',-10)">◀10m</button>
+            <span id="comp-sp-endB" style="color:var(--b); min-width:65px; text-align:center; font-weight:bold; background:var(--bg); padding:1px 4px; border-radius:3px;">—</span>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endB',10)">10m▶</button>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endB',100)">100m▶</button>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endB',1000)">1km▶</button>
+          </div>
 
-          <!-- START B -->
-          <span style="color:var(--b);font-weight:700;min-width:58px;">🟠 Start B</span>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorShift('startB',-1000)">◀1km</button>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorShift('startB',-100)">◀100m</button>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorShift('startB',-10)">◀10</button>
-          <span id="comp-sp-startB" style="color:var(--b);min-width:60px;text-align:center">—</span>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorShift('startB',10)">10▶</button>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorShift('startB',100)">100m▶</button>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorShift('startB',1000)">1km▶</button>
-
-          <div style="width:1px;height:16px;background:var(--border-hi)"></div>
-
-          <!-- END B -->
-          <span style="color:var(--b);font-weight:700;min-width:50px;">🟠 End B</span>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorShift('endB',-1000)">◀1km</button>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorShift('endB',-100)">◀100m</button>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorShift('endB',-10)">◀10</button>
-          <span id="comp-sp-endB" style="color:var(--b);min-width:60px;text-align:center">—</span>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorShift('endB',10)">10▶</button>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorShift('endB',100)">100m▶</button>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorShift('endB',1000)">1km▶</button>
-          <button class="btn btn-ghost" style="padding:1px 6px;font-size:.68rem" onclick="compSectorResetEnd('B')">↺Fine</button>
-
-          <button class="btn btn-primary-a" style="font-size:.7rem;padding:3px 12px;margin-left:8px" onclick="compApplySector()">✓ Aggiorna mappa</button>
         </div>
       </div>
 
@@ -697,9 +713,31 @@ function compUpdateSectorName(name) {
 }
 
 function compToggleSectorPanel() {
-  compSectorPanelOpen = !compSectorPanelOpen;
-  document.getElementById('comp-sector-panel').style.display = compSectorPanelOpen ? 'block' : 'none';
-  document.getElementById('comp-btn-edit-sector').classList.toggle('off', !compSectorPanelOpen);
+  const panel = document.getElementById('comp-sector-panel');
+  if (!panel) return;
+  
+  if (panel.style.display === 'none' || panel.style.display === '') {
+    panel.style.display = 'block';
+    
+    // Ripristina lo stato salvato nel browser
+    const savedMode = localStorage.getItem('comp_saved_mode') || 'dist';
+    const savedDist = localStorage.getItem('comp_saved_val_dist') || '200';
+    const savedTime = localStorage.getItem('comp_saved_val_time') || '30';
+    
+    const modeSelect = document.getElementById('comp-sec-mode');
+    const valInput = document.getElementById('comp-sec-val');
+    const unitEl = document.getElementById('comp-sec-unit');
+    
+    if (modeSelect && valInput) {
+      modeSelect.value = savedMode;
+      valInput.value = (savedMode === 'dist') ? savedDist : savedTime;
+      if (unitEl) unitEl.textContent = (savedMode === 'dist') ? 'm' : 's';
+    }
+    
+    if (typeof compUpdateSectorPanelUI === 'function') compUpdateSectorPanelUI(); 
+  } else {
+    panel.style.display = 'none';
+  }
 }
 
 function compUpdateSectorPanelUI() {
@@ -827,9 +865,21 @@ function compUpdateSectorChips() {
 // ANALYSIS — build sections for active sector
 // ────────────────────────────────────────────────────────────────
 function compOnSecModeChange() {
-  const unit = document.getElementById('comp-sec-unit');
   const mode = document.getElementById('comp-sec-mode').value;
-  if (unit) unit.textContent = mode==='dist' ? 'm' : 's';
+  const unitEl = document.getElementById('comp-sec-unit');
+  const valInput = document.getElementById('comp-sec-val');
+  
+  if (mode === 'dist') {
+    if (unitEl) unitEl.textContent = 'm';
+    // Se c'è un valore salvato per la distanza lo usa, altrimenti mette 200
+    valInput.value = localStorage.getItem('comp_saved_val_dist') || '200';
+  } else {
+    if (unitEl) unitEl.textContent = 's';
+    // Se c'è un valore salvato per il tempo lo usa, altrimenti mette 30
+    valInput.value = localStorage.getItem('comp_saved_val_time') || '30';
+  }
+  
+  localStorage.setItem('comp_saved_mode', mode);
 }
 
 // ────────────────────────────────────────────────────────────────
