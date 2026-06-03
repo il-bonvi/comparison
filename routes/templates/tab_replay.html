@@ -32,63 +32,73 @@
 
     <!-- Main replay app -->
     <div id="replay-app" style="display:none;flex:1;flex-direction:column;overflow:hidden;min-height:0;">
-      <div id="replay-hdr-info">
-        <span class="badge badge-a">🔵 <span id="rp-lbl-a">A</span></span>
-        <span class="badge badge-b">🟠 <span id="rp-lbl-b">B</span></span>
-        <div id="replay-gap-big" style="color:var(--gap-pos)">+0.0s</div>
-        <button class="btn btn-danger" onclick="replayReset()" style="margin-left:8px;">⟲ Reset</button>
-      </div>
-      <div id="replay-topbar">
-        <label>Mappa:</label>
-        <select id="rp-align" onchange="rpOnAlignChange()" style="display:none">
-          <option value="time" selected>Tempo</option>
-        </select>
-        <span style="font-size:.72rem;color:var(--muted2);font-family:var(--font-mono);">Tempo</span>
-        <label style="margin-left:10px;">Grafici:</label>
-        <select id="rp-graph-align" onchange="rpOnGraphAlignChange()">
-          <option value="distA" selected>Dist. 🔵</option>
-          <option value="distB">Dist. 🟠</option>
-          <option value="time">Tempo</option>
-        </select>
-        <label style="margin-left:8px;">Mappa:</label>
-        <select id="rp-style" onchange="replayChangeStyle(this.value)">
-          <option value="streets" selected>Streets</option>
-          <option value="outdoor">Outdoor</option>
-          <option value="topo">Topo</option>
-          <option value="satellite">Satellite</option>
-          <option value="dark">Dark</option>
-        </select>
-        <button class="btn btn-ghost" id="rp-btn-bounds" onclick="rpToggleBoundsPanel()" style="margin-left:6px;">🎯 Regola Start/End</button>
-        <button class="btn btn-ghost" id="rp-btn-smooth" onclick="rpToggleSmoothPanel()" style="margin-left:4px;">〜 Smoothing</button>
+      <div id="replay-topbar" style="display:flex; align-items:center; gap:8px; padding:4px 12px; background:var(--surface); border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:nowrap; overflow-x:auto;">
+        
+        <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+          <span class="badge badge-a" style="padding:2px 6px; font-size:0.72rem;">🔵 <span id="rp-lbl-a">A</span></span>
+          <span class="badge badge-b" style="padding:2px 6px; font-size:0.72rem;">🟠 <span id="rp-lbl-b">B</span></span>
+        </div>
 
-        <!-- ── WEIGHT PANEL ── -->
-        <div class="weight-panel" style="margin-left:6px; gap:10px;">
-          <span class="wp-label">⚖️ kg</span>
-          <span class="wp-sep"></span>
-          <div style="display:flex; align-items:center; gap:4px;">
+        <span style="width:1px; height:16px; background:var(--border-hi); flex-shrink:0;"></span>
+
+        <select id="rp-align" onchange="rpOnAlignChange()" style="display:none"><option value="time" selected>Tempo</option></select>
+
+        <div style="display:flex; align-items:center; gap:4px; flex-shrink:0; font-size:0.72rem;">
+          <span style="color:var(--muted2)">Grafici:</span>
+          <select id="rp-graph-align" onchange="rpOnGraphAlignChange()" style="background:var(--bg); border:1px solid var(--border-hi); color:var(--text); padding:2px 4px; border-radius:4px; font-size:.72rem; cursor:pointer;">
+            <option value="distA" selected>Dist. 🔵</option>
+            <option value="distB">Dist. 🟠</option>
+            <option value="time">Tempo</option>
+          </select>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:4px; flex-shrink:0; font-size:0.72rem;">
+          <span style="color:var(--muted2)">Mappa:</span>
+          <select id="rp-style" onchange="replayChangeStyle(this.value)" style="background:var(--bg); border:1px solid var(--border-hi); color:var(--text); padding:2px 4px; border-radius:4px; font-size:.72rem; cursor:pointer;">
+            <option value="streets" selected>Streets</option>
+            <option value="outdoor">Outdoor</option>
+            <option value="topo">Topo</option>
+            <option value="satellite">Satellite</option>
+            <option value="dark">Dark</option>
+          </select>
+        </div>
+
+        <span style="width:1px; height:16px; background:var(--border-hi); flex-shrink:0;"></span>
+
+        <button class="btn btn-ghost" id="rp-btn-bounds" onclick="rpToggleBoundsPanel()" style="padding:2px 6px; font-size:.72rem; flex-shrink:0;">🎯 Regola Start/End</button>
+        <button class="btn btn-ghost" id="rp-btn-smooth" onclick="rpToggleSmoothPanel()" style="padding:2px 6px; font-size:.72rem; flex-shrink:0;">〜 Smoothing</button>
+
+        <span style="width:1px; height:16px; background:var(--border-hi); flex-shrink:0;"></span>
+
+        <div class="weight-panel" style="margin:0; gap:6px; padding:2px 6px; display:flex; align-items:center; flex-shrink:0; border:1px solid var(--border-hi); border-radius:4px; background:var(--surface2);">
+          <span class="wp-label" style="font-size:.65rem; font-weight:bold;">⚖️ kg</span>
+          <div style="display:flex; align-items:center; gap:2px;">
             <span style="font-size:.65rem;color:var(--a);">🔵</span>
-            <button class="wp-btn" title="Diminuisci 0.5kg" onclick="(() => { const s=document.getElementById('rp-weight-a'); s.value=Math.max(parseFloat(s.min), parseFloat(s.value)-0.5); s.dispatchEvent(new Event('input')); })()">−</button>
-            <input class="weight-slider slider-a" id="rp-weight-a" type="range" min="35" max="100" step="0.5" value="60"
+            <button class="wp-btn" style="padding:0 4px; font-size:0.7rem;" title="Diminuisci 0.5kg" onclick="(() => { const s=document.getElementById('rp-weight-a'); s.value=Math.max(parseFloat(s.min), parseFloat(s.value)-0.5); s.dispatchEvent(new Event('input')); })()">−</button>
+            <input class="weight-slider slider-a" id="rp-weight-a" type="range" min="35" max="100" step="0.5" value="60" style="width:40px;"
               title="Peso Atleta A (Rotella mouse, trascina o usa +/-)"
               oninput="setAthleteWeight('a', this.value)"
               onwheel="event.preventDefault(); this.value = Math.max(parseFloat(this.min), Math.min(parseFloat(this.max), parseFloat(this.value) + (event.deltaY < 0 ? (parseFloat(this.step)||1) : -(parseFloat(this.step)||1)))); this.dispatchEvent(new Event('input'));"/>
-            <button class="wp-btn" title="Aumenta 0.5kg" onclick="(() => { const s=document.getElementById('rp-weight-a'); s.value=Math.min(parseFloat(s.max), parseFloat(s.value)+0.5); s.dispatchEvent(new Event('input')); })()">+</button>
-            <span class="weight-val-txt" id="rp-weight-val-a" style="font-family:var(--font-mono); font-size:.74rem; min-width:34px; color:var(--a); font-weight:bold; margin-left:2px;">60.0</span>
+            <button class="wp-btn" style="padding:0 4px; font-size:0.7rem;" title="Aumenta 0.5kg" onclick="(() => { const s=document.getElementById('rp-weight-a'); s.value=Math.min(parseFloat(s.max), parseFloat(s.value)+0.5); s.dispatchEvent(new Event('input')); })()">+</button>
+            <span class="weight-val-txt" id="rp-weight-val-a" style="font-family:var(--font-mono); font-size:.7rem; min-width:28px; color:var(--a); font-weight:bold;">60.0</span>
           </div>
-          <span class="wp-sep"></span>
-          <div style="display:flex; align-items:center; gap:4px;">
+          <div style="display:flex; align-items:center; gap:2px; margin-left:4px;">
             <span style="font-size:.65rem;color:var(--b);">🟠</span>
-            <button class="wp-btn" title="Diminuisci 0.5kg" onclick="(() => { const s=document.getElementById('rp-weight-b'); s.value=Math.max(parseFloat(s.min), parseFloat(s.value)-0.5); s.dispatchEvent(new Event('input')); })()">−</button>
-            <input class="weight-slider slider-b" id="rp-weight-b" type="range" min="35" max="100" step="0.5" value="60"
+            <button class="wp-btn" style="padding:0 4px; font-size:0.7rem;" title="Diminuisci 0.5kg" onclick="(() => { const s=document.getElementById('rp-weight-b'); s.value=Math.max(parseFloat(s.min), parseFloat(s.value)-0.5); s.dispatchEvent(new Event('input')); })()">−</button>
+            <input class="weight-slider slider-b" id="rp-weight-b" type="range" min="35" max="100" step="0.5" value="60" style="width:40px;"
               title="Peso Atleta B (Rotella mouse, trascina o usa +/-)"
               oninput="setAthleteWeight('b', this.value)"
               onwheel="event.preventDefault(); this.value = Math.max(parseFloat(this.min), Math.min(parseFloat(this.max), parseFloat(this.value) + (event.deltaY < 0 ? (parseFloat(this.step)||1) : -(parseFloat(this.step)||1)))); this.dispatchEvent(new Event('input'));"/>
-            <button class="wp-btn" title="Aumenta 0.5kg" onclick="(() => { const s=document.getElementById('rp-weight-b'); s.value=Math.min(parseFloat(s.max), parseFloat(s.value)+0.5); s.dispatchEvent(new Event('input')); })()">+</button>
-            <span class="weight-val-txt" id="rp-weight-val-b" style="font-family:var(--font-mono); font-size:.74rem; min-width:34px; color:var(--b); font-weight:bold; margin-left:2px;">60.0</span>
+            <button class="wp-btn" style="padding:0 4px; font-size:0.7rem;" title="Aumenta 0.5kg" onclick="(() => { const s=document.getElementById('rp-weight-b'); s.value=Math.min(parseFloat(s.max), parseFloat(s.value)+0.5); s.dispatchEvent(new Event('input')); })()">+</button>
+            <span class="weight-val-txt" id="rp-weight-val-b" style="font-family:var(--font-mono); font-size:.7rem; min-width:28px; color:var(--b); font-weight:bold;">60.0</span>
           </div>
         </div>
 
-        <span id="replay-status"></span>
+        <div style="margin-left:auto; display:flex; align-items:center; gap:8px; flex-shrink:0;">
+          <span id="replay-status" style="font-size:.7rem; color:var(--muted2); font-family:var(--font-mono);"></span>
+          <div id="replay-gap-big" style="color:var(--gap-pos); font-size:1.1rem; font-weight:700; font-family:var(--font-mono);">+0.0s</div>
+          <button class="btn btn-danger" onclick="replayReset()" style="padding:2px 8px; font-size:0.72rem;">⟲ Reset</button>
+        </div>
       </div>
       <div id="rp-smooth-panel">
         <div class="smooth-group">
