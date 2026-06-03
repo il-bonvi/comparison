@@ -57,6 +57,33 @@
         <button class="btn btn-ghost" id="comp-btn-vs" onclick="compToggleLayer('sections')">Sez ON</button>
         <button class="btn btn-ghost" id="comp-btn-smooth" onclick="compToggleSmoothPanel()" style="margin-left:4px;">〜 Smoothing</button>
 
+        <!-- ── WEIGHT PANEL ── -->
+        <div class="weight-panel" style="margin-left:4px; gap:10px;">
+          <span class="wp-label">⚖️ kg</span>
+          <span class="wp-sep"></span>
+          <div style="display:flex; align-items:center; gap:4px;">
+            <span style="font-size:.65rem;color:var(--a);">🔵</span>
+            <button class="wp-btn" title="Diminuisci 0.5kg" onclick="(() => { const s=document.getElementById('comp-weight-a'); s.value=Math.max(parseFloat(s.min), parseFloat(s.value)-0.5); s.dispatchEvent(new Event('input')); })()">−</button>
+            <input class="weight-slider slider-a" id="comp-weight-a" type="range" min="35" max="100" step="0.5" value="60"
+              title="Peso Atleta A (Rotella mouse, trascina o usa +/-)"
+              oninput="setAthleteWeight('a', this.value)"
+              onwheel="event.preventDefault(); this.value = Math.max(parseFloat(this.min), Math.min(parseFloat(this.max), parseFloat(this.value) + (event.deltaY < 0 ? (parseFloat(this.step)||1) : -(parseFloat(this.step)||1)))); this.dispatchEvent(new Event('input'));"/>
+            <button class="wp-btn" title="Aumenta 0.5kg" onclick="(() => { const s=document.getElementById('comp-weight-a'); s.value=Math.min(parseFloat(s.max), parseFloat(s.value)+0.5); s.dispatchEvent(new Event('input')); })()">+</button>
+            <span class="weight-val-txt" id="comp-weight-val-a" style="font-family:var(--font-mono); font-size:.74rem; min-width:34px; color:var(--a); font-weight:bold; margin-left:2px;">60.0</span>
+          </div>
+          <span class="wp-sep"></span>
+          <div style="display:flex; align-items:center; gap:4px;">
+            <span style="font-size:.65rem;color:var(--b);">🟠</span>
+            <button class="wp-btn" title="Diminuisci 0.5kg" onclick="(() => { const s=document.getElementById('comp-weight-b'); s.value=Math.max(parseFloat(s.min), parseFloat(s.value)-0.5); s.dispatchEvent(new Event('input')); })()">−</button>
+            <input class="weight-slider slider-b" id="comp-weight-b" type="range" min="35" max="100" step="0.5" value="60"
+              title="Peso Atleta B (Rotella mouse, trascina o usa +/-)"
+              oninput="setAthleteWeight('b', this.value)"
+              onwheel="event.preventDefault(); this.value = Math.max(parseFloat(this.min), Math.min(parseFloat(this.max), parseFloat(this.value) + (event.deltaY < 0 ? (parseFloat(this.step)||1) : -(parseFloat(this.step)||1)))); this.dispatchEvent(new Event('input'));"/>
+            <button class="wp-btn" title="Aumenta 0.5kg" onclick="(() => { const s=document.getElementById('comp-weight-b'); s.value=Math.min(parseFloat(s.max), parseFloat(s.value)+0.5); s.dispatchEvent(new Event('input')); })()">+</button>
+            <span class="weight-val-txt" id="comp-weight-val-b" style="font-family:var(--font-mono); font-size:.74rem; min-width:34px; color:var(--b); font-weight:bold; margin-left:2px;">60.0</span>
+          </div>
+        </div>
+
         <!-- Metrics table button -->
         <button class="btn btn-ghost" id="comp-btn-table" onclick="compToggleTable()" style="margin-left:4px;">📊 Tabella</button>
 
@@ -209,6 +236,8 @@
             <button class="chart-tog ct-spda-off" id="comp-ctog-speedavg" onclick="compChartTab('speedavg')">AVG5s</button>
             <button class="chart-tog ct-pwr-off" id="comp-ctog-power" onclick="compChartTab('power')">POTENZA</button>
             <button class="chart-tog ct-pwra-off" id="comp-ctog-poweravg" onclick="compChartTab('poweravg')">AVG5s</button>
+            <button class="chart-tog ct-wkg-off" id="comp-ctog-wkg" onclick="compChartTab('wkg')" title="W/kg (imposta i kg)">W/kg</button>
+            <button class="chart-tog ct-wkg-off" id="comp-ctog-wkgavg" onclick="compChartTab('wkgavg')" title="W/kg smoothed">W/kg avg</button>
             <button class="chart-tog ct-hr-off" id="comp-ctog-hr" onclick="compChartTab('hr')">HR</button>
             <div style="width:1px;height:14px;background:var(--border-hi);margin:0 4px;"></div>
             <span style="font-size:.64rem;color:var(--muted);font-family:var(--font-mono);">Settori:</span>
@@ -308,6 +337,7 @@
 .td-delta-pos { color:#22c55e; font-weight:700; }
 .td-delta-neg { color:#f43f5e; font-weight:700; }
 .col-hidden { display:none; }
+.td-wkg { color:#d8b4fe; }
 .comp-row-selected { background:rgba(59,130,246,.10); }
 .col-toggle {
   display:inline-flex; align-items:center; gap:6px;
@@ -1100,10 +1130,10 @@ function compHandleHover(e) {
 // ────────────────────────────────────────────────────────────────
 function compChartTab(tab) {
   compCurrentChartTab = tab;
-  ['elev','speed','speedavg','power','poweravg','hr'].forEach(t => {
+  ['elev','speed','speedavg','power','poweravg','wkg','wkgavg','hr'].forEach(t => {
     const btn = document.getElementById(`comp-ctog-${t}`);
     if (!btn) return;
-    const colorMap = {elev:'gap',speed:'spd',speedavg:'spda',power:'pwr',poweravg:'pwra',hr:'hr'};
+    const colorMap = {elev:'gap',speed:'spd',speedavg:'spda',power:'pwr',poweravg:'pwra',wkg:'wkg',wkgavg:'wkg',hr:'hr'};
     const on = t===tab;
     btn.className = `chart-tog ct-${colorMap[t]}-${on?'on':'off'}`;
   });
@@ -1185,6 +1215,31 @@ function compUpdateElevChart() {
     if (tab === 'poweravg') {
       labelA = `${compNameA.slice(0,12)} PWR${winPwrA}s`;
       labelB = `${compNameB.slice(0,12)} PWR${winPwrB}s`;
+    }
+  } else if (tab === 'wkg' || tab === 'wkgavg') {
+    const rawA = compStreamA._rawPower || compStreamA.power || [];
+    const rawB = compStreamB._rawPower || compStreamB.power || [];
+    const avgA = compStreamA._avgPower || rawA;
+    const avgB = compStreamB._avgPower || rawB;
+    const winPwrA = compGetSmoothWin('comp-smooth-pwr-a', 'comp-smooth-pwr-a-custom') || 1;
+    const winPwrB = compGetSmoothWin('comp-smooth-pwr-b', 'comp-smooth-pwr-b-custom') || 1;
+    const wA = athleteWeights.a, wB = athleteWeights.b;
+    if (!wA && !wB) {
+      const dom = document.getElementById('comp-elevation-chart');
+      dom.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted2);font-size:.78rem;font-family:var(--font-mono);">⚖️ Imposta i kg nel pannello <b style="color:#a855f7;margin:0 4px">⚖️ kg</b> per visualizzare i W/kg</div>`;
+      return;
+    }
+    const srcA = sliceA(tab === 'wkg' ? rawA : avgA);
+    const srcB = sliceB(tab === 'wkg' ? rawB : avgB);
+    seriesA = wA > 0 ? srcA.map(v => v / wA) : srcA.map(() => 0);
+    seriesB = wB > 0 ? srcB.map(v => v / wB) : srcB.map(() => 0);
+    yLabel='W/kg'; yLabelColor='#d8b4fe';
+    if (tab === 'wkgavg') {
+      labelA = `${compNameA.slice(0,10)} W/kg${winPwrA}s`;
+      labelB = `${compNameB.slice(0,10)} W/kg${winPwrB}s`;
+    } else {
+      labelA = `${compNameA.slice(0,12)} W/kg`;
+      labelB = `${compNameB.slice(0,12)} W/kg`;
     }
   } else {
     seriesA = sliceA(compStreamA.hr||[]);
@@ -1366,7 +1421,12 @@ function compBuildMetricsTable() {
   info.textContent = `${analyzedSectors.length} settori · ${totalSec} sezioni`;
 
   // Header
-  const isColHidden = (key) => compTableColVis && compTableColVis[key] === false;
+  const wA = athleteWeights.a, wB = athleteWeights.b;
+  const hasWkg = wA > 0 || wB > 0;
+  const isColHidden = (key) => {
+    if (!hasWkg && (key.startsWith('wkg') || key.startsWith('dWkg'))) return true;
+    return compTableColVis && compTableColVis[key] === false;
+  };
   const tr = document.createElement('tr');
   const cols = [
     {label:'#',            key:'num',        tip:'Numero sezione'},
@@ -1386,6 +1446,12 @@ function compBuildMetricsTable() {
     {label:'Pwr A Tot',    key:'pwrA_c',     tip:'Potenza media cumulativa A'},
     {label:'Pwr B Tot',    key:'pwrB_c',     tip:'Potenza media cumulativa B'},
     {label:'ΔPwr Tot',     key:'dPwr_c',     tip:'B - A cumulativo'},
+    {label:'W/kg A',       key:'wkgA',       tip:'W/kg medio A (richiede peso)'},
+    {label:'W/kg B',       key:'wkgB',       tip:'W/kg medio B (richiede peso)'},
+    {label:'ΔW/kg',        key:'dWkg',       tip:'A - B'},
+    {label:'W/kg A Tot',   key:'wkgA_c',     tip:'W/kg cumulativo A'},
+    {label:'W/kg B Tot',   key:'wkgB_c',     tip:'W/kg cumulativo B'},
+    {label:'ΔW/kg Tot',    key:'dWkg_c',     tip:'A - B cumulativo'},
     {label:'Spd A',        key:'spdA',       tip:'Velocità media A'},
     {label:'Spd B',        key:'spdB',       tip:'Velocità media B'},
     {label:'ΔSpd',         key:'dSpd',       tip:'B - A'},
@@ -1539,6 +1605,25 @@ function compBuildMetricsTable() {
         c((dpC>=0?'+':'')+dpC.toFixed(0)+'W', dSign(dpC,false), 'dPwr_c');
       } else c('—','td-neutral','dPwr_c');
 
+      // ── W/kg ──
+      const _wA = athleteWeights.a, _wB = athleteWeights.b;
+      const wkgA   = _wA > 0 && sA ? (sA.avgPower / _wA) : null;
+      const wkgB   = _wB > 0 && sB ? (sB.avgPower / _wB) : null;
+      const wkgAcum = _wA > 0 && cumTimeA > 0 ? (cumPwrA / _wA) : null;
+      const wkgBcum = _wB > 0 && cumTimeB > 0 ? (cumPwrB / _wB) : null;
+      if (wkgA != null) { c(wkgA.toFixed(3), 'td-neutral', 'wkgA'); } else c(_wA > 0 ? '—' : 'n/a', 'td-neutral', 'wkgA');
+      if (wkgB != null) { c(wkgB.toFixed(3), 'td-neutral', 'wkgB'); } else c(_wB > 0 ? '—' : 'n/a', 'td-neutral', 'wkgB');
+      if (wkgA != null && wkgB != null) {
+        const dw = wkgA - wkgB;
+        c((dw>=0?'+':'')+dw.toFixed(3), dSign(dw, true), 'dWkg');
+      } else c('—', 'td-neutral', 'dWkg');
+      if (wkgAcum != null) { c(wkgAcum.toFixed(3), 'td-neutral', 'wkgA_c'); } else c(_wA > 0 ? '—' : 'n/a', 'td-neutral', 'wkgA_c');
+      if (wkgBcum != null) { c(wkgBcum.toFixed(3), 'td-neutral', 'wkgB_c'); } else c(_wB > 0 ? '—' : 'n/a', 'td-neutral', 'wkgB_c');
+      if (wkgAcum != null && wkgBcum != null) {
+        const dwC = wkgAcum - wkgBcum;
+        c((dwC>=0?'+':'')+dwC.toFixed(3), dSign(dwC, true), 'dWkg_c');
+      } else c('—', 'td-neutral', 'dWkg_c');
+
       if (sA) { c(sA.avgSpeed.toFixed(1)+'km/h', sA.avgSpeed>0?'':'td-neutral', 'spdA'); } else c('—','td-neutral','spdA');
       if (sB) { c(sB.avgSpeed.toFixed(1)+'km/h', sB.avgSpeed>0?'':'td-neutral', 'spdB'); } else c('—','td-neutral','spdB');
       if (sA && cumTimeA > 0) { c(cumSpdA.toFixed(1)+'km/h', cumSpdA>0?'':'td-neutral', 'spdA_c'); } else c('—','td-neutral','spdA_c');
@@ -1637,6 +1722,7 @@ const compTablePresets = [
       'num','distA_c',
       'timeA','timeB','dTime','timeA_c','timeB_c','dTime_c',
       'pwrA','pwrB','dPwr','pwrA_c','pwrB_c','dPwr_c',
+      'wkgA','wkgB','dWkg','wkgA_c','wkgB_c','dWkg_c',
       'spdA','spdB','dSpd','spdA_c','spdB_c','dSpd_c',
       'hrA','hrB','dHr','hrA_c','hrB_c','dHr_c',
       'grade','grade_c'

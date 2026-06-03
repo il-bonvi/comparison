@@ -139,6 +139,58 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
 #loading-text { color:var(--muted2); font-size:.82rem; font-family:var(--font-mono); }
 
 /* ══════════════════════════════════════════
+   WEIGHT PANEL (shared style)
+══════════════════════════════════════════ */
+.weight-panel {
+  display:flex; align-items:center; gap:8px;
+  padding:3px 12px; border:1px solid rgba(168,85,247,.45); border-radius:7px;
+  background:rgba(168,85,247,.07); font-size:.7rem;
+  font-family:var(--font-mono); color:var(--muted2); flex-shrink:0;
+}
+.weight-panel .wp-label { font-size:.64rem; text-transform:uppercase; letter-spacing:.06em; color:#a855f7; font-weight:700; }
+.weight-panel .wp-sep { width:1px; height:14px; background:var(--border-hi); }
+.weight-slider {
+  -webkit-appearance:none; appearance:none; width:70px; height:4px;
+  background:var(--border); border-radius:2px; cursor:pointer; outline:none; transition: background 0.2s;
+}
+.weight-slider::-webkit-slider-thumb {
+  -webkit-appearance:none; appearance:none; width:12px; height:12px; border-radius:50%; cursor:pointer; transition: transform 0.1s;
+}
+.weight-slider::-moz-range-thumb {
+  width:12px; height:12px; border:none; border-radius:50%; cursor:pointer; transition: transform 0.1s;
+}
+.weight-slider:hover::-webkit-slider-thumb { transform: scale(1.2); }
+.weight-slider:hover::-moz-range-thumb { transform: scale(1.2); }
+
+.slider-a::-webkit-slider-thumb { background: var(--a); }
+.slider-a::-moz-range-thumb { background: var(--a); }
+.slider-b::-webkit-slider-thumb { background: var(--b); }
+.slider-b::-moz-range-thumb { background: var(--b); }
+
+/* Pulsanti minuscoli per i microspostamenti del peso */
+.wp-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; border: 1px solid var(--border-hi); border-radius: 3px;
+  background: var(--surface2); color: var(--muted2); font-size: .65rem; font-weight: bold;
+  cursor: pointer; user-select: none; transition: all 0.1s; line-height: 1; padding: 0;
+}
+.wp-btn:hover { background: var(--border-hi); color: var(--text); border-color: var(--muted); }
+.wp-btn:active { transform: scale(0.85); }
+
+/* !!!!!!!!Espande l'area di attivazione dello slider!!!!!!! (rotella e cursore a mano) */
+.weight-slider {
+  cursor: pointer;
+  padding: 10px 0;   /* Crea un'area interattiva invisibile alta 20px in totale sopra/sotto */
+  margin: -10px 0;   /* Compensa l'altezza per non allargare il pannello dei pesi */
+}
+
+/* w/kg chart toggles */
+.ct-wkg-on  { background:rgba(216,180,254,.18); color:#d8b4fe; border-color:#d8b4fe; }
+.ct-wkg-off { background:rgba(216,180,254,.05); color:rgba(216,180,254,.5); border-color:rgba(216,180,254,.3); }
+.ct-dwkg-on  { background:rgba(216,180,254,.18); color:#d8b4fe; border-color:#d8b4fe; }
+.ct-dwkg-off { background:rgba(216,180,254,.05); color:rgba(216,180,254,.5); border-color:rgba(216,180,254,.3); }
+
+/* ══════════════════════════════════════════
    COMPARISON VIEW
 ══════════════════════════════════════════ */
 #comp-topbar {
@@ -412,6 +464,39 @@ function hideLoading() { document.getElementById('loading').classList.remove('on
 function fmtTime(s) {
   const m = Math.floor(s/60), sec = Math.floor(s%60);
   return `${m}:${sec.toString().padStart(2,'0')}`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ATHLETE WEIGHTS (kg) — shared between both tabs
+// Impostato a 60 kg di default per l'inizializzazione corretta degli slider
+// ═══════════════════════════════════════════════════════════════
+let athleteWeights = { a: 60, b: 60 };
+
+function setAthleteWeight(who, val) {
+  const kg = parseFloat(val);
+  athleteWeights[who] = (isNaN(kg) || kg < 35) ? 60 : kg;
+  
+  // Sincronizza la posizione degli slider tra i tab
+  const inpRp = document.getElementById('rp-weight-' + who);
+  const inpCp = document.getElementById('comp-weight-' + who);
+  if (inpRp) inpRp.value = athleteWeights[who];
+  if (inpCp) inpCp.value = athleteWeights[who];
+  
+  // Aggiorna dinamicamente i testi indicatori accanto agli slider
+  const txtRp = document.getElementById('rp-weight-val-' + who);
+  const txtCp = document.getElementById('comp-weight-val-' + who);
+  if (txtRp) txtRp.textContent = athleteWeights[who].toFixed(1);
+  if (txtCp) txtCp.textContent = athleteWeights[who].toFixed(1);
+  
+  // Aggiorna i grafici attivi se sono popolati
+  if (activeTab === 'replay' && typeof rpAligned !== 'undefined' && rpAligned.length) {
+    rpUpdateFrame(rpCurrentT);
+    rpRenderCharts();
+  }
+  if (activeTab === 'comp') {
+    if (typeof compElevChart !== 'undefined' && compElevChart) compUpdateElevChart();
+    if (typeof compSectors !== 'undefined' && compSectors.some(s => s.analyzed)) compBuildMetricsTable();
+  }
 }
 
 // Shared streams — populated by whichever tab uploads first

@@ -1,5 +1,4 @@
-
-    <!-- Upload -->
+<!-- Upload -->
     <div id="replay-upload" class="upload-panel">
       <div style="font-size:3rem">🏁</div>
       <div class="upload-title" style="color:var(--b)">RACE REPLAY</div>
@@ -61,6 +60,34 @@
         </select>
         <button class="btn btn-ghost" id="rp-btn-bounds" onclick="rpToggleBoundsPanel()" style="margin-left:6px;">🎯 Regola Start/End</button>
         <button class="btn btn-ghost" id="rp-btn-smooth" onclick="rpToggleSmoothPanel()" style="margin-left:4px;">〜 Smoothing</button>
+
+        <!-- ── WEIGHT PANEL ── -->
+        <div class="weight-panel" style="margin-left:6px; gap:10px;">
+          <span class="wp-label">⚖️ kg</span>
+          <span class="wp-sep"></span>
+          <div style="display:flex; align-items:center; gap:4px;">
+            <span style="font-size:.65rem;color:var(--a);">🔵</span>
+            <button class="wp-btn" title="Diminuisci 0.5kg" onclick="(() => { const s=document.getElementById('rp-weight-a'); s.value=Math.max(parseFloat(s.min), parseFloat(s.value)-0.5); s.dispatchEvent(new Event('input')); })()">−</button>
+            <input class="weight-slider slider-a" id="rp-weight-a" type="range" min="35" max="100" step="0.5" value="60"
+              title="Peso Atleta A (Rotella mouse, trascina o usa +/-)"
+              oninput="setAthleteWeight('a', this.value)"
+              onwheel="event.preventDefault(); this.value = Math.max(parseFloat(this.min), Math.min(parseFloat(this.max), parseFloat(this.value) + (event.deltaY < 0 ? (parseFloat(this.step)||1) : -(parseFloat(this.step)||1)))); this.dispatchEvent(new Event('input'));"/>
+            <button class="wp-btn" title="Aumenta 0.5kg" onclick="(() => { const s=document.getElementById('rp-weight-a'); s.value=Math.min(parseFloat(s.max), parseFloat(s.value)+0.5); s.dispatchEvent(new Event('input')); })()">+</button>
+            <span class="weight-val-txt" id="rp-weight-val-a" style="font-family:var(--font-mono); font-size:.74rem; min-width:34px; color:var(--a); font-weight:bold; margin-left:2px;">60.0</span>
+          </div>
+          <span class="wp-sep"></span>
+          <div style="display:flex; align-items:center; gap:4px;">
+            <span style="font-size:.65rem;color:var(--b);">🟠</span>
+            <button class="wp-btn" title="Diminuisci 0.5kg" onclick="(() => { const s=document.getElementById('rp-weight-b'); s.value=Math.max(parseFloat(s.min), parseFloat(s.value)-0.5); s.dispatchEvent(new Event('input')); })()">−</button>
+            <input class="weight-slider slider-b" id="rp-weight-b" type="range" min="35" max="100" step="0.5" value="60"
+              title="Peso Atleta B (Rotella mouse, trascina o usa +/-)"
+              oninput="setAthleteWeight('b', this.value)"
+              onwheel="event.preventDefault(); this.value = Math.max(parseFloat(this.min), Math.min(parseFloat(this.max), parseFloat(this.value) + (event.deltaY < 0 ? (parseFloat(this.step)||1) : -(parseFloat(this.step)||1)))); this.dispatchEvent(new Event('input'));"/>
+            <button class="wp-btn" title="Aumenta 0.5kg" onclick="(() => { const s=document.getElementById('rp-weight-b'); s.value=Math.min(parseFloat(s.max), parseFloat(s.value)+0.5); s.dispatchEvent(new Event('input')); })()">+</button>
+            <span class="weight-val-txt" id="rp-weight-val-b" style="font-family:var(--font-mono); font-size:.74rem; min-width:34px; color:var(--b); font-weight:bold; margin-left:2px;">60.0</span>
+          </div>
+        </div>
+
         <span id="replay-status"></span>
       </div>
       <div id="rp-smooth-panel">
@@ -129,6 +156,13 @@
             <div class="ov-stat"><div class="v" id="ov-pb-avg" style="color:var(--b);opacity:.65">—</div><div class="l" id="ov-pb-avg-l">Avg B</div></div>
             <div class="ov-stat ov-diff"><div class="v" id="ov-pd" style="color:var(--muted2)">—</div><div class="l">Δ Pwr</div></div>
             <div class="ov-stat ov-diff"><div class="v" id="ov-pd-avg" style="color:var(--muted2);opacity:.75">—</div><div class="l" id="ov-pd-avg-l">Δavg5s</div></div>
+            <!-- Power w/kg — hidden when no weights set -->
+            <div class="ov-sep" id="ov-wkg-sep" style="display:none"></div>
+            <div class="ov-stat" id="ov-pa-wkg-wrap" style="display:none"><div class="v" id="ov-pa-wkg" style="color:#d8b4fe">—</div><div class="l">W/kg A</div></div>
+            <div class="ov-stat" id="ov-pa-wkg-avg-wrap" style="display:none"><div class="v" id="ov-pa-wkg-avg" style="color:#d8b4fe;opacity:.65">—</div><div class="l" id="ov-pa-wkg-avg-l">Avg A</div></div>
+            <div class="ov-stat" id="ov-pb-wkg-wrap" style="display:none"><div class="v" id="ov-pb-wkg" style="color:#f3e8ff">—</div><div class="l">W/kg B</div></div>
+            <div class="ov-stat" id="ov-pb-wkg-avg-wrap" style="display:none"><div class="v" id="ov-pb-wkg-avg" style="color:#f3e8ff;opacity:.65">—</div><div class="l" id="ov-pb-wkg-avg-l">Avg B</div></div>
+            <div class="ov-stat ov-diff" id="ov-pd-wkg-wrap" style="display:none"><div class="v" id="ov-pd-wkg" style="color:var(--muted2)">—</div><div class="l">Δ W/kg</div></div>
             <div class="ov-sep"></div>
             <div class="ov-stat"><div class="v" id="ov-hra" style="color:var(--a)">—</div><div class="l">HR A</div></div>
             <div class="ov-stat"><div class="v" id="ov-hrb" style="color:var(--b)">—</div><div class="l">HR B</div></div>
@@ -217,6 +251,9 @@
             <button class="chart-tog ct-pwra-off" id="rp-tog-poweravg" onclick="rpToggleChart('poweravg')">AVG5s</button>
             <button class="chart-tog ct-dpwr-off" id="rp-tog-dpwr"     onclick="rpToggleChart('dpwr')">ΔPWR</button>
             <button class="chart-tog ct-dpwra-off" id="rp-tog-dpwravg"  onclick="rpToggleChart('dpwravg')">ΔAVG5s</button>
+            <button class="chart-tog ct-wkg-off"   id="rp-tog-wkg"       onclick="rpToggleChart('wkg')" title="W/kg (imposta i kg)">W/kg</button>
+            <button class="chart-tog ct-wkg-off"   id="rp-tog-wkgavg"    onclick="rpToggleChart('wkgavg')" title="W/kg smoothed">W/kg avg</button>
+            <button class="chart-tog ct-dwkg-off"  id="rp-tog-dwkg"      onclick="rpToggleChart('dwkg')" title="Δ W/kg">ΔW/kg</button>
             <button class="chart-tog ct-hr-off"   id="rp-tog-hr"       onclick="rpToggleChart('hr')">HR</button>
             <button class="chart-tog ct-dhr-off"  id="rp-tog-dhr"      onclick="rpToggleChart('dhr')">ΔHR</button>
             <button class="chart-tog ct-el-off"   id="rp-tog-elev"     onclick="rpToggleChart('elev')">ELEV</button>
@@ -251,7 +288,7 @@ let rpMap=null,rpChart=null;
 let rpMarkerA=null,rpMarkerB=null;
 let rpAligned=[], rpChartFrames=[], rpMaxT=0, rpCurrentT=0, rpPlaySpeed=1, rpPlaying=false;
 let rpLastTs=null, rpIs3D=true, rpAnimFrame=null;
-let rpChartVis={gap:true,speed:false,speedavg:false,dspdavg:false,power:false,poweravg:false,dpwravg:false,hr:false,elev:false,dspd:false,dpwr:false,dhr:false};
+let rpChartVis={gap:true,speed:false,speedavg:false,dspdavg:false,power:false,poweravg:false,dpwravg:false,hr:false,elev:false,dspd:false,dpwr:false,dhr:false,wkg:false,wkgavg:false,dwkg:false};
 // Bounds: index into the raw stream arrays defining the active [start, end] window
 let rpBoundStartA=0, rpBoundEndA=0, rpBoundStartB=0, rpBoundEndB=0;
 let rpBoundsPanelOpen=false;
@@ -862,6 +899,37 @@ function rpUpdateFrame(idx){
   if (paAvgEl) { paAvgEl.textContent = winPwrA > 1 ? pAavg + 'W' : '—'; paAvgEl.parentElement.style.display = winPwrA > 1 ? '' : 'none'; }
   if (pbAvgEl) { pbAvgEl.textContent = winPwrB > 1 ? pBavg + 'W' : '—'; pbAvgEl.parentElement.style.display = winPwrB > 1 ? '' : 'none'; }
 
+  // ── W/kg overlay ──
+  const wA = athleteWeights.a, wB = athleteWeights.b;
+  const hasWkg = wA > 0 || wB > 0;
+  document.getElementById('ov-wkg-sep').style.display = hasWkg ? '' : 'none';
+  ['ov-pa-wkg-wrap','ov-pa-wkg-avg-wrap','ov-pb-wkg-wrap','ov-pb-wkg-avg-wrap','ov-pd-wkg-wrap'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.style.display = hasWkg ? '' : 'none';
+  });
+  if (hasWkg) {
+    const wkgA = wA > 0 ? (pA / wA) : null;
+    const wkgB = wB > 0 ? (pB / wB) : null;
+    const wkgAavg = wA > 0 ? (pAavg / wA) : null;
+    const wkgBavg = wB > 0 ? (pBavg / wB) : null;
+    const elPaWkg = document.getElementById('ov-pa-wkg');
+    const elPbWkg = document.getElementById('ov-pb-wkg');
+    const elPaWkgAvg = document.getElementById('ov-pa-wkg-avg');
+    const elPbWkgAvg = document.getElementById('ov-pb-wkg-avg');
+    const elPdWkg = document.getElementById('ov-pd-wkg');
+    if (elPaWkg) elPaWkg.textContent = wkgA != null ? wkgA.toFixed(2) : '—';
+    if (elPbWkg) elPbWkg.textContent = wkgB != null ? wkgB.toFixed(2) : '—';
+    const paWkgAvgWrap = document.getElementById('ov-pa-wkg-avg-wrap');
+    const pbWkgAvgWrap = document.getElementById('ov-pb-wkg-avg-wrap');
+    if (paWkgAvgWrap) paWkgAvgWrap.style.display = winPwrA > 1 && wA > 0 ? '' : 'none';
+    if (pbWkgAvgWrap) pbWkgAvgWrap.style.display = winPwrB > 1 && wB > 0 ? '' : 'none';
+    if (elPaWkgAvg) elPaWkgAvg.textContent = wkgAavg != null && winPwrA > 1 ? wkgAavg.toFixed(2) : '—';
+    if (elPbWkgAvg) elPbWkgAvg.textContent = wkgBavg != null && winPwrB > 1 ? wkgBavg.toFixed(2) : '—';
+    if (elPdWkg && wkgA != null && wkgB != null) {
+      const dWkg = fmtDiff(wkgA - wkgB, 2, '', true);
+      elPdWkg.textContent = dWkg.text; elPdWkg.style.color = dWkg.color;
+    } else if (elPdWkg) { elPdWkg.textContent = '—'; }
+  }
+
   const hA = Math.round(fr.hrA||0), hB = Math.round(fr.hrB||0);
   const hd = fmtDiff(hA - hB, 0, '', false);
   document.getElementById('ov-hra').textContent = hA > 0 ? hA + '♥' : '—';
@@ -1005,6 +1073,11 @@ function rpRenderCharts() {
   const getHrA    = f => f.hrA||0;
   const getHrB    = f => f.hrB||0;
   const getAltA   = f => f.altA||0;
+  const wA = athleteWeights.a, wB = athleteWeights.b;
+  const getWkgA    = f => wA > 0 ? (f.rawPowerA||0) / wA : 0;
+  const getWkgB    = f => wB > 0 ? (f.rawPowerB||0) / wB : 0;
+  const getWkgAvgA = f => wA > 0 ? (f.powerA||0) / wA : 0;
+  const getWkgAvgB = f => wB > 0 ? (f.powerB||0) / wB : 0;
 
   const seriesDefs = [];
   if (rpChartVis.gap) {
@@ -1056,6 +1129,19 @@ function rpRenderCharts() {
   if (rpChartVis.dhr) {
     seriesDefs.push({ key:'dhr', name:'ΔHR bpm', data: chartFrames.map(f=>Math.round(getHrA(f)-getHrB(f))), color:'#fb923c', width:1.5, yKey:'dhr', axis:'right-dhr', zeroline:true });
   }
+  if (rpChartVis.wkg && (wA > 0 || wB > 0)) {
+    if (wA > 0) seriesDefs.push({ key:'wkgA_raw', name:rpNameA.slice(0,10)+' W/kg', data: chartFrames.map(f=>+getWkgA(f).toFixed(3)), color:'#d8b4fe', width:1.5, axis:'right-wkg', yKey:'wkg' });
+    if (wB > 0) seriesDefs.push({ key:'wkgB_raw', name:rpNameB.slice(0,10)+' W/kg', data: chartFrames.map(f=>+getWkgB(f).toFixed(3)), color:'#f3e8ff', width:1.5, dash:'4,2', axis:'right-wkg', yKey:'wkg' });
+  }
+  if (rpChartVis.wkgavg && (wA > 0 || wB > 0)) {
+    const wPwrA = rpGetSmoothWin('rp-smooth-pwr-a','rp-smooth-pwr-a-custom');
+    const wPwrB = rpGetSmoothWin('rp-smooth-pwr-b','rp-smooth-pwr-b-custom');
+    if (wA > 0) seriesDefs.push({ key:'wkgA_avg', name:rpNameA.slice(0,10)+` W/kg${wPwrA}s`, data: chartFrames.map(f=>+getWkgAvgA(f).toFixed(3)), color:'#a855f7', width:2, axis:'right-wkg', yKey:'wkg' });
+    if (wB > 0) seriesDefs.push({ key:'wkgB_avg', name:rpNameB.slice(0,10)+` W/kg${wPwrB}s`, data: chartFrames.map(f=>+getWkgAvgB(f).toFixed(3)), color:'#e879f9', width:2, dash:'4,2', axis:'right-wkg', yKey:'wkg' });
+  }
+  if (rpChartVis.dwkg && wA > 0 && wB > 0) {
+    seriesDefs.push({ key:'dwkg', name:'ΔW/kg', data: chartFrames.map(f=>+(getWkgA(f)-getWkgB(f)).toFixed(3)), color:'#d8b4fe', width:1.5, yKey:'dwkg', axis:'right-dwkg', zeroline:true });
+  }
 
   const yGroups = {};
   seriesDefs.forEach(s => {
@@ -1104,7 +1190,7 @@ function rpRenderCharts() {
     grad.append('stop').attr('offset','100%').attr('stop-color','rgba(34,211,238,.22)');
   }
 
-  const deltaSeries = new Set(['dspd','dpwr','dhr','dspdavg','dpwravg']);
+  const deltaSeries = new Set(['dspd','dpwr','dhr','dspdavg','dpwravg','dwkg']);
   seriesDefs.forEach(ser => {
     const ys = yScales[ser.yKey];
     if (!ys) return;
@@ -1175,8 +1261,8 @@ function rpRenderCharts() {
   g.append('g').attr('transform',`translate(0,${H})`).call(d3.axisBottom(xScale).ticks(xTicks).tickFormat(xFmt))
     .call(ax => { ax.select('.domain').attr('stroke','#1a2540'); ax.selectAll('text').attr('fill','#475569').attr('font-size','8px'); ax.selectAll('line').attr('stroke','#1a2540'); });
 
-  const axisColors = { gap:'#22d3ee', speed:'#22c55e', power:'#eab308', hr:'#ef4444', elev:'#94a3b8', dspd:'#3b82f6', dpwr:'#a855f7', dhr:'#fb923c' };
-  const axisNames  = { gap:'Gap s',   speed:'km/h',    power:'W',       hr:'bpm',     elev:'m', dspd:'ΔSPD', dpwr:'ΔPWR', dhr:'ΔHR' };
+  const axisColors = { gap:'#22d3ee', speed:'#22c55e', power:'#eab308', hr:'#ef4444', elev:'#94a3b8', dspd:'#3b82f6', dpwr:'#a855f7', dhr:'#fb923c', wkg:'#d8b4fe', dwkg:'#d8b4fe' };
+  const axisNames  = { gap:'Gap s',   speed:'km/h',    power:'W',       hr:'bpm',     elev:'m', dspd:'ΔSPD', dpwr:'ΔPWR', dhr:'ΔHR', wkg:'W/kg', dwkg:'ΔW/kg' };
 
   if (rpChartVis.gap && yScales.gap) {
     g.append('g').call(d3.axisLeft(yScales.gap).ticks(4))
@@ -1194,9 +1280,11 @@ function rpRenderCharts() {
   if ((rpChartVis.speed||rpChartVis.speedavg) && yScales.speed)  rightAxes.push({ yKey:'speed',  offset:0  });
   if ((rpChartVis.power||rpChartVis.poweravg) && yScales.power)  rightAxes.push({ yKey:'power',  offset:28 });
   if (rpChartVis.hr    && yScales.hr)     rightAxes.push({ yKey:'hr',     offset:56 });
+  if ((rpChartVis.wkg || rpChartVis.wkgavg) && yScales.wkg) rightAxes.push({ yKey:'wkg', offset:0 });
   if (rpChartVis.dspd  && yScales.dspd)  rightAxes.push({ yKey:'dspd',   offset:0  });
   if (rpChartVis.dpwr  && yScales.dpwr)  rightAxes.push({ yKey:'dpwr',   offset:28 });
   if (rpChartVis.dhr   && yScales.dhr)   rightAxes.push({ yKey:'dhr',    offset:56 });
+  if (rpChartVis.dwkg  && yScales.dwkg)  rightAxes.push({ yKey:'dwkg',   offset:84 });
 
   rightAxes.forEach(ra => {
     const ys = yScales[ra.yKey];
@@ -1292,7 +1380,7 @@ function rpUpdateChartCursor(xVal) {
 }
 
 function rpUpdateChartToggleButtons() {
-  const colorMap = { gap:'gap', speed:'spd', speedavg:'spda', dspdavg:'dspda', power:'pwr', poweravg:'pwra', dpwravg:'dpwra', hr:'hr', elev:'el', dspd:'dspd', dpwr:'dpwr', dhr:'dhr' };
+  const colorMap = { gap:'gap', speed:'spd', speedavg:'spda', dspdavg:'dspda', power:'pwr', poweravg:'pwra', dpwravg:'dpwra', hr:'hr', elev:'el', dspd:'dspd', dpwr:'dpwr', dhr:'dhr', wkg:'wkg', wkgavg:'wkg', dwkg:'dwkg' };
   for (const [k, c] of Object.entries(colorMap)) {
     const btn = document.getElementById(`rp-tog-${k}`);
     if (btn) {
@@ -1303,7 +1391,7 @@ function rpUpdateChartToggleButtons() {
 
 function rpToggleChart(k) {
   rpChartVis[k] = !rpChartVis[k];
-  const colorMap = { gap:'gap', speed:'spd', speedavg:'spda', dspdavg:'dspda', power:'pwr', poweravg:'pwra', dpwravg:'dpwra', hr:'hr', elev:'el', dspd:'dspd', dpwr:'dpwr', dhr:'dhr' };
+  const colorMap = { gap:'gap', speed:'spd', speedavg:'spda', dspdavg:'dspda', power:'pwr', poweravg:'pwra', dpwravg:'dpwra', hr:'hr', elev:'el', dspd:'dspd', dpwr:'dpwr', dhr:'dhr', wkg:'wkg', wkgavg:'wkg', dwkg:'dwkg' };
   const c = colorMap[k] || k;
   const btn = document.getElementById(`rp-tog-${k}`);
   btn.className = `chart-tog ct-${c}-${rpChartVis[k]?'on':'off'}`;
@@ -1501,10 +1589,10 @@ function replayReset(){
   document.getElementById('rp-file-a').value='';
   document.getElementById('rp-file-b').value='';
   document.getElementById('rp-btn-go').disabled=true;
-  rpChartVis={gap:true,speed:false,speedavg:false,dspdavg:false,power:false,poweravg:false,dpwravg:false,hr:false,elev:false,dspd:false,dpwr:false,dhr:false};
-  ['gap','speed','speedavg','dspdavg','power','poweravg','dpwravg','hr','elev','dspd','dpwr','dhr'].forEach(k=>{
-    const colorMap={gap:'gap',speed:'spd',power:'pwr',hr:'hr',elev:'el'};
-    const c=colorMap[k];
+  rpChartVis={gap:true,speed:false,speedavg:false,dspdavg:false,power:false,poweravg:false,dpwravg:false,hr:false,elev:false,dspd:false,dpwr:false,dhr:false,wkg:false,wkgavg:false,dwkg:false};
+  ['gap','speed','speedavg','dspdavg','power','poweravg','dpwravg','hr','elev','dspd','dpwr','dhr','wkg','wkgavg','dwkg'].forEach(k=>{
+    const colorMap={gap:'gap',speed:'spd',speedavg:'spda',dspdavg:'dspda',power:'pwr',poweravg:'pwra',dpwravg:'dpwra',hr:'hr',elev:'el',dspd:'dspd',dpwr:'dpwr',dhr:'dhr',wkg:'wkg',wkgavg:'wkg',dwkg:'dwkg'};
+    const c=colorMap[k]||k;
     document.getElementById(`rp-tog-${k}`).className=`chart-tog ct-${c}-${rpChartVis[k]?'on':'off'}`;
   });
 }
