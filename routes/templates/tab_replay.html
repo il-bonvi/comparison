@@ -161,6 +161,7 @@
 
           <!-- START / END bounds panel -->
           <div id="rp-bounds-panel">
+            <!-- 🔵 Start A -->
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
               <span style="color:var(--a);font-weight:700;font-size:.74rem;min-width:76px;">🔵 Start A</span>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startA',-1000)">◀◀1km</button>
@@ -173,7 +174,10 @@
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startA',100)">100m▶</button>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startA',1000)">1km▶▶</button>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem;margin-left:4px" onclick="rpResetBound('startA')">↺ Inizio</button>
+              <button class="btn btn-primary-b" style="padding:2px 8px;font-size:.68rem;margin-left:6px;" onclick="alignStartAtoB()">🔗 Allinea A su B</button>
             </div>
+
+            <!-- 🟠 Start B -->
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
               <span style="color:var(--b);font-weight:700;font-size:.74rem;min-width:76px;">🟠 Start B</span>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startB',-1000)">◀◀1km</button>
@@ -186,9 +190,10 @@
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startB',100)">100m▶</button>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startB',1000)">1km▶▶</button>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem;margin-left:4px" onclick="rpResetBound('startB')">↺ Inizio</button>
-              <!-- NUOVO PULSANTE: allinea start B allo start A -->
-              <button class="btn btn-primary-b" style="padding:2px 8px;font-size:.68rem;margin-left:6px;" onclick="alignStartBtoA()">🔗 Allinea Start B a Start A</button>
+              <button class="btn btn-primary-b" style="padding:2px 8px;font-size:.68rem;margin-left:6px;" onclick="alignStartBtoA()">🔗 Allinea B su A</button>
             </div>
+
+            <!-- 🔵 End A -->
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
               <span style="color:var(--a);font-weight:700;font-size:.74rem;min-width:76px;">🔵 End A</span>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endA',-1000)">◀◀1km</button>
@@ -201,7 +206,10 @@
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endA',100)">100m▶</button>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endA',1000)">1km▶▶</button>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem;margin-left:4px" onclick="rpResetBound('endA')">↺ Fine</button>
+              <button class="btn btn-primary-b" style="padding:2px 8px;font-size:.68rem;margin-left:6px;" onclick="alignEndAtoB()">🔗 Allinea A su B</button>
             </div>
+
+            <!-- 🟠 End B -->
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
               <span style="color:var(--b);font-weight:700;font-size:.74rem;min-width:76px;">🟠 End B</span>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endB',-1000)">◀◀1km</button>
@@ -214,9 +222,9 @@
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endB',100)">100m▶</button>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endB',1000)">1km▶▶</button>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem;margin-left:4px" onclick="rpResetBound('endB')">↺ Fine</button>
-              <!-- NUOVO PULSANTE: allinea end B a end A -->
-              <button class="btn btn-primary-b" style="padding:2px 8px;font-size:.68rem;margin-left:6px;" onclick="alignEndBtoA()">🔗 Allinea End B a End A</button>
+              <button class="btn btn-primary-b" style="padding:2px 8px;font-size:.68rem;margin-left:6px;" onclick="alignEndBtoA()">🔗 Allinea B su A</button>
             </div>
+
             <div style="display:flex;align-items:center;gap:10px;margin-top:2px;">
               <button class="btn btn-primary-b" style="font-size:.72rem;padding:4px 14px" onclick="rpApplyBounds()">✓ Applica e ricalcola</button>
               <span style="font-size:.7rem;color:var(--muted);font-family:var(--font-mono);">Sposta lo start/end di ogni atleta per allineare la partenza o ignorare i dati extra</span>
