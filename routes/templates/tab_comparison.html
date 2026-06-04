@@ -394,6 +394,9 @@ let compSectorPanelOpen = false;
 let compCurrentChartTab = 'elev';
 let compSmoothPanelOpen = false;
 
+// ZOOM grafici 
+let compZoomDomainX = null;   // null = vista intera, altrimenti [minX, maxX] in km
+
 // ── Sectors store ──
 let compSectors = [];
 let compActiveSectorId = null;
@@ -704,6 +707,7 @@ function compOnSectorChange() {
   compActiveSectorId = parseInt(sel.value);
   compUpdateSectorPanelUI();
   compRenderSectorMarkersAll();
+  compUpdateElevChart();
 }
 
 function compUpdateSectorName(name) {
@@ -775,6 +779,7 @@ function compSectorShift(which, deltaM) {
   if (which==='endB')   sec.endIdxB   = Math.max(idx, sec.startIdxB+5);
   compUpdateSectorPanelUI();
   compRenderSectorMarkersAll();
+  compUpdateElevChart();
 }
 
 function compSectorResetEnd(who) {
@@ -1371,14 +1376,14 @@ function compUpdateElevChart() {
   if (!compElevChart || !compStreamA) return;
   const tab = compCurrentChartTab;
 
-  const sec = compGetActiveSector();
-  const s0A = sec ? sec.startIdxA : compGlobalStartA;
-  const e0A = sec ? sec.endIdxA : compGlobalEndA;
-  const s0B = sec ? sec.startIdxB : compGlobalStartB;
-  const e0B = sec ? sec.endIdxB : compGlobalEndB;
+  // Usa l'intera attività (global bounds) per l'asse X
+  const globalS0A = compGlobalStartA;
+  const globalE0A = compGlobalEndA;
+  const globalS0B = compGlobalStartB;
+  const globalE0B = compGlobalEndB;
 
-  const sliceA = (arr) => arr.slice(s0A, e0A+1);
-  const sliceB = (arr) => arr.slice(s0B, e0B+1);
+  const sliceA = (arr) => arr.slice(globalS0A, globalE0A+1);
+  const sliceB = (arr) => arr.slice(globalS0B, globalE0B+1);
   const distA = sliceA(compStreamA.distance_m);
   const distB = sliceB(compStreamB.distance_m);
   const d0A = distA[0]||0, d0B = distB[0]||0;
@@ -1449,27 +1454,48 @@ function compUpdateElevChart() {
   const dataA = distA.map((d,i) => [(d-d0A)/1000, seriesA[i]||0]);
   const dataB = distB.map((d,i) => [(d-d0B)/1000, seriesB[i]||0]);
 
+  // Aree delle sezioni già analizzate (rimangono uguali)
   const markAreas = [];
   compSectors.forEach(sector => {
     if (!sector.analyzed) return;
     sector.sections.sA.forEach((s,i) => {
+      const refStart = compStreamA.distance_m[sector.startIdxA] || 0;
       markAreas.push({
-        x0: (s.startDist - (compStreamA.distance_m[sector.startIdxA]||0))/1000,
-        x1: (s.endDist   - (compStreamA.distance_m[sector.startIdxA]||0))/1000,
+        x0: (s.startDist - refStart)/1000,
+        x1: (s.endDist   - refStart)/1000,
         color: SECTION_PALETTE[s.sectionIdx % SECTION_PALETTE.length],
         opacity: sector.id === compActiveSectorId ? 0.14 : 0.06
       });
     });
   });
 
+  // ANTEPRIMA START/END DEL SETTORE ATTIVO (su tutto il grafico, senza zoom)
+  const previewLines = [];
+  const activeSec = compGetActiveSector();
+  if (activeSec && compStreamA) {
+    const xStart = (compStreamA.distance_m[activeSec.startIdxA] - d0A) / 1000;
+    const xEnd   = (compStreamA.distance_m[activeSec.endIdxA]   - d0A) / 1000;
+    // linee
+    previewLines.push({ x: xStart, color: '#22c55e', label: 'START ▸', active: true, width: 2 });
+    previewLines.push({ x: xEnd,   color: '#ef4444', label: '◂ END',    active: true, width: 2 });
+    // area grigia trasparente tra start e end
+    if (xEnd > xStart) {
+      markAreas.push({
+        x0: xStart, x1: xEnd, color: '#888888', opacity: 0.1
+      });
+    }
+  }
+
+  // Linee dei settori analizzati (confini)
   const boundLines = [];
   compSectors.forEach(sec2 => {
-    const sDistA = (compStreamA.distance_m[sec2.startIdxA]||0);
-    const eDistA = (compStreamA.distance_m[sec2.endIdxA]||0);
-    const refD0 = compStreamA.distance_m[s0A]||0;
-    boundLines.push({ x:(sDistA-refD0)/1000, color:sec2.color, label:sec2.name+' ▶', active:sec2.id===compActiveSectorId });
-    boundLines.push({ x:(eDistA-refD0)/1000, color:sec2.color, label:'◀ '+sec2.name, active:sec2.id===compActiveSectorId });
+    const sDistA = compStreamA.distance_m[sec2.startIdxA]||0;
+    const eDistA = compStreamA.distance_m[sec2.endIdxA]||0;
+    boundLines.push({ x:(sDistA-d0A)/1000, color:sec2.color, label:sec2.name+' ▶', active:sec2.id===compActiveSectorId });
+    boundLines.push({ x:(eDistA-d0A)/1000, color:sec2.color, label:'◀ '+sec2.name, active:sec2.id===compActiveSectorId });
   });
+
+  const allLines = [...previewLines, ...boundLines];
 
   _compD3Render({
     series:[
@@ -1477,9 +1503,9 @@ function compUpdateElevChart() {
       { name:labelB, data:dataB, color:'#f97316', area: tab==='elev'?'rgba(249,115,22,.08)':null, width:2 },
     ],
     yLeft:{ name:yLabel, color:yLabelColor },
-    arrivalLines: boundLines,
+    arrivalLines: allLines,
     sections: markAreas,
-    xLabel:'km (relativo settore)',
+    xLabel:'km (progressivo)',
     tooltip:(xv,pts) => `<b>${xv.toFixed(2)} km</b><br/>${pts.map(p=>`<span style="color:${p.color}">■</span> ${p.name}: <b>${p.val.toFixed(tab==='speed'?1:0)}${yLabel}</b>`).join('<br/>')}`,
     onHover:(xv) => compUpdateMapHoverFromChart(xv),
     onLeave:() => compClearMapHoverFromChart()
@@ -1597,6 +1623,7 @@ function _compD3Render(opts) {
     })
     .on('mouseleave',()=>{ tooltip.style('display','none'); cursorLine.attr('visibility','hidden'); if (typeof opts.onLeave === 'function') opts.onLeave(); });
 }
+
 
 // ────────────────────────────────────────────────────────────────
 // METRICS TABLE
