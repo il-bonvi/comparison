@@ -186,6 +186,8 @@
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startB',100)">100m▶</button>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startB',1000)">1km▶▶</button>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem;margin-left:4px" onclick="rpResetBound('startB')">↺ Inizio</button>
+              <!-- NUOVO PULSANTE: allinea start B allo start A -->
+              <button class="btn btn-primary-b" style="padding:2px 8px;font-size:.68rem;margin-left:6px;" onclick="alignStartBtoA()">🔗 Allinea Start B a Start A</button>
             </div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
               <span style="color:var(--a);font-weight:700;font-size:.74rem;min-width:76px;">🔵 End A</span>
@@ -212,6 +214,8 @@
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endB',100)">100m▶</button>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endB',1000)">1km▶▶</button>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem;margin-left:4px" onclick="rpResetBound('endB')">↺ Fine</button>
+              <!-- NUOVO PULSANTE: allinea end B a end A -->
+              <button class="btn btn-primary-b" style="padding:2px 8px;font-size:.68rem;margin-left:6px;" onclick="alignEndBtoA()">🔗 Allinea End B a End A</button>
             </div>
             <div style="display:flex;align-items:center;gap:10px;margin-top:2px;">
               <button class="btn btn-primary-b" style="font-size:.72rem;padding:4px 14px" onclick="rpApplyBounds()">✓ Applica e ricalcola</button>
@@ -391,31 +395,36 @@ function rpNearestByVal(arr,val){
 // NUOVE FUNZIONI PER ALLINEAMENTO GEOGRAFICO SENZA LIMITE TEMPORALE
 // ------------------------------------------------------------------
 function haversineDistanceSq(lat1, lon1, lat2, lon2) {
-  const dlat = (lat1 - lat2) * 111319.9; // metri per grado latitudine (approssimato)
-  const dlon = (lon1 - lon2) * 111319.9 * Math.cos(lat1 * Math.PI / 180);
-  return dlat*dlat + dlon*dlon;
+  const R = 6371000; // raggio Terra in metri
+  const toRad = Math.PI / 180;
+  const phi1 = lat1 * toRad;
+  const phi2 = lat2 * toRad;
+  const dPhi = (lat2 - lat1) * toRad;
+  const dLambda = (lon2 - lon1) * toRad;
+  const a = Math.sin(dPhi/2) * Math.sin(dPhi/2) +
+            Math.cos(phi1) * Math.cos(phi2) *
+            Math.sin(dLambda/2) * Math.sin(dLambda/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const dist = R * c;
+  return dist * dist; // ritorna il quadrato per confronti veloci
 }
 
-// Cerca il punto di B geograficamente più vicino, partendo dall’ultimo indice trovato (prevIdx)
-// In questo modo si evita che il marker salti avanti/indietro
-const nearestBgeoMonotone = (la, lo, sB_la, sB_lo, prevIdx) => {
+// Ricerca del punto più vicino in un array di coordinate, partendo da un indice (monotona)
+function nearestGeoMonotone(la, lo, targetLat, targetLon, prevIdx) {
   let bestI = prevIdx;
-  let bestD2 = haversineDistanceSq(la, lo, sB_la[prevIdx], sB_lo[prevIdx]);
-  // Cerca avanti fino a quando la distanza non aumenta significativamente
-  for (let i = prevIdx + 1; i < sB_la.length; i++) {
-    const d2 = haversineDistanceSq(la, lo, sB_la[i], sB_lo[i]);
+  let bestD2 = haversineDistanceSq(la, lo, targetLat[prevIdx], targetLon[prevIdx]);
+  // avanti
+  for (let i = prevIdx + 1; i < targetLat.length; i++) {
+    const d2 = haversineDistanceSq(la, lo, targetLat[i], targetLon[i]);
     if (d2 < bestD2) {
       bestD2 = d2;
       bestI = i;
-    } else if (d2 > bestD2 * 1.5) {
-      // se la distanza inizia a crescere troppo, ci fermiamo (ottimizzazione)
-      break;
-    }
+    } else if (d2 > bestD2 * 1.5) break;
   }
-  // Cerca anche indietro, ma solo se il miglior punto è molto lontano
+  // indietro
   if (bestD2 > 0.0001) {
     for (let i = prevIdx - 1; i >= 0; i--) {
-      const d2 = haversineDistanceSq(la, lo, sB_la[i], sB_lo[i]);
+      const d2 = haversineDistanceSq(la, lo, targetLat[i], targetLon[i]);
       if (d2 < bestD2) {
         bestD2 = d2;
         bestI = i;
@@ -423,7 +432,59 @@ const nearestBgeoMonotone = (la, lo, sB_la, sB_lo, prevIdx) => {
     }
   }
   return bestI;
-};
+}
+
+// (opzionale) wrapper per compatibilità con il vecchio nome, se usato altrove
+const nearestBgeoMonotone = (la, lo, sB_la, sB_lo, prevIdx) =>
+  nearestGeoMonotone(la, lo, sB_la, sB_lo, prevIdx);
+
+// Allinea lo start di B allo start di A (cerca in B il punto più vicino allo startA)
+function alignStartBtoA() {
+  if (!rpSA || !rpSB) return;
+  const latA = rpSA.lat[rpBoundStartA];
+  const lonA = rpSA.lon[rpBoundStartA];
+  const bestIdx = nearestGeoMonotone(latA, lonA, rpSB.lat, rpSB.lon, rpBoundStartB);
+  rpBoundStartB = Math.min(bestIdx, rpBoundEndB - 10);
+  rpUpdateBoundsPanelUI();
+  rpUpdateBoundsMarkersOnMap();
+  rpApplyBounds(); // ricalcola subito l'allineamento
+}
+
+// Allinea lo start di A allo start di B (cerca in A il punto più vicino allo startB)
+function alignStartAtoB() {
+  if (!rpSA || !rpSB) return;
+  const latB = rpSB.lat[rpBoundStartB];
+  const lonB = rpSB.lon[rpBoundStartB];
+  const bestIdx = nearestGeoMonotone(latB, lonB, rpSA.lat, rpSA.lon, rpBoundStartA);
+  rpBoundStartA = Math.min(bestIdx, rpBoundEndA - 10);
+  rpUpdateBoundsPanelUI();
+  rpUpdateBoundsMarkersOnMap();
+  rpApplyBounds();
+}
+
+// Allinea la fine di B alla fine di A
+function alignEndBtoA() {
+  if (!rpSA || !rpSB) return;
+  const latA = rpSA.lat[rpBoundEndA];
+  const lonA = rpSA.lon[rpBoundEndA];
+  const bestIdx = nearestGeoMonotone(latA, lonA, rpSB.lat, rpSB.lon, rpBoundEndB);
+  rpBoundEndB = Math.max(bestIdx, rpBoundStartB + 10);
+  rpUpdateBoundsPanelUI();
+  rpUpdateBoundsMarkersOnMap();
+  rpApplyBounds();
+}
+
+// Allinea la fine di A alla fine di B
+function alignEndAtoB() {
+  if (!rpSA || !rpSB) return;
+  const latB = rpSB.lat[rpBoundEndB];
+  const lonB = rpSB.lon[rpBoundEndB];
+  const bestIdx = nearestGeoMonotone(latB, lonB, rpSA.lat, rpSA.lon, rpBoundEndA);
+  rpBoundEndA = Math.max(bestIdx, rpBoundStartA + 10);
+  rpUpdateBoundsPanelUI();
+  rpUpdateBoundsMarkersOnMap();
+  rpApplyBounds();
+}
 
 function rpBuildAlignment(){
   rpAligned = [];
@@ -514,77 +575,127 @@ function rpBuildAlignment(){
     `${rpAligned.length} frame • ${fmtTime(rpMaxT)}`;
 }
 
-// ── BUILD CHART FRAMES (riutilizza rpAligned, allinea per distanza solo per l'ascissa) ──
+// ── BUILD CHART FRAMES ──
 function rpBuildChartFrames(gAlign) {
   if (gAlign === 'time') {
-    return rpAligned;
+    return rpAligned; // già allineato per tempo
   }
 
-  // Per distA o distB, creiamo un array di frame con ascissa = distanza progressiva di A o B,
-  // ma usando lo stesso allineamento temporale di rpAligned (che è già fluido).
-  // Interpoliamo i valori da rpAligned sulla nuova ascissa.
-  if (!rpAligned.length) return [];
+  if (!rpSA || !rpSB) return [];
 
-  // Determina i riferimenti per l'ascissa (distanza cumulativa normalizzata)
-  const dist0A = rpSA.distance_m[rpBoundStartA] || 0;
-  const dist0B = rpSB.distance_m[rpBoundStartB] || 0;
-  const getDistA = (frame) => frame.distA - dist0A;
-  const getDistB = (frame) => frame.distB - dist0B;
+  // Prepara i dati nei bounds attuali (gli stessi usati da rpAligned)
+  const sA = {
+    t:   rpSA.time_sec.slice(rpBoundStartA, rpBoundEndA+1),
+    d:   rpSA.distance_m.slice(rpBoundStartA, rpBoundEndA+1),
+    lat: rpSA.lat.slice(rpBoundStartA, rpBoundEndA+1),
+    lon: rpSA.lon.slice(rpBoundStartA, rpBoundEndA+1),
+    alt: rpSA.alt.slice(rpBoundStartA, rpBoundEndA+1),
+    power: rpSA.power.slice(rpBoundStartA, rpBoundEndA+1),
+    speed: rpSA.speed.slice(rpBoundStartA, rpBoundEndA+1),
+    hr: rpSA.hr.slice(rpBoundStartA, rpBoundEndA+1),
+    rawPower: (rpSA._rawPower || rpSA.power).slice(rpBoundStartA, rpBoundEndA+1),
+    rawSpeed: (rpSA._rawSpeed || rpSA.speed).slice(rpBoundStartA, rpBoundEndA+1),
+  };
+  const sB = {
+    t:   rpSB.time_sec.slice(rpBoundStartB, rpBoundEndB+1),
+    d:   rpSB.distance_m.slice(rpBoundStartB, rpBoundEndB+1),
+    lat: rpSB.lat.slice(rpBoundStartB, rpBoundEndB+1),
+    lon: rpSB.lon.slice(rpBoundStartB, rpBoundEndB+1),
+    alt: rpSB.alt.slice(rpBoundStartB, rpBoundEndB+1),
+    power: rpSB.power.slice(rpBoundStartB, rpBoundEndB+1),
+    speed: rpSB.speed.slice(rpBoundStartB, rpBoundEndB+1),
+    hr: rpSB.hr.slice(rpBoundStartB, rpBoundEndB+1),
+    rawPower: (rpSB._rawPower || rpSB.power).slice(rpBoundStartB, rpBoundEndB+1),
+    rawSpeed: (rpSB._rawSpeed || rpSB.speed).slice(rpBoundStartB, rpBoundEndB+1),
+  };
 
-  // Genera una nuova ascissa uniforme campionata ogni 10 metri (o ogni 0.1 km per file lunghi)
-  const maxDist = (gAlign === 'distA') ? (rpSA.distance_m[rpBoundEndA] - dist0A) : (rpSB.distance_m[rpBoundEndB] - dist0B);
-  const step = Math.max(10, Math.ceil(maxDist / 2000)); // ~2000 punti massimi
-  const xValues = [];
-  for (let d = 0; d <= maxDist; d += step) {
-    xValues.push(d);
-  }
+  if (!sA.t.length || !sB.t.length) return [];
+
+  // Normalizziamo i tempi e le distanze
+  const t0A = sA.t[0], t0B = sB.t[0];
+  const d0A = sA.d[0], d0B = sB.d[0];
+  const tNormA = sA.t.map(t => t - t0A);
+  const tNormB = sB.t.map(t => t - t0B);
+  const dNormA = sA.d.map(d => d - d0A);
+  const dNormB = sB.d.map(d => d - d0B);
+
+  // Per allineare per distanza, dobbiamo comunque usare la ricerca geografica
+  // perché la distanza su circuito non è monotona. Quindi:
+  //   - Usiamo nearestBgeoMonotone per trovare la corrispondenza tra i due tracciati
+  //   - Poi proiettiamo i valori sull'asse X richiesto (distA o distB)
 
   const frames = [];
-  for (const x of xValues) {
-    // Trova i due frame di rpAligned che "contengono" questa distanza sull'atleta scelto
-    let idxLow = 0, idxHigh = rpAligned.length-1;
-    const getX = (frame) => (gAlign === 'distA') ? getDistA(frame) : getDistB(frame);
-    while (idxLow < idxHigh) {
-      const mid = Math.floor((idxLow + idxHigh) / 2);
-      if (getX(rpAligned[mid]) < x) idxLow = mid+1;
-      else idxHigh = mid;
+  const maxLen = Math.max(sA.lat.length, sB.lat.length);
+  let lastIdxB = 0;
+  let lastIdxA = 0;
+
+  // Decidiamo su quale atleta basare l'ascissa
+  if (gAlign === 'distA') {
+    // Per ogni punto di A (tutti i punti, non solo ogni secondo), troviamo il corrispondente B
+    for (let iA_local = 0; iA_local < sA.lat.length; iA_local++) {
+      const latA = sA.lat[iA_local];
+      const lonA = sA.lon[iA_local];
+      const iB_local = nearestBgeoMonotone(latA, lonA, sB.lat, sB.lon, lastIdxB);
+      lastIdxB = iB_local;
+      const iA = iA_local + rpBoundStartA;
+      const iB = iB_local + rpBoundStartB;
+
+      const gap = tNormA[iA_local] - tNormB[iB_local];
+
+      frames.push({
+        t: sA.t[iA_local],
+        iA, iB,
+        gap: gap,
+        distA: dNormA[iA_local], distB: dNormB[iB_local],
+        speedA: sA.speed[iA_local]||0,
+        speedB: sB.speed[iB_local]||0,
+        rawSpeedA: sA.rawSpeed[iA_local]||0,
+        rawSpeedB: sB.rawSpeed[iB_local]||0,
+        powerA: sA.power[iA_local]||0,
+        powerB: sB.power[iB_local]||0,
+        rawPowerA: sA.rawPower[iA_local]||0,
+        rawPowerB: sB.rawPower[iB_local]||0,
+        hrA: sA.hr[iA_local]||0,
+        hrB: sB.hr[iB_local]||0,
+        altA: sA.alt[iA_local]||0,
+        altB: sB.alt[iB_local]||0,
+      });
     }
-    let i0 = Math.max(0, idxLow-1);
-    let i1 = Math.min(rpAligned.length-1, idxLow);
-    if (i0 === i1) {
-      i0 = Math.max(0, i0-1);
-      i1 = Math.min(rpAligned.length-1, i0+1);
+  } else if (gAlign === 'distB') {
+    for (let iB_local = 0; iB_local < sB.lat.length; iB_local++) {
+      const latB = sB.lat[iB_local];
+      const lonB = sB.lon[iB_local];
+      // Cerchiamo il punto di A più vicino a B (invertiamo i ruoli)
+      // Dobbiamo creare una funzione simile nearestAgeoMonotone o usare la stessa con scambio
+      // Per semplicità, uso la stessa funzione passando A come target
+      const iA_local = nearestBgeoMonotone(latB, lonB, sA.lat, sA.lon, lastIdxA);
+      lastIdxA = iA_local;
+      const iA = iA_local + rpBoundStartA;
+      const iB = iB_local + rpBoundStartB;
+
+      const gap = tNormA[iA_local] - tNormB[iB_local];
+
+      frames.push({
+        t: sB.t[iB_local],
+        iA, iB,
+        gap: gap,
+        distA: dNormA[iA_local], distB: dNormB[iB_local],
+        speedA: sA.speed[iA_local]||0,
+        speedB: sB.speed[iB_local]||0,
+        rawSpeedA: sA.rawSpeed[iA_local]||0,
+        rawSpeedB: sB.rawSpeed[iB_local]||0,
+        powerA: sA.power[iA_local]||0,
+        powerB: sB.power[iB_local]||0,
+        rawPowerA: sA.rawPower[iA_local]||0,
+        rawPowerB: sB.rawPower[iB_local]||0,
+        hrA: sA.hr[iA_local]||0,
+        hrB: sB.hr[iB_local]||0,
+        altA: sA.alt[iA_local]||0,
+        altB: sB.alt[iB_local]||0,
+      });
     }
-    const f0 = rpAligned[i0];
-    const f1 = rpAligned[i1];
-    const x0 = getX(f0);
-    const x1 = getX(f1);
-    if (x1 <= x0) continue;
-    const t = (x - x0) / (x1 - x0);
-    // Interpolazione lineare dei valori
-    const lerp = (a,b) => a + (b-a)*t;
-    const frame = {
-      t: lerp(f0.t, f1.t),
-      iA: Math.round(lerp(f0.iA, f1.iA)),
-      iB: Math.round(lerp(f0.iB, f1.iB)),
-      gap: lerp(f0.gap, f1.gap),
-      distA: lerp(f0.distA, f1.distA),
-      distB: lerp(f0.distB, f1.distB),
-      speedA: lerp(f0.speedA, f1.speedA),
-      speedB: lerp(f0.speedB, f1.speedB),
-      rawSpeedA: lerp(f0.rawSpeedA, f1.rawSpeedA),
-      rawSpeedB: lerp(f0.rawSpeedB, f1.rawSpeedB),
-      powerA: lerp(f0.powerA, f1.powerA),
-      powerB: lerp(f0.powerB, f1.powerB),
-      rawPowerA: lerp(f0.rawPowerA, f1.rawPowerA),
-      rawPowerB: lerp(f0.rawPowerB, f1.rawPowerB),
-      hrA: lerp(f0.hrA, f1.hrA),
-      hrB: lerp(f0.hrB, f1.hrB),
-      altA: lerp(f0.altA, f1.altA),
-      altB: lerp(f0.altB, f1.altB),
-    };
-    frames.push(frame);
   }
+
   return frames;
 }
 
@@ -734,8 +845,6 @@ function rpUpdateFrame(idx){
       : fr.t;
 
   let g = lerp(fr0.gap, fr1.gap, t);
-  // Se il grafico non è in tempo, usa l'interpolazione diretta; rpChartFrames è solo per visualizzazione, non per il gap
-  // (ma manteniamo la compatibilità con la vecchia logica)
   if (gAlign !== 'time' && Array.isArray(rpChartFrames) && rpChartFrames.length) {
     let best = rpChartFrames[0];
     let bestDist = Infinity;
