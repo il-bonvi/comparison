@@ -136,10 +136,12 @@
             </div>
           </div>
 
+          <!-- 🔵 ATLETA A -->
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <span style="color:var(--a); font-weight:700; min-width:85px;">🔵 ATLETA A:</span>
+            <span style="color:var(--a); font-weight:700; min-width:85px;">🔵 ATL A:</span>
             
             <span style="color:var(--muted2); margin-left:4px;">Inizio:</span>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startA',-10000)">◀10km</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startA',-1000)">◀1km</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startA',-100)">◀100m</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startA',-10)">◀10m</button>
@@ -147,10 +149,12 @@
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startA',10)">10m▶</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startA',100)">100m▶</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startA',1000)">1km▶</button>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startA',10000)">10km▶</button>
             
             <span style="width:1px; height:12px; background:var(--border); margin:0 8px"></span>
             
             <span style="color:var(--muted2);">Fine:</span>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endA',-10000)">◀10km</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endA',-1000)">◀1km</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endA',-100)">◀100m</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endA',-10)">◀10m</button>
@@ -158,12 +162,19 @@
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endA',10)">10m▶</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endA',100)">100m▶</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endA',1000)">1km▶</button>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endA',10000)">10km▶</button>
+
+            <!-- Pulsanti allineamento A -->
+            <button class="btn btn-primary-b" style="padding:1px 8px; font-size:.68rem; margin-left:8px;" onclick="compAlignStartAtoB()">🔗 Start 🔵 su 🟠</button>
+            <button class="btn btn-primary-b" style="padding:1px 8px; font-size:.68rem;" onclick="compAlignEndAtoB()">🔗 End 🔵 su 🟠</button>
           </div>
 
+          <!-- 🟠 ATLETA B -->
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <span style="color:var(--b); font-weight:700; min-width:85px;">🟠 ATLETA B:</span>
+            <span style="color:var(--b); font-weight:700; min-width:85px;">🟠 ATL B:</span>
             
             <span style="color:var(--muted2); margin-left:4px;">Inizio:</span>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startB',-10000)">◀10km</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startB',-1000)">◀1km</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startB',-100)">◀100m</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startB',-10)">◀10m</button>
@@ -171,10 +182,12 @@
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startB',10)">10m▶</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startB',100)">100m▶</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startB',1000)">1km▶</button>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startB',10000)">10km▶</button>
             
             <span style="width:1px; height:12px; background:var(--border); margin:0 8px"></span>
             
             <span style="color:var(--muted2);">Fine:</span>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endB',-10000)">◀10km</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endB',-1000)">◀1km</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endB',-100)">◀100m</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endB',-10)">◀10m</button>
@@ -182,6 +195,11 @@
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endB',10)">10m▶</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endB',100)">100m▶</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endB',1000)">1km▶</button>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endB',10000)">10km▶</button>
+
+            <!-- Pulsanti allineamento B -->
+            <button class="btn btn-primary-b" style="padding:1px 8px; font-size:.68rem; margin-left:8px;" onclick="compAlignStartBtoA()">🔗 Start 🟠 su 🔵</button>
+            <button class="btn btn-primary-b" style="padding:1px 8px; font-size:.68rem;" onclick="compAlignEndBtoA()">🔗 End 🟠 su 🔵</button>
           </div>
 
         </div>
@@ -826,6 +844,97 @@ function compUpdateSectorChips() {
     };
     chips.appendChild(btn);
   });
+}
+
+// ────────────────────────────────────────────────────────────────
+// FUNZIONI PER ALLINEAMENTO GEOGRAFICO (come in Race Replay)
+// ────────────────────────────────────────────────────────────────
+function haversineDistanceSq(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const toRad = Math.PI / 180;
+  const phi1 = lat1 * toRad;
+  const phi2 = lat2 * toRad;
+  const dPhi = (lat2 - lat1) * toRad;
+  const dLambda = (lon2 - lon1) * toRad;
+  const a = Math.sin(dPhi/2) * Math.sin(dPhi/2) +
+            Math.cos(phi1) * Math.cos(phi2) *
+            Math.sin(dLambda/2) * Math.sin(dLambda/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const dist = R * c;
+  return dist * dist;
+}
+
+function nearestGeoMonotone(la, lo, targetLat, targetLon, prevIdx) {
+  let bestI = prevIdx;
+  let bestD2 = haversineDistanceSq(la, lo, targetLat[prevIdx], targetLon[prevIdx]);
+  for (let i = prevIdx + 1; i < targetLat.length; i++) {
+    const d2 = haversineDistanceSq(la, lo, targetLat[i], targetLon[i]);
+    if (d2 < bestD2) {
+      bestD2 = d2;
+      bestI = i;
+    } else if (d2 > bestD2 * 1.5) break;
+  }
+  if (bestD2 > 0.0001) {
+    for (let i = prevIdx - 1; i >= 0; i--) {
+      const d2 = haversineDistanceSq(la, lo, targetLat[i], targetLon[i]);
+      if (d2 < bestD2) {
+        bestD2 = d2;
+        bestI = i;
+      } else if (d2 > bestD2 * 1.5) break;
+    }
+  }
+  return bestI;
+}
+
+// ────────────────────────────────────────────────────────────────
+// ALLINEAMENTO AUTOMATICO START/END DEL SETTORE ATTIVO
+// ────────────────────────────────────────────────────────────────
+function compAlignStartBtoA() {
+  const sec = compGetActiveSector();
+  if (!sec || !compStreamA || !compStreamB) return;
+  const latA = compStreamA.lat[sec.startIdxA];
+  const lonA = compStreamA.lon[sec.startIdxA];
+  const bestIdx = nearestGeoMonotone(latA, lonA, compStreamB.lat, compStreamB.lon, sec.startIdxB);
+  sec.startIdxB = Math.min(bestIdx, sec.endIdxB - 5);
+  compUpdateSectorPanelUI();
+  compRenderSectorMarkersAll();
+  compUpdateElevChart();
+}
+
+function compAlignStartAtoB() {
+  const sec = compGetActiveSector();
+  if (!sec || !compStreamA || !compStreamB) return;
+  const latB = compStreamB.lat[sec.startIdxB];
+  const lonB = compStreamB.lon[sec.startIdxB];
+  const bestIdx = nearestGeoMonotone(latB, lonB, compStreamA.lat, compStreamA.lon, sec.startIdxA);
+  sec.startIdxA = Math.min(bestIdx, sec.endIdxA - 5);
+  compUpdateSectorPanelUI();
+  compRenderSectorMarkersAll();
+  compUpdateElevChart();
+}
+
+function compAlignEndBtoA() {
+  const sec = compGetActiveSector();
+  if (!sec || !compStreamA || !compStreamB) return;
+  const latA = compStreamA.lat[sec.endIdxA];
+  const lonA = compStreamA.lon[sec.endIdxA];
+  const bestIdx = nearestGeoMonotone(latA, lonA, compStreamB.lat, compStreamB.lon, sec.endIdxB);
+  sec.endIdxB = Math.max(bestIdx, sec.startIdxB + 5);
+  compUpdateSectorPanelUI();
+  compRenderSectorMarkersAll();
+  compUpdateElevChart();
+}
+
+function compAlignEndAtoB() {
+  const sec = compGetActiveSector();
+  if (!sec || !compStreamA || !compStreamB) return;
+  const latB = compStreamB.lat[sec.endIdxB];
+  const lonB = compStreamB.lon[sec.endIdxB];
+  const bestIdx = nearestGeoMonotone(latB, lonB, compStreamA.lat, compStreamA.lon, sec.endIdxA);
+  sec.endIdxA = Math.max(bestIdx, sec.startIdxA + 5);
+  compUpdateSectorPanelUI();
+  compRenderSectorMarkersAll();
+  compUpdateElevChart();
 }
 
 // ────────────────────────────────────────────────────────────────
