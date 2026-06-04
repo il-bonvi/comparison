@@ -387,6 +387,44 @@ function rpNearestByVal(arr,val){
   return Math.min(lo,arr.length-1);
 }
 
+// ------------------------------------------------------------------
+// NUOVE FUNZIONI PER ALLINEAMENTO GEOGRAFICO SENZA LIMITE TEMPORALE
+// ------------------------------------------------------------------
+function haversineDistanceSq(lat1, lon1, lat2, lon2) {
+  const dlat = (lat1 - lat2) * 111319.9; // metri per grado latitudine (approssimato)
+  const dlon = (lon1 - lon2) * 111319.9 * Math.cos(lat1 * Math.PI / 180);
+  return dlat*dlat + dlon*dlon;
+}
+
+// Cerca il punto di B geograficamente più vicino, partendo dall’ultimo indice trovato (prevIdx)
+// In questo modo si evita che il marker salti avanti/indietro
+const nearestBgeoMonotone = (la, lo, sB_la, sB_lo, prevIdx) => {
+  let bestI = prevIdx;
+  let bestD2 = haversineDistanceSq(la, lo, sB_la[prevIdx], sB_lo[prevIdx]);
+  // Cerca avanti fino a quando la distanza non aumenta significativamente
+  for (let i = prevIdx + 1; i < sB_la.length; i++) {
+    const d2 = haversineDistanceSq(la, lo, sB_la[i], sB_lo[i]);
+    if (d2 < bestD2) {
+      bestD2 = d2;
+      bestI = i;
+    } else if (d2 > bestD2 * 1.5) {
+      // se la distanza inizia a crescere troppo, ci fermiamo (ottimizzazione)
+      break;
+    }
+  }
+  // Cerca anche indietro, ma solo se il miglior punto è molto lontano
+  if (bestD2 > 0.0001) {
+    for (let i = prevIdx - 1; i >= 0; i--) {
+      const d2 = haversineDistanceSq(la, lo, sB_la[i], sB_lo[i]);
+      if (d2 < bestD2) {
+        bestD2 = d2;
+        bestI = i;
+      } else if (d2 > bestD2 * 1.5) break;
+    }
+  }
+  return bestI;
+};
+
 function rpBuildAlignment(){
   rpAligned = [];
   const mode = 'time';
@@ -409,47 +447,8 @@ function rpBuildAlignment(){
   const dA = sA_d.map(d => d - d0A);
   const dB = sB_d.map(d => d - d0B);
 
-  const geoDist2 = (la1,lo1,la2,lo2) => {
-    const dlat = la1 - la2;
-    const dlon = (lo1 - lo2) * Math.cos(la1 * Math.PI / 180);
-    return dlat*dlat + dlon*dlon;
-  };
-
-  const BIN = 0.001;
-  const bBins = {};
-  for (let i = 0; i < sB_la.length; i++) {
-    const key = `${Math.round(sB_la[i]/BIN)},${Math.round(sB_lo[i]/BIN)}`;
-    if (!bBins[key]) bBins[key] = [];
-    bBins[key].push(i);
-  }
-
-  const nearestBgeo = (la, lo, tElapsedA, maxTimeDiff) => {
-    const binLa = Math.round(la/BIN);
-    const binLo = Math.round(lo/BIN);
-    let bestI = -1, bestD2 = Infinity;
-    for (let dbl = -2; dbl <= 2; dbl++) {
-      for (let dbo = -2; dbo <= 2; dbo++) {
-        const key = `${binLa+dbl},${binLo+dbo}`;
-        const cands = bBins[key];
-        if (!cands) continue;
-        for (const i of cands) {
-          if (maxTimeDiff > 0) {
-            const tDiff = Math.abs(tB[i] - tElapsedA);
-            if (tDiff > maxTimeDiff) continue;
-          }
-          const d2 = geoDist2(la, lo, sB_la[i], sB_lo[i]);
-          if (d2 < bestD2) { bestD2 = d2; bestI = i; }
-        }
-      }
-    }
-    if (bestI < 0) {
-      for (let i = 0; i < sB_la.length; i++) {
-        const d2 = geoDist2(la, lo, sB_la[i], sB_lo[i]);
-        if (d2 < bestD2) { bestD2 = d2; bestI = i; }
-      }
-    }
-    return bestI < 0 ? 0 : bestI;
-  };
+  // Per la monotonia della ricerca, teniamo traccia dell'ultimo indice trovato in B
+  let lastIdxB = 0;
 
   if (mode === 'time') {
     rpMaxT = Math.max(tA[tA.length-1], tB[tB.length-1]);
@@ -460,8 +459,9 @@ function rpBuildAlignment(){
       const iB_pos_local = rpNearestByVal(tB, Math.min(t, tB[tB.length-1]));
       const iB_pos = iB_pos_local + rpBoundStartB;
 
-      const iB_gap_local = nearestBgeo(sA_la[iA_local], sA_lo[iA_local], t, 120);
-
+      // NUOVA RICERCA GEOGRAFICA SENZA LIMITE TEMPORALE
+      const iB_gap_local = nearestBgeoMonotone(sA_la[iA_local], sA_lo[iA_local], sB_la, sB_lo, lastIdxB);
+      lastIdxB = iB_gap_local;   // aggiorna per il frame successivo
       const gap = tA[iA_local] - tB[iB_gap_local];
 
       const distA_m = rpSA.distance_m[iA] - d0A;
@@ -505,7 +505,6 @@ function rpBuildAlignment(){
         altA_dB:   rpSA.alt[iA_atDistB]||0,   altB_dB:   rpSB.alt[iB_pos]||0,
       });
     }
-
   } // end time-mode build
 
   rpCurrentT = 0;
@@ -515,125 +514,77 @@ function rpBuildAlignment(){
     `${rpAligned.length} frame • ${fmtTime(rpMaxT)}`;
 }
 
-// ── BUILD CHART FRAMES ──
+// ── BUILD CHART FRAMES (riutilizza rpAligned, allinea per distanza solo per l'ascissa) ──
 function rpBuildChartFrames(gAlign) {
   if (gAlign === 'time') {
     return rpAligned;
   }
 
-  if (!rpSA || !rpSB) return [];
+  // Per distA o distB, creiamo un array di frame con ascissa = distanza progressiva di A o B,
+  // ma usando lo stesso allineamento temporale di rpAligned (che è già fluido).
+  // Interpoliamo i valori da rpAligned sulla nuova ascissa.
+  if (!rpAligned.length) return [];
 
-  const sA_t  = rpSA.time_sec.slice(rpBoundStartA, rpBoundEndA+1);
-  const sA_d  = rpSA.distance_m.slice(rpBoundStartA, rpBoundEndA+1);
-  const sB_t  = rpSB.time_sec.slice(rpBoundStartB, rpBoundEndB+1);
-  const sB_d  = rpSB.distance_m.slice(rpBoundStartB, rpBoundEndB+1);
+  // Determina i riferimenti per l'ascissa (distanza cumulativa normalizzata)
+  const dist0A = rpSA.distance_m[rpBoundStartA] || 0;
+  const dist0B = rpSB.distance_m[rpBoundStartB] || 0;
+  const getDistA = (frame) => frame.distA - dist0A;
+  const getDistB = (frame) => frame.distB - dist0B;
 
-  if (!sA_t.length || !sB_t.length) return [];
-
-  const t0A = sA_t[0], t0B = sB_t[0];
-  const d0A = sA_d[0], d0B = sB_d[0];
-  const tA = sA_t.map(t => t - t0A);
-  const tB = sB_t.map(t => t - t0B);
-  const dA = sA_d.map(d => d - d0A);
-  const dB = sB_d.map(d => d - d0B);
-
-  const frames = [];
-  const showRawData = rpChartVis.speed || rpChartVis.power;
-
-  if (gAlign === 'distA') {
-    if (showRawData) {
-      for (let iA_local = 0; iA_local < dA.length; iA_local++) {
-        const iA = iA_local + rpBoundStartA;
-        const distA_m = dA[iA_local];
-        const iB_local = rpNearestByVal(dB, Math.min(distA_m, dB[dB.length-1]));
-        const iB = iB_local + rpBoundStartB;
-        frames.push({
-          t: sA_t[iA_local], iA, iB,
-          gap: tA[iA_local] - tB[iB_local],
-          distA: distA_m, distB: dB[iB_local],
-          speedA: rpSA.speed ? rpSA.speed[iA]||0 : 0,
-          speedB: rpSB.speed ? rpSB.speed[iB]||0 : 0,
-          powerA: rpSA.power[iA]||0, powerB: rpSB.power[iB]||0,
-          rawSpeedA: rpSA._rawSpeed ? rpSA._rawSpeed[iA]||0 : (rpSA.speed ? rpSA.speed[iA]||0 : 0),
-          rawSpeedB: rpSB._rawSpeed ? rpSB._rawSpeed[iB]||0 : (rpSB.speed ? rpSB.speed[iB]||0 : 0),
-          rawPowerA: rpSA._rawPower ? rpSA._rawPower[iA]||0 : rpSA.power[iA]||0,
-          rawPowerB: rpSB._rawPower ? rpSB._rawPower[iB]||0 : rpSB.power[iB]||0,
-          hrA: rpSA.hr[iA]||0, hrB: rpSB.hr[iB]||0,
-          altA: rpSA.alt[iA]||0, altB: rpSB.alt[iB]||0,
-        });
-      }
-    } else {
-      const maxDistA = dA[dA.length-1];
-      const interval = Math.max(50, Math.ceil(maxDistA / 200));
-      for (let distM = 0; distM <= maxDistA; distM += interval) {
-        const iA_local = rpNearestByVal(dA, distM);
-        const iA = iA_local + rpBoundStartA;
-        const iB_local = rpNearestByVal(dB, Math.min(distM, dB[dB.length-1]));
-        const iB = iB_local + rpBoundStartB;
-        frames.push({
-          t: sA_t[iA_local], iA, iB,
-          gap: tA[iA_local] - tB[iB_local],
-          distA: dA[iA_local], distB: dB[iB_local],
-          speedA: rpSA.speed ? rpSA.speed[iA]||0 : 0,
-          speedB: rpSB.speed ? rpSB.speed[iB]||0 : 0,
-          powerA: rpSA.power[iA]||0, powerB: rpSB.power[iB]||0,
-          rawSpeedA: rpSA._rawSpeed ? rpSA._rawSpeed[iA]||0 : (rpSA.speed ? rpSA.speed[iA]||0 : 0),
-          rawSpeedB: rpSB._rawSpeed ? rpSB._rawSpeed[iB]||0 : (rpSB.speed ? rpSB.speed[iB]||0 : 0),
-          rawPowerA: rpSA._rawPower ? rpSA._rawPower[iA]||0 : rpSA.power[iA]||0,
-          rawPowerB: rpSB._rawPower ? rpSB._rawPower[iB]||0 : rpSB.power[iB]||0,
-          hrA: rpSA.hr[iA]||0, hrB: rpSB.hr[iB]||0,
-          altA: rpSA.alt[iA]||0, altB: rpSB.alt[iB]||0,
-        });
-      }
-    }
-  } else if (gAlign === 'distB') {
-    if (showRawData) {
-      for (let iB_local = 0; iB_local < dB.length; iB_local++) {
-        const iB = iB_local + rpBoundStartB;
-        const distB_m = dB[iB_local];
-        const iA_local = rpNearestByVal(dA, Math.min(distB_m, dA[dA.length-1]));
-        const iA = iA_local + rpBoundStartA;
-        frames.push({
-          t: sB_t[iB_local], iA, iB,
-          gap: tA[iA_local] - tB[iB_local],
-          distA: dA[iA_local], distB: distB_m,
-          speedA: rpSA.speed ? rpSA.speed[iA]||0 : 0,
-          speedB: rpSB.speed ? rpSB.speed[iB]||0 : 0,
-          powerA: rpSA.power[iA]||0, powerB: rpSB.power[iB]||0,
-          rawSpeedA: rpSA._rawSpeed ? rpSA._rawSpeed[iA]||0 : (rpSA.speed ? rpSA.speed[iA]||0 : 0),
-          rawSpeedB: rpSB._rawSpeed ? rpSB._rawSpeed[iB]||0 : (rpSB.speed ? rpSB.speed[iB]||0 : 0),
-          rawPowerA: rpSA._rawPower ? rpSA._rawPower[iA]||0 : rpSA.power[iA]||0,
-          rawPowerB: rpSB._rawPower ? rpSB._rawPower[iB]||0 : rpSB.power[iB]||0,
-          hrA: rpSA.hr[iA]||0, hrB: rpSB.hr[iB]||0,
-          altA: rpSA.alt[iA]||0, altB: rpSB.alt[iB]||0,
-        });
-      }
-    } else {
-      const maxDistB = dB[dB.length-1];
-      const interval = Math.max(50, Math.ceil(maxDistB / 200));
-      for (let distM = 0; distM <= maxDistB; distM += interval) {
-        const iB_local = rpNearestByVal(dB, distM);
-        const iB = iB_local + rpBoundStartB;
-        const iA_local = rpNearestByVal(dA, Math.min(distM, dA[dA.length-1]));
-        const iA = iA_local + rpBoundStartA;
-        frames.push({
-          t: sB_t[iB_local], iA, iB,
-          gap: tA[iA_local] - tB[iB_local],
-          distA: dA[iA_local], distB: dB[iB_local],
-          speedA: rpSA.speed ? rpSA.speed[iA]||0 : 0,
-          speedB: rpSB.speed ? rpSB.speed[iB]||0 : 0,
-          powerA: rpSA.power[iA]||0, powerB: rpSB.power[iB]||0,
-          rawSpeedA: rpSA._rawSpeed ? rpSA._rawSpeed[iA]||0 : (rpSA.speed ? rpSA.speed[iA]||0 : 0),
-          rawSpeedB: rpSB._rawSpeed ? rpSB._rawSpeed[iB]||0 : (rpSB.speed ? rpSB.speed[iB]||0 : 0),
-          rawPowerA: rpSA._rawPower ? rpSA._rawPower[iA]||0 : rpSA.power[iA]||0,
-          rawPowerB: rpSB._rawPower ? rpSB._rawPower[iB]||0 : rpSB.power[iB]||0,
-          hrA: rpSA.hr[iA]||0, hrB: rpSB.hr[iB]||0,
-          altA: rpSA.alt[iA]||0, altB: rpSB.alt[iB]||0,
-        });
-      }
-    }
+  // Genera una nuova ascissa uniforme campionata ogni 10 metri (o ogni 0.1 km per file lunghi)
+  const maxDist = (gAlign === 'distA') ? (rpSA.distance_m[rpBoundEndA] - dist0A) : (rpSB.distance_m[rpBoundEndB] - dist0B);
+  const step = Math.max(10, Math.ceil(maxDist / 2000)); // ~2000 punti massimi
+  const xValues = [];
+  for (let d = 0; d <= maxDist; d += step) {
+    xValues.push(d);
   }
 
+  const frames = [];
+  for (const x of xValues) {
+    // Trova i due frame di rpAligned che "contengono" questa distanza sull'atleta scelto
+    let idxLow = 0, idxHigh = rpAligned.length-1;
+    const getX = (frame) => (gAlign === 'distA') ? getDistA(frame) : getDistB(frame);
+    while (idxLow < idxHigh) {
+      const mid = Math.floor((idxLow + idxHigh) / 2);
+      if (getX(rpAligned[mid]) < x) idxLow = mid+1;
+      else idxHigh = mid;
+    }
+    let i0 = Math.max(0, idxLow-1);
+    let i1 = Math.min(rpAligned.length-1, idxLow);
+    if (i0 === i1) {
+      i0 = Math.max(0, i0-1);
+      i1 = Math.min(rpAligned.length-1, i0+1);
+    }
+    const f0 = rpAligned[i0];
+    const f1 = rpAligned[i1];
+    const x0 = getX(f0);
+    const x1 = getX(f1);
+    if (x1 <= x0) continue;
+    const t = (x - x0) / (x1 - x0);
+    // Interpolazione lineare dei valori
+    const lerp = (a,b) => a + (b-a)*t;
+    const frame = {
+      t: lerp(f0.t, f1.t),
+      iA: Math.round(lerp(f0.iA, f1.iA)),
+      iB: Math.round(lerp(f0.iB, f1.iB)),
+      gap: lerp(f0.gap, f1.gap),
+      distA: lerp(f0.distA, f1.distA),
+      distB: lerp(f0.distB, f1.distB),
+      speedA: lerp(f0.speedA, f1.speedA),
+      speedB: lerp(f0.speedB, f1.speedB),
+      rawSpeedA: lerp(f0.rawSpeedA, f1.rawSpeedA),
+      rawSpeedB: lerp(f0.rawSpeedB, f1.rawSpeedB),
+      powerA: lerp(f0.powerA, f1.powerA),
+      powerB: lerp(f0.powerB, f1.powerB),
+      rawPowerA: lerp(f0.rawPowerA, f1.rawPowerA),
+      rawPowerB: lerp(f0.rawPowerB, f1.rawPowerB),
+      hrA: lerp(f0.hrA, f1.hrA),
+      hrB: lerp(f0.hrB, f1.hrB),
+      altA: lerp(f0.altA, f1.altA),
+      altB: lerp(f0.altB, f1.altB),
+    };
+    frames.push(frame);
+  }
   return frames;
 }
 
@@ -783,6 +734,8 @@ function rpUpdateFrame(idx){
       : fr.t;
 
   let g = lerp(fr0.gap, fr1.gap, t);
+  // Se il grafico non è in tempo, usa l'interpolazione diretta; rpChartFrames è solo per visualizzazione, non per il gap
+  // (ma manteniamo la compatibilità con la vecchia logica)
   if (gAlign !== 'time' && Array.isArray(rpChartFrames) && rpChartFrames.length) {
     let best = rpChartFrames[0];
     let bestDist = Infinity;
