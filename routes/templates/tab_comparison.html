@@ -1512,116 +1512,440 @@ function compUpdateElevChart() {
   });
 }
 
-/* D3 render helper */
 function _compD3Render(opts) {
+ 
+  /* ── contenitore ──────────────────────────────────────────────────── */
   const container = document.getElementById('comp-elevation-chart');
+  if (!container) return;
   container.innerHTML = '';
-  container.style.position='relative';
-
-  const totalW = container.clientWidth||600;
-  const totalH = container.clientHeight||160;
-  const margin = { top:22, right: opts.yRight?52:14, bottom:24, left:46 };
-  const W = totalW-margin.left-margin.right;
-  const H = totalH-margin.top-margin.bottom;
-  if (W<=0||H<=0) return;
-
-  const svg = d3.select(container).append('svg').attr('width',totalW).attr('height',totalH).style('display','block');
-  svg.append('defs').append('clipPath').attr('id','comp-clip2').append('rect').attr('width',W).attr('height',H);
-  const g = svg.append('g').attr('transform',`translate(${margin.left},${margin.top})`);
-
-  const allX = opts.series.flatMap(s=>s.data.map(d=>d[0]));
-  const xScale = d3.scaleLinear().domain([Math.min(...allX),Math.max(...allX)]).range([0,W]);
-
-  const allYL = opts.series.filter(s=>!s.yRight).flatMap(s=>s.data.map(d=>d[1]));
-  const yMin = d3.min(allYL), yMax = d3.max(allYL);
-  const yPad = (yMax-yMin)*0.08||5;
-  const yScaleL = d3.scaleLinear().domain([yMin-yPad,yMax+yPad]).range([H,0]).nice();
-
-  let yScaleR=null;
+  container.style.position = 'relative';
+ 
+  const totalW = container.clientWidth  || 600;
+  const totalH = container.clientHeight || 160;
+  const margin = { top: 22, right: opts.yRight ? 52 : 14, bottom: 24, left: 46 };
+  const W = totalW - margin.left - margin.right;
+  const H = totalH - margin.top  - margin.bottom;
+  if (W <= 0 || H <= 0) return;
+ 
+  /* ── scale X ──────────────────────────────────────────────────────── */
+  const allX        = opts.series.flatMap(s => s.data.map(d => d[0]));
+  const fullXDomain = [d3.min(allX), d3.max(allX)];
+  const xScaleOrig  = d3.scaleLinear().domain(fullXDomain).range([0, W]);
+ 
+  // Usa il dominio di zoom esterno se valido
+  let currentXScale = (typeof compZoomDomainX !== 'undefined' &&
+                       compZoomDomainX &&
+                       compZoomDomainX[0] < compZoomDomainX[1])
+    ? d3.scaleLinear().domain(compZoomDomainX).range([0, W])
+    : xScaleOrig;
+ 
+  /* ── scale Y ──────────────────────────────────────────────────────── */
+  const allYL  = opts.series.filter(s => !s.yRight).flatMap(s => s.data.map(d => d[1]));
+  const yMin   = d3.min(allYL), yMax = d3.max(allYL);
+  const yPad   = (yMax - yMin) * 0.08 || 5;
+  const yScaleL = d3.scaleLinear().domain([yMin - yPad, yMax + yPad]).range([H, 0]).nice();
+ 
+  let yScaleR = null;
   if (opts.yRight) {
-    const allYR = opts.series.filter(s=>s.yRight).flatMap(s=>s.data.map(d=>d[1]));
-    yScaleR = d3.scaleLinear().domain([d3.min(allYR)*0.97,d3.max(allYR)*1.03]).range([H,0]).nice();
+    const allYR = opts.series.filter(s => s.yRight).flatMap(s => s.data.map(d => d[1]));
+    yScaleR = d3.scaleLinear()
+      .domain([d3.min(allYR) * 0.97, d3.max(allYR) * 1.03])
+      .range([H, 0])
+      .nice();
   }
-
-  g.append('g').call(d3.axisLeft(yScaleL).tickSize(-W).tickFormat(''))
-    .call(ax=>{ax.select('.domain').remove();ax.selectAll('line').attr('stroke','#1e293b');});
-
-  opts.sections.forEach(sec=>{
-    g.append('rect').attr('x',xScale(sec.x0)).attr('y',0)
-      .attr('width',Math.max(0,xScale(sec.x1)-xScale(sec.x0))).attr('height',H)
-      .attr('fill',sec.color).attr('opacity',sec.opacity);
-  });
-
-  g.append('g').attr('transform',`translate(0,${H})`).call(d3.axisBottom(xScale).ticks(Math.min(8,Math.floor(W/70))).tickFormat(v=>v.toFixed(1)))
-    .call(ax=>{ax.select('.domain').attr('stroke','#1a2540');ax.selectAll('text').attr('fill','#94a3b8').attr('font-size','8px');ax.selectAll('line').attr('stroke','#1a2540');});
-  g.append('text').attr('x',W/2).attr('y',H+22).attr('fill','#475569').attr('font-size','7px').attr('text-anchor','middle').text(opts.xLabel||'km');
-
-  g.append('g').call(d3.axisLeft(yScaleL).ticks(4))
-    .call(ax=>{ax.select('.domain').attr('stroke','#1a2540');ax.selectAll('text').attr('fill','#94a3b8').attr('font-size','7px');ax.selectAll('line').attr('stroke','#1a2540');});
-  g.append('text').attr('transform','rotate(-90)').attr('x',-H/2).attr('y',-36).attr('fill',opts.yLeft.color||'#64748b').attr('font-size','7px').attr('text-anchor','middle').text(opts.yLeft.name);
-
-  if (opts.yRight&&yScaleR) {
-    g.append('g').attr('transform',`translate(${W},0)`).call(d3.axisRight(yScaleR).ticks(4))
-      .call(ax=>{ax.select('.domain').attr('stroke','#1a2540');ax.selectAll('text').attr('fill',opts.yRight.color||'#94a3b8').attr('font-size','7px');ax.selectAll('line').attr('stroke','#1a2540');});
-    g.append('text').attr('transform','rotate(-90)').attr('x',-H/2).attr('y',W+44).attr('fill',opts.yRight.color||'#22c55e').attr('font-size','7px').attr('text-anchor','middle').text(opts.yRight.name);
-  }
-
-  opts.series.forEach(ser=>{
-    const ys=(ser.yRight&&yScaleR)?yScaleR:yScaleL;
-    const lineGen=d3.line().x(d=>xScale(d[0])).y(d=>ys(d[1])).curve(d3.curveCatmullRom.alpha(0.5));
-    if (ser.area) {
-      const ag=d3.area().x(d=>xScale(d[0])).y0(H).y1(d=>ys(d[1])).curve(d3.curveCatmullRom.alpha(0.5));
-      g.append('path').datum(ser.data).attr('clip-path','url(#comp-clip2)').attr('fill',ser.area).attr('d',ag);
+ 
+  /* ── SVG root ─────────────────────────────────────────────────────── */
+  const svg = d3.select(container)
+    .append('svg')
+    .attr('width',  totalW)
+    .attr('height', totalH)
+    .style('display', 'block');
+ 
+  svg.append('defs')
+    .append('clipPath').attr('id', 'comp-clip-main')
+    .append('rect').attr('width', W).attr('height', H);
+ 
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+ 
+  /* ── funzione di (ri)disegno degli elementi del grafico ───────────── */
+  function drawChart() {
+    g.selectAll('*').remove();
+ 
+    // Griglia
+    g.append('g')
+      .call(d3.axisLeft(yScaleL).tickSize(-W).tickFormat(''))
+      .call(ax => {
+        ax.select('.domain').remove();
+        ax.selectAll('line').attr('stroke', '#1e293b');
+      });
+ 
+    // Sezioni colorate
+    if (opts.sections) {
+      opts.sections.forEach(sec => {
+        const x0 = currentXScale(sec.x0);
+        const x1 = currentXScale(sec.x1);
+        if (isNaN(x0) || isNaN(x1)) return;
+        g.append('rect')
+          .attr('x', x0).attr('y', 0)
+          .attr('width', Math.max(0, x1 - x0)).attr('height', H)
+          .attr('fill', sec.color).attr('opacity', sec.opacity);
+      });
     }
-    const p=g.append('path').datum(ser.data).attr('clip-path','url(#comp-clip2)').attr('fill','none').attr('stroke',ser.color).attr('stroke-width',ser.width||2).attr('d',lineGen);
-    if(ser.dash)p.attr('stroke-dasharray',ser.dash);
+ 
+    // Asse X
+    g.append('g')
+      .attr('transform', `translate(0,${H})`)
+      .call(
+        d3.axisBottom(currentXScale)
+          .ticks(Math.min(8, Math.floor(W / 70)))
+          .tickFormat(v => v.toFixed(1))
+      )
+      .call(ax => {
+        ax.select('.domain').attr('stroke', '#1a2540');
+        ax.selectAll('text').attr('fill', '#94a3b8').attr('font-size', '8px');
+        ax.selectAll('line').attr('stroke', '#1a2540');
+      });
+    g.append('text')
+      .attr('x', W / 2).attr('y', H + 22)
+      .attr('fill', '#475569').attr('font-size', '7px').attr('text-anchor', 'middle')
+      .text(opts.xLabel || 'km');
+ 
+    // Asse Y sinistro
+    g.append('g')
+      .call(d3.axisLeft(yScaleL).ticks(4))
+      .call(ax => {
+        ax.select('.domain').attr('stroke', '#1a2540');
+        ax.selectAll('text').attr('fill', '#94a3b8').attr('font-size', '7px');
+        ax.selectAll('line').attr('stroke', '#1a2540');
+      });
+    g.append('text')
+      .attr('transform', 'rotate(-90)')
+      .attr('x', -H / 2).attr('y', -36)
+      .attr('fill', opts.yLeft.color || '#64748b')
+      .attr('font-size', '7px').attr('text-anchor', 'middle')
+      .text(opts.yLeft.name);
+ 
+    // Asse Y destro
+    if (opts.yRight && yScaleR) {
+      g.append('g')
+        .attr('transform', `translate(${W},0)`)
+        .call(d3.axisRight(yScaleR).ticks(4))
+        .call(ax => {
+          ax.select('.domain').attr('stroke', '#1a2540');
+          ax.selectAll('text').attr('fill', opts.yRight.color || '#94a3b8').attr('font-size', '7px');
+          ax.selectAll('line').attr('stroke', '#1a2540');
+        });
+      g.append('text')
+        .attr('transform', 'rotate(-90)')
+        .attr('x', -H / 2).attr('y', W + 44)
+        .attr('fill', opts.yRight.color || '#22c55e')
+        .attr('font-size', '7px').attr('text-anchor', 'middle')
+        .text(opts.yRight.name);
+    }
+ 
+    // Linee verticali (arrivi / waypoint)
+    if (opts.arrivalLines) {
+      opts.arrivalLines.forEach(al => {
+        const x = currentXScale(al.x);
+        if (x < 0 || x > W) return;
+        g.append('line')
+          .attr('x1', x).attr('x2', x).attr('y1', 0).attr('y2', H)
+          .attr('stroke', al.color)
+          .attr('stroke-width', al.width || (al.active ? 2 : 1))
+          .attr('stroke-dasharray',
+            al.dash || (al.label.includes('START') || al.label.includes('END') ? '' : '5,3'))
+          .attr('opacity', al.active ? 1 : 0.6);
+        g.append('text')
+          .attr('x', x + 3)
+          .attr('y', al.label.includes('END') ? H - 5 : 10)
+          .attr('fill', al.color)
+          .attr('font-size', '8px')
+          .attr('font-weight', al.active ? '700' : '400')
+          .text(al.label);
+      });
+    }
+ 
+    // Serie (area + linea)
+    opts.series.forEach(ser => {
+      const ys = (ser.yRight && yScaleR) ? yScaleR : yScaleL;
+      const lineGen = d3.line()
+        .x(d => currentXScale(d[0]))
+        .y(d => ys(d[1]))
+        .curve(d3.curveCatmullRom.alpha(0.5));
+ 
+      if (ser.area) {
+        const areaGen = d3.area()
+          .x(d => currentXScale(d[0]))
+          .y0(H).y1(d => ys(d[1]))
+          .curve(d3.curveCatmullRom.alpha(0.5));
+        g.append('path')
+          .datum(ser.data)
+          .attr('clip-path', 'url(#comp-clip-main)')
+          .attr('fill', ser.area)
+          .attr('d', areaGen);
+      }
+ 
+      g.append('path')
+        .datum(ser.data)
+        .attr('clip-path', 'url(#comp-clip-main)')
+        .attr('fill', 'none')
+        .attr('stroke', ser.color)
+        .attr('stroke-width', ser.width || 2)
+        .attr('stroke-dasharray', ser.dash || null)
+        .attr('d', lineGen);
+    });
+  }
+ 
+  // Legenda (fuori dal gruppo ridesegnabile, non cambia con lo zoom)
+  const leg = svg.append('g')
+    .attr('transform', `translate(${totalW - margin.right - 4}, 6)`);
+  opts.series.forEach((ser, i) => {
+    const row = leg.append('g').attr('transform', `translate(0, ${i * 12})`);
+    row.append('line')
+      .attr('x1', -36).attr('x2', -22).attr('y1', 4).attr('y2', 4)
+      .attr('stroke', ser.color).attr('stroke-width', ser.width || 2)
+      .attr('stroke-dasharray', ser.dash || null);
+    row.append('text')
+      .attr('x', -19).attr('y', 8)
+      .attr('fill', '#64748b').attr('font-size', '8px')
+      .text(ser.name);
   });
-
-  opts.arrivalLines.forEach(al=>{
-    const x=xScale(al.x);
-    if(x<0||x>W) return;
-    g.append('line').attr('x1',x).attr('x2',x).attr('y1',0).attr('y2',H)
-      .attr('stroke',al.color).attr('stroke-width',al.active?2:1).attr('stroke-dasharray','5,3').attr('opacity',al.active?1:.5);
-    g.append('text').attr('x',x+3).attr('y',10).attr('fill',al.color).attr('font-size','8px').attr('font-weight',al.active?'700':'400').text(al.label);
-  });
-
-  const leg=svg.append('g').attr('transform',`translate(${totalW-margin.right-4},${6})`);
-  opts.series.forEach((ser,i)=>{
-    const row=leg.append('g').attr('transform',`translate(0,${i*12})`);
-    row.append('line').attr('x1',-36).attr('x2',-22).attr('y1',4).attr('y2',4).attr('stroke',ser.color).attr('stroke-width',ser.width||2).attr('stroke-dasharray',ser.dash||null);
-    row.append('text').attr('x',-19).attr('y',8).attr('fill','#64748b').attr('font-size','8px').text(ser.name);
-  });
-
+ 
+  /* ── linea cursore (sopra tutto, non nel gruppo ridesegnabile) ─────── */
   const cursorLine = svg.append('line')
-    .attr('x1', margin.left).attr('x2', margin.left).attr('y1', margin.top).attr('y2', margin.top + H)
+    .attr('x1', margin.left).attr('x2', margin.left)
+    .attr('y1', margin.top).attr('y2', margin.top + H)
     .attr('stroke', '#ffffff').attr('stroke-width', 1.5).attr('stroke-opacity', 0.8)
-    .attr('pointer-events', 'none').attr('visibility', 'hidden');
-
-  const tooltip=d3.select(container).append('div')
-    .style('position','absolute').style('pointer-events','none').style('display','none')
-    .style('background','rgba(8,12,20,.96)').style('border','1px solid #253560').style('border-radius','6px')
-    .style('padding','7px 11px').style('font-size','10px').style('color','#e2e8f0')
-    .style('font-family','Space Mono,monospace').style('line-height','1.8').style('z-index','200');
-
-  if (typeof opts.onLeave === 'function') opts.onLeave();
-
-  const bisect=d3.bisector(d=>d[0]).left;
-  svg.append('rect').attr('width',totalW).attr('height',totalH).attr('fill','none').attr('pointer-events','all')
-    .on('mousemove',function(event){
-      const [mx]=d3.pointer(event,this);
-      const xi = mx - margin.left;
-      if (xi < 0 || xi > W) { tooltip.style('display','none'); cursorLine.attr('visibility','hidden'); return; }
-      const xVal=xScale.invert(xi);
-      const ser0=opts.series[0]; if(!ser0||!ser0.data.length) return;
-      const idx=Math.max(0,bisect(ser0.data,xVal,1)-1);
-      const pts=opts.series.map(s=>({name:s.name,color:s.color,val:(s.data[idx]||s.data[s.data.length-1])[1]}));
-      const xv=(ser0.data[idx]||ser0.data[0])[0];
-      cursorLine.attr('x1', mx).attr('x2', mx).attr('visibility','visible');
-      tooltip.style('display','block').style('left',(mx+10)+'px').style('top','8px')
-        .html(opts.tooltip?opts.tooltip(xv,pts):`<b>${xv.toFixed(2)} km</b><br/>${pts.map(p=>`<span style="color:${p.color}">■</span> ${p.name}: <b>${Math.round(p.val)}</b>`).join('<br/>')}`);
-      if (typeof opts.onHover === 'function') opts.onHover(xv, idx);
-    })
-    .on('mouseleave',()=>{ tooltip.style('display','none'); cursorLine.attr('visibility','hidden'); if (typeof opts.onLeave === 'function') opts.onLeave(); });
+    .attr('pointer-events', 'none')
+    .attr('visibility', 'hidden');
+ 
+  /* ── rettangolo di selezione zoom ─────────────────────────────────── */
+  // Creato nel gruppo g (coordinate locali) ma DOPO drawChart per stare sopra
+  // — verrà ricreato dopo ogni redraw tramite attachInteraction()
+  let selRect = null;
+  let overlay = null;
+ 
+  /* ── tooltip div (position:fixed, fuori dall'SVG) ─────────────────── */
+  let tooltipDiv = container.querySelector('.comp-tooltip');
+  if (!tooltipDiv) {
+    tooltipDiv = document.createElement('div');
+    tooltipDiv.className = 'comp-tooltip';
+    Object.assign(tooltipDiv.style, {
+      position:      'fixed',
+      pointerEvents: 'none',
+      display:       'none',
+      background:    'rgba(8,12,20,.96)',
+      border:        '1px solid #253560',
+      borderRadius:  '6px',
+      padding:       '7px 11px',
+      fontSize:      '10px',
+      color:         '#e2e8f0',
+      fontFamily:    'Space Mono,monospace',
+      lineHeight:    '1.8',
+      zIndex:        '9999',
+    });
+    // Aggiungiamo al body per evitare problemi di overflow/stacking context
+    document.body.appendChild(tooltipDiv);
+  }
+ 
+  const bisect = d3.bisector(d => d[0]).left;
+ 
+  /* ── helpers tooltip ──────────────────────────────────────────────── */
+  function showTooltip(clientX, clientY, xPx) {
+    const xVal = currentXScale.invert(xPx);
+    const ser0 = opts.series[0];
+    if (!ser0 || !ser0.data.length) return;
+ 
+    const i = bisect(ser0.data, xVal);
+    let idx;
+    if (i <= 0) idx = 0;
+    else if (i >= ser0.data.length) idx = ser0.data.length - 1;
+    else {
+      const d0 = ser0.data[i - 1], d1 = ser0.data[i];
+      idx = (xVal - d0[0]) > (d1[0] - xVal) ? i : i - 1;
+    }
+ 
+    const pts = opts.series.map(s => ({
+      name:  s.name,
+      color: s.color,
+      val:   (s.data[idx] || s.data[s.data.length - 1])[1],
+    }));
+    const xv = (ser0.data[idx] || ser0.data[0])[0];
+ 
+    // Linea cursore
+    cursorLine
+      .attr('x1', margin.left + xPx)
+      .attr('x2', margin.left + xPx)
+      .attr('visibility', 'visible');
+ 
+    // Tooltip
+    tooltipDiv.style.display = 'block';
+    tooltipDiv.style.left    = (clientX + 14) + 'px';
+    tooltipDiv.style.top     = (clientY - 32) + 'px';
+    tooltipDiv.innerHTML     = opts.tooltip
+      ? opts.tooltip(xv, pts)
+      : `<b>${xv.toFixed(2)} ${opts.xLabel || 'km'}</b><br/>` +
+        pts.map(p =>
+          `<span style="color:${p.color}">■</span> ${p.name}: <b>${Math.round(p.val)}</b>`
+        ).join('<br/>');
+ 
+    if (typeof opts.onHover === 'function') opts.onHover(xv, idx);
+  }
+ 
+  function hideTooltip() {
+    tooltipDiv.style.display = 'none';
+    cursorLine.attr('visibility', 'hidden');
+    if (typeof opts.onLeave === 'function') opts.onLeave();
+  }
+ 
+  /* ── attacca overlay + interazioni ───────────────────────────────── */
+  function attachInteraction() {
+    // Rimuovi eventuale overlay precedente
+    g.selectAll('.comp-overlay-group').remove();
+ 
+    const interGroup = g.append('g').attr('class', 'comp-overlay-group');
+ 
+    // Rettangolo di selezione (visibile durante il drag)
+    selRect = interGroup.append('rect')
+      .attr('class', 'comp-sel-rect')
+      .attr('y', 0).attr('height', H)
+      .attr('x', 0).attr('width', 0)
+      .attr('fill',         'rgba(148,163,184,.15)')
+      .attr('stroke',       '#94a3b8')
+      .attr('stroke-width', 1)
+      .attr('stroke-dasharray', '3,2')
+      .attr('visibility',   'hidden')
+      .attr('pointer-events', 'none');
+ 
+    // Overlay trasparente: unico target di tutti gli eventi
+    overlay = interGroup.append('rect')
+      .attr('x', 0).attr('y', 0)
+      .attr('width', W).attr('height', H)
+      .attr('fill', 'transparent')
+      .style('cursor', 'crosshair');
+ 
+    /* ── stato drag ────────────────────────────────────────────────── */
+    const DRAG_THRESHOLD = 5; // pixel – sotto questa soglia è hover, non drag
+    let dragStartPx  = null;  // pixel x di inizio drag (null = nessun drag attivo)
+    let isDragging   = false;
+ 
+    /* pointerdown ── inizia potenziale drag ── */
+    overlay.on('pointerdown', function (event) {
+      if (event.button !== 0) return; // solo tasto sinistro
+      const [mx] = d3.pointer(event, this);
+      dragStartPx = mx;
+      isDragging  = false;
+      selRect.attr('x', mx).attr('width', 0).attr('visibility', 'hidden');
+      // Cattura il pointer per ricevere move/up anche fuori dall'elemento
+      this.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    });
+ 
+    /* pointermove ── hover (tooltip) oppure aggiorna selezione zoom ── */
+    overlay.on('pointermove', function (event) {
+      const [mx] = d3.pointer(event, this);
+ 
+      if (dragStartPx !== null) {
+        /* ── in drag ── */
+        const delta = Math.abs(mx - dragStartPx);
+        if (delta > DRAG_THRESHOLD) {
+          isDragging = true;
+          hideTooltip(); // nascondi tooltip mentre si draga
+          const x0 = Math.min(dragStartPx, mx);
+          const x1 = Math.max(dragStartPx, mx);
+          selRect
+            .attr('x', x0)
+            .attr('width', x1 - x0)
+            .attr('visibility', 'visible');
+          overlay.style('cursor', 'ew-resize');
+        }
+      } else {
+        /* ── solo hover: mostra tooltip ── */
+        if (mx >= 0 && mx <= W) {
+          showTooltip(event.clientX, event.clientY, mx);
+        } else {
+          hideTooltip();
+        }
+      }
+    });
+ 
+    /* pointerup ── applica zoom oppure mostra tooltip su click fermo ── */
+    overlay.on('pointerup', function (event) {
+      if (dragStartPx === null) return;
+      const [mx] = d3.pointer(event, this);
+ 
+      selRect.attr('visibility', 'hidden');
+      overlay.style('cursor', 'crosshair');
+ 
+      if (isDragging) {
+        /* ── applica zoom ── */
+        const x0px = Math.min(dragStartPx, mx);
+        const x1px = Math.max(dragStartPx, mx);
+        const newDomain = [
+          currentXScale.invert(x0px),
+          currentXScale.invert(x1px),
+        ];
+        if (newDomain[1] - newDomain[0] > 0.01) {
+          if (typeof compZoomDomainX !== 'undefined') {
+            compZoomDomainX = newDomain;
+          }
+          currentXScale = d3.scaleLinear().domain(newDomain).range([0, W]);
+          redraw();
+          return; // uscita anticipata
+        }
+      } else {
+        /* ── era un click fermo: mostra tooltip ── */
+        if (mx >= 0 && mx <= W) {
+          showTooltip(event.clientX, event.clientY, mx);
+        }
+      }
+ 
+      dragStartPx = null;
+      isDragging  = false;
+    });
+ 
+    /* pointercancel ── cancella tutto (es. scroll mobile) ── */
+    overlay.on('pointercancel', function () {
+      dragStartPx = null;
+      isDragging  = false;
+      selRect.attr('visibility', 'hidden');
+      overlay.style('cursor', 'crosshair');
+      hideTooltip();
+    });
+ 
+    /* mouseleave ── nascondi tooltip (non interrompe il drag) ── */
+    overlay.on('mouseleave', function () {
+      if (!isDragging) hideTooltip();
+    });
+ 
+    /* dblclick ── reset zoom ── */
+    overlay.on('dblclick', function () {
+      if (typeof compZoomDomainX !== 'undefined') {
+        compZoomDomainX = null;
+      }
+      currentXScale = xScaleOrig;
+      redraw();
+    });
+  }
+ 
+  /* ── redraw: ridisegna grafico e ri-attacca interazioni ───────────── */
+  function redraw() {
+    drawChart();
+    attachInteraction();
+  }
+ 
+  /* ── primo render ─────────────────────────────────────────────────── */
+  redraw();
+ 
+  /* ── cleanup tooltip al destroy (opzionale, buona pratica) ─────────── */
+  // Se il container viene rimosso dal DOM, rimuovi anche il tooltip globale
+  const observer = new MutationObserver(() => {
+    if (!document.getElementById('comp-elevation-chart')) {
+      tooltipDiv.remove();
+      observer.disconnect();
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
 }
 
 
