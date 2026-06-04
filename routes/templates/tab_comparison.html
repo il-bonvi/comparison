@@ -133,6 +133,8 @@
             <div style="margin-left:auto; display:flex; align-items:center; gap:6px;">
               <button class="btn btn-ghost" onclick="compAddSector()" title="Crea un nuovo settore personalizzato" style="padding:2px 8px; font-size:.7rem; background:rgba(59,130,246,0.1); border:1px solid var(--a); color:#fff; border-radius:4px;">＋ Nuovo Settore</button>
               <button class="btn btn-ghost" onclick="compDeleteSector()" title="Elimina il settore selezionato" style="padding:2px 8px; font-size:.7rem; background:rgba(244,63,94,0.1); border:1px solid #f43f5e; color:#f43f5e; border-radius:4px;">✕ Elimina</button>
+              <button class="btn btn-success" onclick="compTrimToCurrentSector()" style="padding:2px 8px; font-size:.7rem; background:rgba(34,197,94,0.15); border:1px solid #22c55e; color:#22c55e; border-radius:4px;">✂️ Taglia attività a questo settore</button>
+              <button class="btn btn-ghost" onclick="compResetFullActivity()" style="padding:2px 8px; font-size:.7rem;">⟲ Ripristina attività completa</button>
             </div>
           </div>
 
@@ -397,6 +399,11 @@ let compSectors = [];
 let compActiveSectorId = null;
 let _compSectorIdCounter = 0;
 
+// ── Global bounds for activity trimming ──
+let compGlobalStartA = 0, compGlobalEndA = 0;
+let compGlobalStartB = 0, compGlobalEndB = 0;
+let compOriginalStreams = { A: null, B: null };
+
 const COMP_SECTOR_COLORS = ['#3b82f6','#f97316','#22c55e','#a855f7','#22d3ee','#f59e0b','#ef4444','#84cc16'];
 
 // ── File inputs ──
@@ -431,6 +438,8 @@ async function compStart() {
     const d = await r.json();
     if (!d.success) throw new Error(d.detail || 'Errore upload');
     compStreamA = d.stream_a; compStreamB = d.stream_b;
+    compOriginalStreams.A = JSON.parse(JSON.stringify(compStreamA));
+    compOriginalStreams.B = JSON.parse(JSON.stringify(compStreamB));
     compStreamA._rawPower = compStreamA.power ? compStreamA.power.slice() : [];
     compStreamB._rawPower = compStreamB.power ? compStreamB.power.slice() : [];
     compStreamA._rawSpeed = compStreamA.speed ? compStreamA.speed.slice() : null;
@@ -442,6 +451,8 @@ async function compStart() {
     sharedNameA = compNameA; sharedNameB = compNameB;
     ['comp-lbl-a','comp-leg-a'].forEach(id => document.getElementById(id).textContent = compNameA.slice(0,16));
     ['comp-lbl-b','comp-leg-b'].forEach(id => document.getElementById(id).textContent = compNameB.slice(0,16));
+    compGlobalStartA = 0; compGlobalEndA = compStreamA.lat.length-1;
+    compGlobalStartB = 0; compGlobalEndB = compStreamB.lat.length-1;
     document.getElementById('comp-upload').style.display = 'none';
     document.getElementById('comp-app').style.display = 'flex';
     compSectors = [];
@@ -488,8 +499,6 @@ function compInitMap() {
     compDrawTrace('comp-tb', compStreamB, '#f97316');
     compInitChartHoverOnMap();
     compFit();
-    // Garantisce che il settore default esista sempre,
-    // indipendentemente dal percorso di inizializzazione (upload diretto o via Replay)
     if (compSectors.length === 0) {
       _compSectorIdCounter = 0;
       compAddSector(true);
@@ -560,10 +569,10 @@ function compHideChartHoverMarkers() {
 function compUpdateMapHoverFromChart(xKm) {
   if (!compMap || !compMapReady || !compStreamA || !compStreamB) { compClearMapHoverFromChart(); return; }
   const sec = compGetActiveSector();
-  const s0A = sec ? sec.startIdxA : 0;
-  const e0A = sec ? sec.endIdxA : compStreamA.lat.length-1;
-  const s0B = sec ? sec.startIdxB : 0;
-  const e0B = sec ? sec.endIdxB : compStreamB.lat.length-1;
+  const s0A = sec ? sec.startIdxA : compGlobalStartA;
+  const e0A = sec ? sec.endIdxA : compGlobalEndA;
+  const s0B = sec ? sec.startIdxB : compGlobalStartB;
+  const e0B = sec ? sec.endIdxB : compGlobalEndB;
   const d0A = compStreamA.distance_m[s0A] || 0;
   const d0B = compStreamB.distance_m[s0B] || 0;
   const dA = d0A + (xKm * 1000);
@@ -641,17 +650,19 @@ function compMakeSectorId() { return ++_compSectorIdCounter; }
 function compAddSector(isDefault) {
   const id = compMakeSectorId();
   const color = COMP_SECTOR_COLORS[(compSectors.length) % COMP_SECTOR_COLORS.length];
-  const nA = compStreamA ? compStreamA.lat.length-1 : 0;
-  const nB = compStreamB ? compStreamB.lat.length-1 : 0;
+  const startA = (compGlobalStartA !== undefined) ? compGlobalStartA : 0;
+  const endA = (compGlobalEndA !== undefined) ? compGlobalEndA : (compStreamA ? compStreamA.lat.length-1 : 0);
+  const startB = (compGlobalStartB !== undefined) ? compGlobalStartB : 0;
+  const endB = (compGlobalEndB !== undefined) ? compGlobalEndB : (compStreamB ? compStreamB.lat.length-1 : 0);
   const sector = {
     id, color,
     name: isDefault ? 'Settore 1' : `Settore ${id}`,
-    startIdxA: 0, endIdxA: nA,
-    startIdxB: 0, endIdxB: nB,
+    startIdxA: startA, endIdxA: endA,
+    startIdxB: startB, endIdxB: endB,
     analyzed: false, sections: { sA:[], sB:[] }
   };
   compSectors.push(sector);
-  compActiveSectorId = id;
+  if (isDefault) compActiveSectorId = id;
   compRebuildSectorSelect();
   compUpdateSectorPanelUI();
   compRenderSectorMarkersAll();
@@ -847,7 +858,7 @@ function compUpdateSectorChips() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// FUNZIONI PER ALLINEAMENTO GEOGRAFICO (come in Race Replay)
+// FUNZIONI PER ALLINEAMENTO GEOGRAFICO
 // ────────────────────────────────────────────────────────────────
 function haversineDistanceSq(lat1, lon1, lat2, lon2) {
   const R = 6371000;
@@ -938,6 +949,98 @@ function compAlignEndAtoB() {
 }
 
 // ────────────────────────────────────────────────────────────────
+// TAGLIO ATTIVITÀ (usa gli start/end del settore corrente)
+// ────────────────────────────────────────────────────────────────
+function compTrimToCurrentSector() {
+  const sec = compGetActiveSector();
+  if (!sec) return;
+
+  const newStartA = sec.startIdxA;
+  const newEndA = sec.endIdxA;
+  const newStartB = sec.startIdxB;
+  const newEndB = sec.endIdxB;
+
+  const rebuildStream = (orig, start, end) => {
+    const sliced = {};
+    for (let k in orig) {
+      if (Array.isArray(orig[k])) {
+        sliced[k] = orig[k].slice(start, end+1);
+      } else {
+        sliced[k] = orig[k];
+      }
+    }
+    const baseDist = sliced.distance_m[0] || 0;
+    const baseTime = sliced.time_sec[0] || 0;
+    if (sliced.distance_m) sliced.distance_m = sliced.distance_m.map(d => d - baseDist);
+    if (sliced.time_sec) sliced.time_sec = sliced.time_sec.map(t => t - baseTime);
+    if (sliced._rawPower) sliced._rawPower = sliced._rawPower.slice(start, end+1);
+    if (sliced._rawSpeed) sliced._rawSpeed = sliced._rawSpeed.slice(start, end+1);
+    return sliced;
+  };
+
+  compStreamA = rebuildStream(compOriginalStreams.A, newStartA, newEndA);
+  compStreamB = rebuildStream(compOriginalStreams.B, newStartB, newEndB);
+
+  // Aggiorna i global bounds
+  compGlobalStartA = 0;
+  compGlobalEndA = compStreamA.lat.length - 1;
+  compGlobalStartB = 0;
+  compGlobalEndB = compStreamB.lat.length - 1;
+
+  // Riapplica smoothing
+  compStreamA._rawPower = compStreamA.power ? compStreamA.power.slice() : [];
+  compStreamB._rawPower = compStreamB.power ? compStreamB.power.slice() : [];
+  compStreamA._rawSpeed = compStreamA.speed ? compStreamA.speed.slice() : null;
+  compStreamB._rawSpeed = compStreamB.speed ? compStreamB.speed.slice() : null;
+  compApplySmoothing();
+
+  // Reset settori e crea un nuovo settore default che copre tutta l'attività tagliata
+  compSectors = [];
+  _compSectorIdCounter = 0;
+  compAddSector(true); // il nuovo settore avrà start=0 e end=compGlobalEndA / compGlobalEndB
+
+  compActiveSectorId = compSectors[0]?.id;
+  compRebuildSectorSelect();
+  compUpdateSectorPanelUI();
+
+  if (compMap && compMapReady) {
+    compDrawTrace('comp-ta', compStreamA, '#3b82f6');
+    compDrawTrace('comp-tb', compStreamB, '#f97316');
+    compFit();
+  }
+  compUpdateElevChart();
+  compRenderSectorMarkersAll();
+  compUpdateSectorLegend();
+  document.getElementById('comp-status').textContent = `Attività tagliata: A [${(compStreamA.distance_m[compStreamA.distance_m.length-1]/1000).toFixed(1)}km] B [${(compStreamB.distance_m[compStreamB.distance_m.length-1]/1000).toFixed(1)}km]`;
+}
+
+function compResetFullActivity() {
+  if (!compOriginalStreams.A || !compOriginalStreams.B) return;
+  compStreamA = JSON.parse(JSON.stringify(compOriginalStreams.A));
+  compStreamB = JSON.parse(JSON.stringify(compOriginalStreams.B));
+  compStreamA._rawPower = compStreamA.power ? compStreamA.power.slice() : [];
+  compStreamB._rawPower = compStreamB.power ? compStreamB.power.slice() : [];
+  compStreamA._rawSpeed = compStreamA.speed ? compStreamA.speed.slice() : null;
+  compStreamB._rawSpeed = compStreamB.speed ? compStreamB.speed.slice() : null;
+  compApplySmoothing();
+  compGlobalStartA = 0; compGlobalEndA = compStreamA.lat.length-1;
+  compGlobalStartB = 0; compGlobalEndB = compStreamB.lat.length-1;
+  compSectors = [];
+  _compSectorIdCounter = 0;
+  compAddSector(true);
+  if (compMap && compMapReady) {
+    compDrawTrace('comp-ta', compStreamA, '#3b82f6');
+    compDrawTrace('comp-tb', compStreamB, '#f97316');
+    compFit();
+  }
+  compUpdateElevChart();
+  compUpdateSectorPanelUI();
+  compRenderSectorMarkersAll();
+  compUpdateSectorLegend();
+  document.getElementById('comp-status').textContent = 'Attività ripristinata';
+}
+
+// ────────────────────────────────────────────────────────────────
 // ANALYSIS
 // ────────────────────────────────────────────────────────────────
 function compOnSecModeChange() {
@@ -954,9 +1057,7 @@ function compOnSecModeChange() {
   localStorage.setItem('comp_saved_mode', mode);
 }
 
-// ────────────────────────────────────────────────────────────────
-// SMOOTHING
-// ────────────────────────────────────────────────────────────────
+// ── SMOOTHING ──
 function compRollingAvg(arr, win) {
   if (!win || win <= 1) return arr.slice();
   const out = new Array(arr.length);
@@ -1271,10 +1372,10 @@ function compUpdateElevChart() {
   const tab = compCurrentChartTab;
 
   const sec = compGetActiveSector();
-  const s0A = sec ? sec.startIdxA : 0;
-  const e0A = sec ? sec.endIdxA : compStreamA.lat.length-1;
-  const s0B = sec ? sec.startIdxB : 0;
-  const e0B = sec ? sec.endIdxB : compStreamB.lat.length-1;
+  const s0A = sec ? sec.startIdxA : compGlobalStartA;
+  const e0A = sec ? sec.endIdxA : compGlobalEndA;
+  const s0B = sec ? sec.startIdxB : compGlobalStartB;
+  const e0B = sec ? sec.endIdxB : compGlobalEndB;
 
   const sliceA = (arr) => arr.slice(s0A, e0A+1);
   const sliceB = (arr) => arr.slice(s0B, e0B+1);
@@ -1896,5 +1997,8 @@ function compReset() {
   document.getElementById('comp-btn-table').classList.remove('off');
   document.getElementById('comp-status').textContent='';
   if(compSectorPanelOpen) compToggleSectorPanel();
+  // Reset anche dei global bounds
+  compGlobalStartA = 0; compGlobalEndA = compStreamA ? compStreamA.lat.length-1 : 0;
+  compGlobalStartB = 0; compGlobalEndB = compStreamB ? compStreamB.lat.length-1 : 0;
 }
 </script>
