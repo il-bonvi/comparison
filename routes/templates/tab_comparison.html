@@ -470,6 +470,12 @@ function compInitMap() {
     compDrawTrace('comp-tb', compStreamB, '#f97316');
     compInitChartHoverOnMap();
     compFit();
+    // Garantisce che il settore default esista sempre,
+    // indipendentemente dal percorso di inizializzazione (upload diretto o via Replay)
+    if (compSectors.length === 0) {
+      _compSectorIdCounter = 0;
+      compAddSector(true);
+    }
     compInitElevChart();
     compRenderSectorMarkersAll();
     compUpdateSectorPanelUI();
