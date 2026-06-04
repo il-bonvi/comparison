@@ -54,7 +54,7 @@
           <button class="btn btn-ghost" id="comp-btn-vb" onclick="compToggleLayer('traceB')" style="padding:3px 8px;font-size:.72rem;border-radius:4px;border:none;min-width:55px;transition:all 0.2s;">🟠 ON</button>
           <button class="btn btn-ghost" id="comp-btn-vs" onclick="compToggleLayer('sections')" style="padding:3px 8px;font-size:.72rem;border-radius:4px;border:none;min-width:65px;transition:all 0.2s;">Sez ON</button>
         </div>
-        <button class="btn btn-ghost" id="comp-btn-smooth" onclick="compToggleSmoothPanel()" style="margin-left:4px;">〜 Smoothing</button>
+        <button class="btn btn-ghost" id="comp-btn-smooth" onclick="compToggleSmoothPanel()" style="margin-left:2px;">avg</button>
 
         <div class="weight-panel" style="margin-left:4px; gap:10px;">
           <span class="wp-label">⚖️ kg</span>
@@ -91,41 +91,13 @@
       <div id="comp-smooth-panel">
         <div class="smooth-group">
           <span class="sg-label">⚡ Power</span>
-          <label>A:</label>
-          <select id="comp-smooth-pwr-a" onchange="compApplySmoothing()">
-            <option value="3">3s</option>
-            <option value="5" selected>5s</option>
-            <option value="10">10s</option>
-            <option value="custom">Custom</option>
-          </select>
-          <input type="number" id="comp-smooth-pwr-a-custom" min="1" max="300" value="5" style="display:none" onchange="compApplySmoothing()">
-          <label style="margin-left:6px;">B:</label>
-          <select id="comp-smooth-pwr-b" onchange="compApplySmoothing()">
-            <option value="3">3s</option>
-            <option value="5" selected>5s</option>
-            <option value="10">10s</option>
-            <option value="custom">Custom</option>
-          </select>
-          <input type="number" id="comp-smooth-pwr-b-custom" min="1" max="300" value="5" style="display:none" onchange="compApplySmoothing()">
+          <input type="number" id="comp-smooth-pwr" min="1" max="300" value="5" style="width:52px;" oninput="compApplySmoothing()">
+          <span style="color:var(--muted2);font-size:.68rem;">s</span>
         </div>
         <div class="smooth-group">
           <span class="sg-label">🚀 Speed</span>
-          <label>A:</label>
-          <select id="comp-smooth-spd-a" onchange="compApplySmoothing()">
-            <option value="3">3s</option>
-            <option value="5" selected>5s</option>
-            <option value="10">10s</option>
-            <option value="custom">Custom</option>
-          </select>
-          <input type="number" id="comp-smooth-spd-a-custom" min="1" max="300" value="5" style="display:none" onchange="compApplySmoothing()">
-          <label style="margin-left:6px;">B:</label>
-          <select id="comp-smooth-spd-b" onchange="compApplySmoothing()">
-            <option value="3">3s</option>
-            <option value="5" selected>5s</option>
-            <option value="10">10s</option>
-            <option value="custom">Custom</option>
-          </select>
-          <input type="number" id="comp-smooth-spd-b-custom" min="1" max="300" value="5" style="display:none" onchange="compApplySmoothing()">
+          <input type="number" id="comp-smooth-spd" min="1" max="300" value="5" style="width:52px;" oninput="compApplySmoothing()">
+          <span style="color:var(--muted2);font-size:.68rem;">s</span>
         </div>
       </div>
 
@@ -403,7 +375,6 @@ let compCurrentChartTab = 'elev';
 let compSmoothPanelOpen = false;
 
 // ── Sectors store ──
-// Each sector: { id, name, startIdxA, endIdxA, startIdxB, endIdxB, color, analyzed:bool, sections:{sA,sB} }
 let compSectors = [];
 let compActiveSectorId = null;
 let _compSectorIdCounter = 0;
@@ -455,7 +426,6 @@ async function compStart() {
     ['comp-lbl-b','comp-leg-b'].forEach(id => document.getElementById(id).textContent = compNameB.slice(0,16));
     document.getElementById('comp-upload').style.display = 'none';
     document.getElementById('comp-app').style.display = 'flex';
-    // Default sector: full track
     compSectors = [];
     _compSectorIdCounter = 0;
     compAddSector(true);
@@ -531,9 +501,7 @@ function compInitChartHoverOnMap() {
   }
   if (!compMap.getLayer(lid)) {
     compMap.addLayer({
-      id: lid,
-      type: 'line',
-      source: sid,
+      id: lid, type: 'line', source: sid,
       paint: { 'line-color':'#ffffff', 'line-width':2, 'line-opacity':0.5, 'line-dasharray':[2,2] }
     });
   }
@@ -582,10 +550,8 @@ function compUpdateMapHoverFromChart(xKm) {
   const lonA = compStreamA.lon[iA], latA = compStreamA.lat[iA];
   const lonB = compStreamB.lon[iB], latB = compStreamB.lat[iB];
   if (!Number.isFinite(lonA) || !Number.isFinite(latA) || !Number.isFinite(lonB) || !Number.isFinite(latB)) {
-    compClearMapHoverFromChart();
-    return;
+    compClearMapHoverFromChart(); return;
   }
-
   compEnsureChartHoverMarkers(lonA, latA, lonB, latB);
   const sid = compChartHoverMarkers.lineSourceId;
   if (compMap.getSource(sid)) {
@@ -595,6 +561,7 @@ function compUpdateMapHoverFromChart(xKm) {
     });
   }
 }
+
 function compDrawTrace(id, s, color) {
   const coords = s.lat.map((la,i) => [s.lon[i],la,s.alt[i]||0]);
   const geo = { type:'FeatureCollection', features:[{ type:'Feature', geometry:{type:'LineString',coordinates:coords}}]};
@@ -715,26 +682,20 @@ function compUpdateSectorName(name) {
 function compToggleSectorPanel() {
   const panel = document.getElementById('comp-sector-panel');
   if (!panel) return;
-  
   if (panel.style.display === 'none' || panel.style.display === '') {
     panel.style.display = 'block';
-    
-    // Ripristina lo stato salvato nel browser
     const savedMode = localStorage.getItem('comp_saved_mode') || 'dist';
     const savedDist = localStorage.getItem('comp_saved_val_dist') || '200';
     const savedTime = localStorage.getItem('comp_saved_val_time') || '30';
-    
     const modeSelect = document.getElementById('comp-sec-mode');
     const valInput = document.getElementById('comp-sec-val');
     const unitEl = document.getElementById('comp-sec-unit');
-    
     if (modeSelect && valInput) {
       modeSelect.value = savedMode;
       valInput.value = (savedMode === 'dist') ? savedDist : savedTime;
       if (unitEl) unitEl.textContent = (savedMode === 'dist') ? 'm' : 's';
     }
-    
-    if (typeof compUpdateSectorPanelUI === 'function') compUpdateSectorPanelUI(); 
+    if (typeof compUpdateSectorPanelUI === 'function') compUpdateSectorPanelUI();
   } else {
     panel.style.display = 'none';
   }
@@ -862,28 +823,24 @@ function compUpdateSectorChips() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// ANALYSIS — build sections for active sector
+// ANALYSIS
 // ────────────────────────────────────────────────────────────────
 function compOnSecModeChange() {
   const mode = document.getElementById('comp-sec-mode').value;
   const unitEl = document.getElementById('comp-sec-unit');
   const valInput = document.getElementById('comp-sec-val');
-  
   if (mode === 'dist') {
     if (unitEl) unitEl.textContent = 'm';
-    // Se c'è un valore salvato per la distanza lo usa, altrimenti mette 200
     valInput.value = localStorage.getItem('comp_saved_val_dist') || '200';
   } else {
     if (unitEl) unitEl.textContent = 's';
-    // Se c'è un valore salvato per il tempo lo usa, altrimenti mette 30
     valInput.value = localStorage.getItem('comp_saved_val_time') || '30';
   }
-  
   localStorage.setItem('comp_saved_mode', mode);
 }
 
 // ────────────────────────────────────────────────────────────────
-// SMOOTHING (avg metrics)
+// SMOOTHING
 // ────────────────────────────────────────────────────────────────
 function compRollingAvg(arr, win) {
   if (!win || win <= 1) return arr.slice();
@@ -899,42 +856,31 @@ function compRollingAvg(arr, win) {
   return out;
 }
 
-function compGetSmoothWin(selectId, customId) {
-  const sel = document.getElementById(selectId);
-  if (!sel) return 0;
-  const val = sel.value;
-  if (val === 'custom') {
-    const n = parseInt(document.getElementById(customId)?.value || '0');
-    return isNaN(n) ? 0 : n;
-  }
-  return parseInt(val) || 0;
+function compGetSmoothWin(inputId) {
+  const el = document.getElementById(inputId);
+  if (!el) return 5;
+  const n = parseInt(el.value);
+  return isNaN(n) || n < 1 ? 1 : n;
 }
 
 function compApplySmoothing() {
-  ['pwr-a','pwr-b','spd-a','spd-b'].forEach(k => {
-    const sel = document.getElementById(`comp-smooth-${k}`);
-    const inp = document.getElementById(`comp-smooth-${k}-custom`);
-    if (sel && inp) inp.style.display = sel.value === 'custom' ? 'inline-block' : 'none';
-  });
   if (!compStreamA || !compStreamB) return;
 
-  const winPwrA = compGetSmoothWin('comp-smooth-pwr-a', 'comp-smooth-pwr-a-custom');
-  const winPwrB = compGetSmoothWin('comp-smooth-pwr-b', 'comp-smooth-pwr-b-custom');
-  const winSpdA = compGetSmoothWin('comp-smooth-spd-a', 'comp-smooth-spd-a-custom');
-  const winSpdB = compGetSmoothWin('comp-smooth-spd-b', 'comp-smooth-spd-b-custom');
+  const winPwr = compGetSmoothWin('comp-smooth-pwr');
+  const winSpd = compGetSmoothWin('comp-smooth-spd');
 
   const rawPwrA = compStreamA._rawPower || compStreamA.power || [];
   const rawPwrB = compStreamB._rawPower || compStreamB.power || [];
   const rawSpdA = compStreamA._rawSpeed || compStreamA.speed || [];
   const rawSpdB = compStreamB._rawSpeed || compStreamB.speed || [];
 
-  compStreamA._avgPower = compRollingAvg(rawPwrA, winPwrA);
-  compStreamB._avgPower = compRollingAvg(rawPwrB, winPwrB);
-  if (rawSpdA && rawSpdA.length) compStreamA._avgSpeed = compRollingAvg(rawSpdA, winSpdA);
-  if (rawSpdB && rawSpdB.length) compStreamB._avgSpeed = compRollingAvg(rawSpdB, winSpdB);
+  compStreamA._avgPower = compRollingAvg(rawPwrA, winPwr);
+  compStreamB._avgPower = compRollingAvg(rawPwrB, winPwr);
+  if (rawSpdA && rawSpdA.length) compStreamA._avgSpeed = compRollingAvg(rawSpdA, winSpd);
+  if (rawSpdB && rawSpdB.length) compStreamB._avgSpeed = compRollingAvg(rawSpdB, winSpd);
 
-  const spdLabel = winSpdA === winSpdB ? `AVG${winSpdA}s` : `AVG${winSpdA}/${winSpdB}s`;
-  const pwrLabel = winPwrA === winPwrB ? `AVG${winPwrA}s` : `AVG${winPwrA}/${winPwrB}s`;
+  const spdLabel = `AVG${winSpd}s`;
+  const pwrLabel = `AVG${winPwr}s`;
   const btnSpd = document.getElementById('comp-ctog-speedavg');
   const btnPwr = document.getElementById('comp-ctog-poweravg');
   if (btnSpd) btnSpd.textContent = spdLabel;
@@ -956,7 +902,6 @@ function compBuildSections(s, startIdx, endIdx, secMode, secVal) {
   const sections = [];
 
   if (secMode === 'dist') {
-    // Divide by fixed distance from start→end
     const totalDist = dist[endIdx] - dist[startIdx];
     const numSec = Math.ceil(totalDist / secVal);
     for (let i = 0; i < numSec; i++) {
@@ -968,7 +913,6 @@ function compBuildSections(s, startIdx, endIdx, secMode, secVal) {
       sections.push(compBuildSectionStats(s, idx0, idx1, i));
     }
   } else {
-    // Divide by fixed time from start→end
     const t0 = time[startIdx], t1 = time[endIdx];
     const numSec = Math.ceil((t1-t0) / secVal);
     for (let i = 0; i < numSec; i++) {
@@ -1067,11 +1011,7 @@ function compDrawSectionsOnMap(sec, sA, sB) {
       if (!compMap.getSource(sid)) compMap.addSource(sid,{type:'geojson',data:geo});
       else compMap.getSource(sid).setData(geo);
       if (!compMap.getLayer(lid)) {
-        const paint = {
-          'line-color':col,
-          'line-width':athlete==='a'?5:3.5,
-          'line-opacity':opacity
-        };
+        const paint = { 'line-color':col, 'line-width':athlete==='a'?5:3.5, 'line-opacity':opacity };
         if (dashArr) paint['line-dasharray'] = dashArr;
         compMap.addLayer({id:lid,type:'line',source:sid,paint});
       }
@@ -1136,11 +1076,7 @@ function compUpdateSectionHighlightMarker() {
     compSectionHighlightMarker = new maplibregl.Marker({element:el, anchor:'bottom'});
   }
   const el = compSectionHighlightMarker.getElement();
-  if (el) {
-    el.title = label;
-    el.style.color = col;
-    el.style.textShadow = `0 0 6px ${col}`;
-  }
+  if (el) { el.title = label; el.style.color = col; el.style.textShadow = `0 0 6px ${col}`; }
   try { compSectionHighlightMarker.setLngLat([lon, lat]).addTo(compMap); } catch (e) {}
 }
 
@@ -1198,7 +1134,6 @@ function compInitElevChart() {
   compUpdateVisBtns();
   compUpdateSectorChips();
 
-  // Resize drag
   const h = document.getElementById('comp-chart-resize');
   let drag=false, sy=0, sh=0;
   h.addEventListener('mousedown', e => { drag=true; sy=e.clientY; sh=document.getElementById('comp-chart-panel').offsetHeight; e.preventDefault(); });
@@ -1220,7 +1155,6 @@ function compUpdateElevChart() {
   if (!compElevChart || !compStreamA) return;
   const tab = compCurrentChartTab;
 
-  // Build series based on tab
   const sec = compGetActiveSector();
   const s0A = sec ? sec.startIdxA : 0;
   const e0A = sec ? sec.endIdxA : compStreamA.lat.length-1;
@@ -1233,7 +1167,12 @@ function compUpdateElevChart() {
   const distB = sliceB(compStreamB.distance_m);
   const d0A = distA[0]||0, d0B = distB[0]||0;
 
-  let seriesA, seriesB, yLabel, yLabelColor, labelA = compNameA.slice(0,14), labelB = compNameB.slice(0,14);
+  const winPwr = compGetSmoothWin('comp-smooth-pwr');
+  const winSpd = compGetSmoothWin('comp-smooth-spd');
+
+  let seriesA, seriesB, yLabel, yLabelColor;
+  let labelA = compNameA.slice(0,14), labelB = compNameB.slice(0,14);
+
   if (tab === 'elev') {
     seriesA = sliceA(compStreamA.alt);
     seriesB = sliceB(compStreamB.alt);
@@ -1243,36 +1182,30 @@ function compUpdateElevChart() {
     const rawB = compStreamB._rawSpeed || compStreamB.speed || [];
     const avgA = compStreamA._avgSpeed || rawA;
     const avgB = compStreamB._avgSpeed || rawB;
-    const winSpdA = compGetSmoothWin('comp-smooth-spd-a', 'comp-smooth-spd-a-custom') || 1;
-    const winSpdB = compGetSmoothWin('comp-smooth-spd-b', 'comp-smooth-spd-b-custom') || 1;
     seriesA = sliceA(tab === 'speed' ? rawA : avgA);
     seriesB = sliceB(tab === 'speed' ? rawB : avgB);
     yLabel='km/h'; yLabelColor='#22c55e';
     if (tab === 'speedavg') {
-      labelA = `${compNameA.slice(0,12)} SPD${winSpdA}s`;
-      labelB = `${compNameB.slice(0,12)} SPD${winSpdB}s`;
+      labelA = `${compNameA.slice(0,12)} SPD${winSpd}s`;
+      labelB = `${compNameB.slice(0,12)} SPD${winSpd}s`;
     }
   } else if (tab === 'power' || tab === 'poweravg') {
     const rawA = compStreamA._rawPower || compStreamA.power || [];
     const rawB = compStreamB._rawPower || compStreamB.power || [];
     const avgA = compStreamA._avgPower || rawA;
     const avgB = compStreamB._avgPower || rawB;
-    const winPwrA = compGetSmoothWin('comp-smooth-pwr-a', 'comp-smooth-pwr-a-custom') || 1;
-    const winPwrB = compGetSmoothWin('comp-smooth-pwr-b', 'comp-smooth-pwr-b-custom') || 1;
     seriesA = sliceA(tab === 'power' ? rawA : avgA);
     seriesB = sliceB(tab === 'power' ? rawB : avgB);
     yLabel='W'; yLabelColor='#a855f7';
     if (tab === 'poweravg') {
-      labelA = `${compNameA.slice(0,12)} PWR${winPwrA}s`;
-      labelB = `${compNameB.slice(0,12)} PWR${winPwrB}s`;
+      labelA = `${compNameA.slice(0,12)} PWR${winPwr}s`;
+      labelB = `${compNameB.slice(0,12)} PWR${winPwr}s`;
     }
   } else if (tab === 'wkg' || tab === 'wkgavg') {
     const rawA = compStreamA._rawPower || compStreamA.power || [];
     const rawB = compStreamB._rawPower || compStreamB.power || [];
     const avgA = compStreamA._avgPower || rawA;
     const avgB = compStreamB._avgPower || rawB;
-    const winPwrA = compGetSmoothWin('comp-smooth-pwr-a', 'comp-smooth-pwr-a-custom') || 1;
-    const winPwrB = compGetSmoothWin('comp-smooth-pwr-b', 'comp-smooth-pwr-b-custom') || 1;
     const wA = athleteWeights.a, wB = athleteWeights.b;
     if (!wA && !wB) {
       const dom = document.getElementById('comp-elevation-chart');
@@ -1285,8 +1218,8 @@ function compUpdateElevChart() {
     seriesB = wB > 0 ? srcB.map(v => v / wB) : srcB.map(() => 0);
     yLabel='W/kg'; yLabelColor='#d8b4fe';
     if (tab === 'wkgavg') {
-      labelA = `${compNameA.slice(0,10)} W/kg${winPwrA}s`;
-      labelB = `${compNameB.slice(0,10)} W/kg${winPwrB}s`;
+      labelA = `${compNameA.slice(0,10)} W/kg${winPwr}s`;
+      labelB = `${compNameB.slice(0,10)} W/kg${winPwr}s`;
     } else {
       labelA = `${compNameA.slice(0,12)} W/kg`;
       labelB = `${compNameB.slice(0,12)} W/kg`;
@@ -1300,7 +1233,6 @@ function compUpdateElevChart() {
   const dataA = distA.map((d,i) => [(d-d0A)/1000, seriesA[i]||0]);
   const dataB = distB.map((d,i) => [(d-d0B)/1000, seriesB[i]||0]);
 
-  // Section markAreas from analyzed sectors
   const markAreas = [];
   compSectors.forEach(sector => {
     if (!sector.analyzed) return;
@@ -1314,7 +1246,6 @@ function compUpdateElevChart() {
     });
   });
 
-  // Sector boundary lines
   const boundLines = [];
   compSectors.forEach(sec2 => {
     const sDistA = (compStreamA.distance_m[sec2.startIdxA]||0);
@@ -1339,7 +1270,7 @@ function compUpdateElevChart() {
   });
 }
 
-/* D3 render helper (portable) */
+/* D3 render helper */
 function _compD3Render(opts) {
   const container = document.getElementById('comp-elevation-chart');
   container.innerHTML = '';
@@ -1412,7 +1343,6 @@ function _compD3Render(opts) {
     g.append('text').attr('x',x+3).attr('y',10).attr('fill',al.color).attr('font-size','8px').attr('font-weight',al.active?'700':'400').text(al.label);
   });
 
-  // Legend
   const leg=svg.append('g').attr('transform',`translate(${totalW-margin.right-4},${6})`);
   opts.series.forEach((ser,i)=>{
     const row=leg.append('g').attr('transform',`translate(0,${i*12})`);
@@ -1420,14 +1350,11 @@ function _compD3Render(opts) {
     row.append('text').attr('x',-19).attr('y',8).attr('fill','#64748b').attr('font-size','8px').text(ser.name);
   });
 
-  // Cursor line
   const cursorLine = svg.append('line')
     .attr('x1', margin.left).attr('x2', margin.left).attr('y1', margin.top).attr('y2', margin.top + H)
     .attr('stroke', '#ffffff').attr('stroke-width', 1.5).attr('stroke-opacity', 0.8)
-    .attr('pointer-events', 'none')
-    .attr('visibility', 'hidden');
+    .attr('pointer-events', 'none').attr('visibility', 'hidden');
 
-  // Tooltip
   const tooltip=d3.select(container).append('div')
     .style('position','absolute').style('pointer-events','none').style('display','none')
     .style('background','rgba(8,12,20,.96)').style('border','1px solid #253560').style('border-radius','6px')
@@ -1470,7 +1397,6 @@ function compBuildMetricsTable() {
   const totalSec = analyzedSectors.reduce((n,s)=>n+s.sections.sA.length,0);
   info.textContent = `${analyzedSectors.length} settori · ${totalSec} sezioni`;
 
-  // Header
   const wA = athleteWeights.a, wB = athleteWeights.b;
   const hasWkg = wA > 0 || wB > 0;
   const isColHidden = (key) => {
@@ -1544,9 +1470,7 @@ function compBuildMetricsTable() {
   });
   thead.appendChild(tr);
 
-  // Body — one row per section, grouped by sector
   analyzedSectors.forEach(sector => {
-    // Sector header row
     const hdr=document.createElement('tr');
     hdr.className='sector-row-hdr';
     const htd=document.createElement('td');
@@ -1594,128 +1518,76 @@ function compBuildMetricsTable() {
       tr2.appendChild(numTd);
 
       if (sA) {
-        cumTimeA += sA.dTime;
-        cumDistA += sA.dDist;
-        cumAltA  += sA.dAlt;
-        if (sA.dTime > 0) {
-          cumPwrTimeA += (sA.avgPower||0) * sA.dTime;
-          cumHrTimeA  += (sA.avgHr||0) * sA.dTime;
-        }
+        cumTimeA += sA.dTime; cumDistA += sA.dDist; cumAltA += sA.dAlt;
+        if (sA.dTime > 0) { cumPwrTimeA += (sA.avgPower||0)*sA.dTime; cumHrTimeA += (sA.avgHr||0)*sA.dTime; }
       }
       if (sB) {
-        cumTimeB += sB.dTime;
-        cumDistB += sB.dDist;
-        cumAltB  += sB.dAlt;
-        if (sB.dTime > 0) {
-          cumPwrTimeB += (sB.avgPower||0) * sB.dTime;
-          cumHrTimeB  += (sB.avgHr||0) * sB.dTime;
-        }
+        cumTimeB += sB.dTime; cumDistB += sB.dDist; cumAltB += sB.dAlt;
+        if (sB.dTime > 0) { cumPwrTimeB += (sB.avgPower||0)*sB.dTime; cumHrTimeB += (sB.avgHr||0)*sB.dTime; }
       }
 
-      const cumPwrA = cumTimeA > 0 ? cumPwrTimeA / cumTimeA : 0;
-      const cumPwrB = cumTimeB > 0 ? cumPwrTimeB / cumTimeB : 0;
-      const cumSpdA = cumTimeA > 0 ? (cumDistA / cumTimeA) * 3.6 : 0;
-      const cumSpdB = cumTimeB > 0 ? (cumDistB / cumTimeB) * 3.6 : 0;
-      const cumHrA  = cumTimeA > 0 ? cumHrTimeA / cumTimeA : 0;
-      const cumHrB  = cumTimeB > 0 ? cumHrTimeB / cumTimeB : 0;
-      const cumVamA = cumTimeA > 0 ? (cumAltA / cumTimeA) * 3600 : 0;
-      const cumVamB = cumTimeB > 0 ? (cumAltB / cumTimeB) * 3600 : 0;
-      const cumGradeA = cumDistA > 0 ? (cumAltA / cumDistA) * 100 : 0;
-      const cumGradeB = cumDistB > 0 ? (cumAltB / cumDistB) * 100 : 0;
+      const cumPwrA = cumTimeA > 0 ? cumPwrTimeA/cumTimeA : 0;
+      const cumPwrB = cumTimeB > 0 ? cumPwrTimeB/cumTimeB : 0;
+      const cumSpdA = cumTimeA > 0 ? (cumDistA/cumTimeA)*3.6 : 0;
+      const cumSpdB = cumTimeB > 0 ? (cumDistB/cumTimeB)*3.6 : 0;
+      const cumHrA  = cumTimeA > 0 ? cumHrTimeA/cumTimeA : 0;
+      const cumHrB  = cumTimeB > 0 ? cumHrTimeB/cumTimeB : 0;
+      const cumVamA = cumTimeA > 0 ? (cumAltA/cumTimeA)*3600 : 0;
+      const cumVamB = cumTimeB > 0 ? (cumAltB/cumTimeB)*3600 : 0;
+      const cumGradeA = cumDistA > 0 ? (cumAltA/cumDistA)*100 : 0;
+      const cumGradeB = cumDistB > 0 ? (cumAltB/cumDistB)*100 : 0;
 
-      if (sA) { c((sA.dDist/1000).toFixed(2)+'km','', 'distA'); } else c('—','td-neutral','distA');
-      if (sB) { c((sB.dDist/1000).toFixed(2)+'km','', 'distB'); } else c('—','td-neutral','distB');
-      if (sA && cumDistA > 0) { c((cumDistA/1000).toFixed(2)+'km','', 'distA_c'); } else c('—','td-neutral','distA_c');
-      if (sB && cumDistB > 0) { c((cumDistB/1000).toFixed(2)+'km','', 'distB_c'); } else c('—','td-neutral','distB_c');
+      if (sA) { c((sA.dDist/1000).toFixed(2)+'km','','distA'); } else c('—','td-neutral','distA');
+      if (sB) { c((sB.dDist/1000).toFixed(2)+'km','','distB'); } else c('—','td-neutral','distB');
+      if (sA&&cumDistA>0) { c((cumDistA/1000).toFixed(2)+'km','','distA_c'); } else c('—','td-neutral','distA_c');
+      if (sB&&cumDistB>0) { c((cumDistB/1000).toFixed(2)+'km','','distB_c'); } else c('—','td-neutral','distB_c');
+      if (sA) { c(fmtTime(sA.dTime),'','timeA'); } else c('—','td-neutral','timeA');
+      if (sB) { c(fmtTime(sB.dTime),'','timeB'); } else c('—','td-neutral','timeB');
+      if (sA&&cumTimeA>0) { c(fmtTime(cumTimeA),'','timeA_c'); } else c('—','td-neutral','timeA_c');
+      if (sB&&cumTimeB>0) { c(fmtTime(cumTimeB),'','timeB_c'); } else c('—','td-neutral','timeB_c');
+      if (sA&&sB) { const dt=sA.dTime-sB.dTime; c((dt>=0?'+':'')+dt.toFixed(1)+'s',dSign(dt,true),'dTime'); } else c('—','td-neutral','dTime');
+      if (sA&&sB&&cumTimeA>0&&cumTimeB>0) { const dtc=cumTimeA-cumTimeB; c((dtc>=0?'+':'')+dtc.toFixed(1)+'s',dSign(dtc,true),'dTime_c'); } else c('—','td-neutral','dTime_c');
+      if (sA) { c(Math.round(sA.avgPower)+'W',sA.avgPower>0?'':'td-neutral','pwrA'); } else c('—','td-neutral','pwrA');
+      if (sB) { c(Math.round(sB.avgPower)+'W',sB.avgPower>0?'':'td-neutral','pwrB'); } else c('—','td-neutral','pwrB');
+      if (sA&&cumTimeA>0) { c(Math.round(cumPwrA)+'W',cumPwrA>0?'':'td-neutral','pwrA_c'); } else c('—','td-neutral','pwrA_c');
+      if (sB&&cumTimeB>0) { c(Math.round(cumPwrB)+'W',cumPwrB>0?'':'td-neutral','pwrB_c'); } else c('—','td-neutral','pwrB_c');
+      if (sA&&sB&&sA.avgPower>0&&sB.avgPower>0) { const dp=sB.avgPower-sA.avgPower; c((dp>=0?'+':'')+dp.toFixed(0)+'W',dSign(dp,false),'dPwr'); } else c('—','td-neutral','dPwr');
+      if (sA&&sB&&cumTimeA>0&&cumTimeB>0) { const dpC=cumPwrB-cumPwrA; c((dpC>=0?'+':'')+dpC.toFixed(0)+'W',dSign(dpC,false),'dPwr_c'); } else c('—','td-neutral','dPwr_c');
 
-      if (sA) { c(fmtTime(sA.dTime),'', 'timeA'); } else c('—','td-neutral','timeA');
-      if (sB) { c(fmtTime(sB.dTime),'', 'timeB'); } else c('—','td-neutral','timeB');
-      if (sA && cumTimeA > 0) { c(fmtTime(cumTimeA),'', 'timeA_c'); } else c('—','td-neutral','timeA_c');
-      if (sB && cumTimeB > 0) { c(fmtTime(cumTimeB),'', 'timeB_c'); } else c('—','td-neutral','timeB_c');
+      const _wA=athleteWeights.a, _wB=athleteWeights.b;
+      const wkgA=_wA>0&&sA?(sA.avgPower/_wA):null;
+      const wkgB=_wB>0&&sB?(sB.avgPower/_wB):null;
+      const wkgAcum=_wA>0&&cumTimeA>0?(cumPwrA/_wA):null;
+      const wkgBcum=_wB>0&&cumTimeB>0?(cumPwrB/_wB):null;
+      if (wkgA!=null) { c(wkgA.toFixed(3),'td-neutral','wkgA'); } else c(_wA>0?'—':'n/a','td-neutral','wkgA');
+      if (wkgB!=null) { c(wkgB.toFixed(3),'td-neutral','wkgB'); } else c(_wB>0?'—':'n/a','td-neutral','wkgB');
+      if (wkgA!=null&&wkgB!=null) { const dw=wkgA-wkgB; c((dw>=0?'+':'')+dw.toFixed(3),dSign(dw,true),'dWkg'); } else c('—','td-neutral','dWkg');
+      if (wkgAcum!=null) { c(wkgAcum.toFixed(3),'td-neutral','wkgA_c'); } else c(_wA>0?'—':'n/a','td-neutral','wkgA_c');
+      if (wkgBcum!=null) { c(wkgBcum.toFixed(3),'td-neutral','wkgB_c'); } else c(_wB>0?'—':'n/a','td-neutral','wkgB_c');
+      if (wkgAcum!=null&&wkgBcum!=null) { const dwC=wkgAcum-wkgBcum; c((dwC>=0?'+':'')+dwC.toFixed(3),dSign(dwC,true),'dWkg_c'); } else c('—','td-neutral','dWkg_c');
 
-      if (sA&&sB) {
-        const dt=sA.dTime-sB.dTime;
-        c((dt>=0?'+':'')+dt.toFixed(1)+'s', dSign(dt,true), 'dTime');
-      } else c('—','td-neutral','dTime');
-      if (sA&&sB&&cumTimeA>0&&cumTimeB>0) {
-        const dtc = cumTimeA - cumTimeB;
-        c((dtc>=0?'+':'')+dtc.toFixed(1)+'s', dSign(dtc,true), 'dTime_c');
-      } else c('—','td-neutral','dTime_c');
-
-      if (sA) { c(Math.round(sA.avgPower)+'W', sA.avgPower>0?'':'td-neutral', 'pwrA'); } else c('—','td-neutral','pwrA');
-      if (sB) { c(Math.round(sB.avgPower)+'W', sB.avgPower>0?'':'td-neutral', 'pwrB'); } else c('—','td-neutral','pwrB');
-      if (sA && cumTimeA > 0) { c(Math.round(cumPwrA)+'W', cumPwrA>0?'':'td-neutral', 'pwrA_c'); } else c('—','td-neutral','pwrA_c');
-      if (sB && cumTimeB > 0) { c(Math.round(cumPwrB)+'W', cumPwrB>0?'':'td-neutral', 'pwrB_c'); } else c('—','td-neutral','pwrB_c');
-      if (sA&&sB&&sA.avgPower>0&&sB.avgPower>0) {
-        const dp=sB.avgPower-sA.avgPower;
-        c((dp>=0?'+':'')+dp.toFixed(0)+'W', dSign(dp,false), 'dPwr');
-      } else c('—','td-neutral','dPwr');
-      if (sA&&sB&&cumTimeA>0&&cumTimeB>0) {
-        const dpC = cumPwrB - cumPwrA;
-        c((dpC>=0?'+':'')+dpC.toFixed(0)+'W', dSign(dpC,false), 'dPwr_c');
-      } else c('—','td-neutral','dPwr_c');
-
-      // ── W/kg ──
-      const _wA = athleteWeights.a, _wB = athleteWeights.b;
-      const wkgA   = _wA > 0 && sA ? (sA.avgPower / _wA) : null;
-      const wkgB   = _wB > 0 && sB ? (sB.avgPower / _wB) : null;
-      const wkgAcum = _wA > 0 && cumTimeA > 0 ? (cumPwrA / _wA) : null;
-      const wkgBcum = _wB > 0 && cumTimeB > 0 ? (cumPwrB / _wB) : null;
-      if (wkgA != null) { c(wkgA.toFixed(3), 'td-neutral', 'wkgA'); } else c(_wA > 0 ? '—' : 'n/a', 'td-neutral', 'wkgA');
-      if (wkgB != null) { c(wkgB.toFixed(3), 'td-neutral', 'wkgB'); } else c(_wB > 0 ? '—' : 'n/a', 'td-neutral', 'wkgB');
-      if (wkgA != null && wkgB != null) {
-        const dw = wkgA - wkgB;
-        c((dw>=0?'+':'')+dw.toFixed(3), dSign(dw, true), 'dWkg');
-      } else c('—', 'td-neutral', 'dWkg');
-      if (wkgAcum != null) { c(wkgAcum.toFixed(3), 'td-neutral', 'wkgA_c'); } else c(_wA > 0 ? '—' : 'n/a', 'td-neutral', 'wkgA_c');
-      if (wkgBcum != null) { c(wkgBcum.toFixed(3), 'td-neutral', 'wkgB_c'); } else c(_wB > 0 ? '—' : 'n/a', 'td-neutral', 'wkgB_c');
-      if (wkgAcum != null && wkgBcum != null) {
-        const dwC = wkgAcum - wkgBcum;
-        c((dwC>=0?'+':'')+dwC.toFixed(3), dSign(dwC, true), 'dWkg_c');
-      } else c('—', 'td-neutral', 'dWkg_c');
-
-      if (sA) { c(sA.avgSpeed.toFixed(1)+'km/h', sA.avgSpeed>0?'':'td-neutral', 'spdA'); } else c('—','td-neutral','spdA');
-      if (sB) { c(sB.avgSpeed.toFixed(1)+'km/h', sB.avgSpeed>0?'':'td-neutral', 'spdB'); } else c('—','td-neutral','spdB');
-      if (sA && cumTimeA > 0) { c(cumSpdA.toFixed(1)+'km/h', cumSpdA>0?'':'td-neutral', 'spdA_c'); } else c('—','td-neutral','spdA_c');
-      if (sB && cumTimeB > 0) { c(cumSpdB.toFixed(1)+'km/h', cumSpdB>0?'':'td-neutral', 'spdB_c'); } else c('—','td-neutral','spdB_c');
-      if (sA&&sB&&sA.avgSpeed>0&&sB.avgSpeed>0) {
-        const ds=sB.avgSpeed-sA.avgSpeed;
-        c((ds>=0?'+':'')+ds.toFixed(1)+'km/h', dSign(ds,false), 'dSpd');
-      } else c('—','td-neutral','dSpd');
-      if (sA&&sB&&cumTimeA>0&&cumTimeB>0) {
-        const dsC = cumSpdB - cumSpdA;
-        c((dsC>=0?'+':'')+dsC.toFixed(1)+'km/h', dSign(dsC,false), 'dSpd_c');
-      } else c('—','td-neutral','dSpd_c');
-
-      if (sA) { c(Math.round(sA.avgHr)>0?Math.round(sA.avgHr)+'bpm':'—', 'td-neutral', 'hrA'); } else c('—','td-neutral','hrA');
-      if (sB) { c(Math.round(sB.avgHr)>0?Math.round(sB.avgHr)+'bpm':'—', 'td-neutral', 'hrB'); } else c('—','td-neutral','hrB');
-      if (sA && cumTimeA > 0) { c(cumHrA>0?Math.round(cumHrA)+'bpm':'—', 'td-neutral', 'hrA_c'); } else c('—','td-neutral','hrA_c');
-      if (sB && cumTimeB > 0) { c(cumHrB>0?Math.round(cumHrB)+'bpm':'—', 'td-neutral', 'hrB_c'); } else c('—','td-neutral','hrB_c');
-      if (sA&&sB&&sA.avgHr>0&&sB.avgHr>0) {
-        const dh=sB.avgHr-sA.avgHr;
-        c((dh>=0?'+':'')+dh.toFixed(0)+'bpm', dSign(dh,false), 'dHr');
-      } else c('—','td-neutral','dHr');
-      if (sA&&sB&&cumTimeA>0&&cumTimeB>0) {
-        const dhC = cumHrB - cumHrA;
-        c((dhC>=0?'+':'')+dhC.toFixed(0)+'bpm', dSign(dhC,false), 'dHr_c');
-      } else c('—','td-neutral','dHr_c');
-
+      if (sA) { c(sA.avgSpeed.toFixed(1)+'km/h',sA.avgSpeed>0?'':'td-neutral','spdA'); } else c('—','td-neutral','spdA');
+      if (sB) { c(sB.avgSpeed.toFixed(1)+'km/h',sB.avgSpeed>0?'':'td-neutral','spdB'); } else c('—','td-neutral','spdB');
+      if (sA&&cumTimeA>0) { c(cumSpdA.toFixed(1)+'km/h',cumSpdA>0?'':'td-neutral','spdA_c'); } else c('—','td-neutral','spdA_c');
+      if (sB&&cumTimeB>0) { c(cumSpdB.toFixed(1)+'km/h',cumSpdB>0?'':'td-neutral','spdB_c'); } else c('—','td-neutral','spdB_c');
+      if (sA&&sB&&sA.avgSpeed>0&&sB.avgSpeed>0) { const ds=sB.avgSpeed-sA.avgSpeed; c((ds>=0?'+':'')+ds.toFixed(1)+'km/h',dSign(ds,false),'dSpd'); } else c('—','td-neutral','dSpd');
+      if (sA&&sB&&cumTimeA>0&&cumTimeB>0) { const dsC=cumSpdB-cumSpdA; c((dsC>=0?'+':'')+dsC.toFixed(1)+'km/h',dSign(dsC,false),'dSpd_c'); } else c('—','td-neutral','dSpd_c');
+      if (sA) { c(Math.round(sA.avgHr)>0?Math.round(sA.avgHr)+'bpm':'—','td-neutral','hrA'); } else c('—','td-neutral','hrA');
+      if (sB) { c(Math.round(sB.avgHr)>0?Math.round(sB.avgHr)+'bpm':'—','td-neutral','hrB'); } else c('—','td-neutral','hrB');
+      if (sA&&cumTimeA>0) { c(cumHrA>0?Math.round(cumHrA)+'bpm':'—','td-neutral','hrA_c'); } else c('—','td-neutral','hrA_c');
+      if (sB&&cumTimeB>0) { c(cumHrB>0?Math.round(cumHrB)+'bpm':'—','td-neutral','hrB_c'); } else c('—','td-neutral','hrB_c');
+      if (sA&&sB&&sA.avgHr>0&&sB.avgHr>0) { const dh=sB.avgHr-sA.avgHr; c((dh>=0?'+':'')+dh.toFixed(0)+'bpm',dSign(dh,false),'dHr'); } else c('—','td-neutral','dHr');
+      if (sA&&sB&&cumTimeA>0&&cumTimeB>0) { const dhC=cumHrB-cumHrA; c((dhC>=0?'+':'')+dhC.toFixed(0)+'bpm',dSign(dhC,false),'dHr_c'); } else c('—','td-neutral','dHr_c');
       if (sA) { c(sA.vam>0?Math.round(sA.vam)+'m/h':'—','td-neutral','vamA'); } else c('—','td-neutral','vamA');
       if (sB) { c(sB.vam>0?Math.round(sB.vam)+'m/h':'—','td-neutral','vamB'); } else c('—','td-neutral','vamB');
-      if (sA && cumTimeA > 0) { c(cumVamA>0?Math.round(cumVamA)+'m/h':'—','td-neutral','vamA_c'); } else c('—','td-neutral','vamA_c');
-      if (sB && cumTimeB > 0) { c(cumVamB>0?Math.round(cumVamB)+'m/h':'—','td-neutral','vamB_c'); } else c('—','td-neutral','vamB_c');
-      if (sA&&sB&&sA.vam>0&&sB.vam>0) {
-        const dv=sB.vam-sA.vam; c((dv>=0?'+':'')+Math.round(dv)+'m/h',dSign(dv,false),'dVam');
-      } else c('—','td-neutral','dVam');
-      if (sA&&sB&&cumTimeA>0&&cumTimeB>0) {
-        const dvC = cumVamB - cumVamA;
-        c((dvC>=0?'+':'')+Math.round(dvC)+'m/h', dSign(dvC,false), 'dVam_c');
-      } else c('—','td-neutral','dVam_c');
-
+      if (sA&&cumTimeA>0) { c(cumVamA>0?Math.round(cumVamA)+'m/h':'—','td-neutral','vamA_c'); } else c('—','td-neutral','vamA_c');
+      if (sB&&cumTimeB>0) { c(cumVamB>0?Math.round(cumVamB)+'m/h':'—','td-neutral','vamB_c'); } else c('—','td-neutral','vamB_c');
+      if (sA&&sB&&sA.vam>0&&sB.vam>0) { const dv=sB.vam-sA.vam; c((dv>=0?'+':'')+Math.round(dv)+'m/h',dSign(dv,false),'dVam'); } else c('—','td-neutral','dVam');
+      if (sA&&sB&&cumTimeA>0&&cumTimeB>0) { const dvC=cumVamB-cumVamA; c((dvC>=0?'+':'')+Math.round(dvC)+'m/h',dSign(dvC,false),'dVam_c'); } else c('—','td-neutral','dVam_c');
       if (sA) { c((sA.dAlt>=0?'+':'')+sA.dAlt.toFixed(1)+'m','td-neutral','altDiff'); } else c('—','td-neutral','altDiff');
-      if (sA && cumAltA) { c((cumAltA>=0?'+':'')+cumAltA.toFixed(1)+'m','td-neutral','altDiff_c'); } else c('—','td-neutral','altDiff_c');
+      if (sA&&cumAltA) { c((cumAltA>=0?'+':'')+cumAltA.toFixed(1)+'m','td-neutral','altDiff_c'); } else c('—','td-neutral','altDiff_c');
       if (sA) { c(sA.avgGrade.toFixed(1)+'%','td-neutral','grade'); } else c('—','td-neutral','grade');
-      if (sA && cumDistA > 0) { c(cumGradeA.toFixed(1)+'%','td-neutral','grade_c'); } else c('—','td-neutral','grade_c');
+      if (sA&&cumDistA>0) { c(cumGradeA.toFixed(1)+'%','td-neutral','grade_c'); } else c('—','td-neutral','grade_c');
 
       tbody.appendChild(tr2);
     }
@@ -1723,18 +1595,14 @@ function compBuildMetricsTable() {
 }
 
 function compSelectSectionFromTable(sectorId, sectionIdx) {
-  if (compHighlightedSection && compHighlightedSection.sectorId === sectorId && compHighlightedSection.sectionIdx === sectionIdx) {
-    compClearSectionHighlight();
-    return;
+  if (compHighlightedSection && compHighlightedSection.sectorId===sectorId && compHighlightedSection.sectionIdx===sectionIdx) {
+    compClearSectionHighlight(); return;
   }
   compHoverSection = null;
   compHighlightedSection = { sectorId, sectionIdx };
   compActiveSectorId = sectorId;
-  compRebuildSectorSelect();
-  compUpdateSectorPanelUI();
-  compUpdateSectorLegend();
-  compUpdateSectorChips();
-  compUpdateElevChart();
+  compRebuildSectorSelect(); compUpdateSectorPanelUI();
+  compUpdateSectorLegend(); compUpdateSectorChips(); compUpdateElevChart();
   compApplySectionHighlight();
   document.querySelectorAll('#comp-table-body tr').forEach(tr => tr.classList.remove('comp-row-selected'));
   const row = document.querySelector(`#comp-table-body tr[data-sector-id="${sectorId}"][data-section-idx="${sectionIdx}"]`);
@@ -1766,25 +1634,9 @@ function compClearSectionPreview() {
 let compTableColVis = {};
 let compTableColsCache = null;
 const compTablePresets = [
-  {
-    id:'flat', label:'Flat',
-    cols:[
-      'num','distA_c',
-      'timeA','timeB','dTime','timeA_c','timeB_c','dTime_c',
-      'pwrA','pwrB','dPwr','pwrA_c','pwrB_c','dPwr_c',
-      'wkgA','wkgB','dWkg','wkgA_c','wkgB_c','dWkg_c',
-      'spdA','spdB','dSpd','spdA_c','spdB_c','dSpd_c',
-      'hrA','hrB','dHr','hrA_c','hrB_c','dHr_c',
-      'grade','grade_c'
-    ]
-  },
-  {
-    id:'all', label:'Tutto', cols:'*'
-  },
-  {
-    id:'base', label:'Base',
-    cols:['num','distA','distB','timeA','timeB','dTime','timeA_c','timeB_c','dTime_c']
-  }
+  { id:'flat', label:'Flat', cols:['num','distA_c','timeA','timeB','dTime','timeA_c','timeB_c','dTime_c','pwrA','pwrB','dPwr','pwrA_c','pwrB_c','dPwr_c','wkgA','wkgB','dWkg','wkgA_c','wkgB_c','dWkg_c','spdA','spdB','dSpd','spdA_c','spdB_c','dSpd_c','hrA','hrB','dHr','hrA_c','hrB_c','dHr_c','grade','grade_c'] },
+  { id:'all', label:'Tutto', cols:'*' },
+  { id:'base', label:'Base', cols:['num','distA','distB','timeA','timeB','dTime','timeA_c','timeB_c','dTime_c'] }
 ];
 let compCustomPresets = [];
 
@@ -1806,18 +1658,11 @@ function compRenderTablePresets() {
     const btn = document.createElement('button');
     btn.className = 'preset-btn';
     if (compTableColVis._preset === p.id) btn.classList.add('active');
-    const label = document.createElement('span');
-    label.textContent = p.label;
-    const del = document.createElement('span');
-    del.textContent = ' ✕';
-    del.style.color = 'var(--muted2)';
-    del.style.marginLeft = '2px';
-    del.addEventListener('click', (e) => {
-      e.stopPropagation();
-      compDeleteCustomPreset(p.id);
-    });
-    btn.appendChild(label);
-    btn.appendChild(del);
+    const label = document.createElement('span'); label.textContent = p.label;
+    const del = document.createElement('span'); del.textContent = ' ✕';
+    del.style.color='var(--muted2)'; del.style.marginLeft='2px';
+    del.addEventListener('click', (e) => { e.stopPropagation(); compDeleteCustomPreset(p.id); });
+    btn.appendChild(label); btn.appendChild(del);
     btn.addEventListener('click', () => compApplyTablePreset(p.id, true));
     row.appendChild(btn);
   });
@@ -1825,93 +1670,56 @@ function compRenderTablePresets() {
 }
 
 function compFindPreset(presetId) {
-  return compTablePresets.find(p => p.id === presetId) || compCustomPresets.find(p => p.id === presetId) || null;
+  return compTablePresets.find(p=>p.id===presetId) || compCustomPresets.find(p=>p.id===presetId) || null;
 }
 
 function compApplyTablePreset(presetId, rebuild, allCols) {
   const preset = compFindPreset(presetId);
   if (!preset) return;
   const colKeys = Array.isArray(preset.cols) ? preset.cols : null;
-  const allKeys = Array.isArray(allCols) && allCols.length
-    ? allCols.map(c => c.key)
-    : Object.keys(compTableColVis);
-  if (preset.cols === '*') {
-    allKeys.forEach(k => { compTableColVis[k] = true; });
-  } else if (colKeys) {
-    allKeys.forEach(k => { compTableColVis[k] = false; });
-    colKeys.forEach(k => { compTableColVis[k] = true; });
-  }
+  const allKeys = Array.isArray(allCols) && allCols.length ? allCols.map(c=>c.key) : Object.keys(compTableColVis);
+  if (preset.cols === '*') { allKeys.forEach(k => { compTableColVis[k] = true; }); }
+  else if (colKeys) { allKeys.forEach(k => { compTableColVis[k] = false; }); colKeys.forEach(k => { compTableColVis[k] = true; }); }
   compTableColVis._preset = presetId;
   compSaveTablePrefs();
   if (rebuild) compBuildMetricsTable();
 }
 
 function compSaveTablePrefs() {
-  try {
-    const data = JSON.stringify(compTableColVis);
-    localStorage.setItem('compTablePrefs', data);
-  } catch (e) { /* ignore */ }
+  try { localStorage.setItem('compTablePrefs', JSON.stringify(compTableColVis)); } catch(e){}
 }
-
 function compLoadTablePrefs() {
-  try {
-    const raw = localStorage.getItem('compTablePrefs');
-    if (!raw) return;
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object') compTableColVis = parsed;
-  } catch (e) { /* ignore */ }
+  try { const raw=localStorage.getItem('compTablePrefs'); if(raw){const p=JSON.parse(raw);if(p&&typeof p==='object')compTableColVis=p;} } catch(e){}
 }
-
 function compSaveCustomPreset() {
   const name = prompt('Nome preset:', 'Custom');
   if (!name) return;
-  const cols = Object.keys(compTableColVis)
-    .filter(k => !k.startsWith('_') && compTableColVis[k] !== false);
+  const cols = Object.keys(compTableColVis).filter(k=>!k.startsWith('_')&&compTableColVis[k]!==false);
   const id = `user-${Date.now()}`;
-  compCustomPresets.push({ id, label: name, cols });
+  compCustomPresets.push({ id, label:name, cols });
   compTableColVis._preset = id;
-  compSaveCustomPresets();
-  compSaveTablePrefs();
-  compRenderTablePresets();
+  compSaveCustomPresets(); compSaveTablePrefs(); compRenderTablePresets();
 }
-
 function compDeleteCustomPreset(presetId) {
-  const preset = compCustomPresets.find(p => p.id === presetId);
+  const preset = compCustomPresets.find(p=>p.id===presetId);
   if (!preset) return;
-  const ok = confirm(`Eliminare il preset "${preset.label}"?`);
-  if (!ok) return;
-  compCustomPresets = compCustomPresets.filter(p => p.id !== presetId);
-  if (compTableColVis._preset === presetId) compTableColVis._preset = 'flat';
-  compSaveCustomPresets();
-  compSaveTablePrefs();
-  compRenderTablePresets();
+  if (!confirm(`Eliminare il preset "${preset.label}"?`)) return;
+  compCustomPresets = compCustomPresets.filter(p=>p.id!==presetId);
+  if (compTableColVis._preset===presetId) compTableColVis._preset='flat';
+  compSaveCustomPresets(); compSaveTablePrefs(); compRenderTablePresets();
 }
-
 function compSaveCustomPresets() {
-  try {
-    localStorage.setItem('compTableCustomPresets', JSON.stringify(compCustomPresets));
-  } catch (e) { /* ignore */ }
+  try { localStorage.setItem('compTableCustomPresets', JSON.stringify(compCustomPresets)); } catch(e){}
 }
-
 function compLoadCustomPresets() {
-  try {
-    const raw = localStorage.getItem('compTableCustomPresets');
-    if (!raw) return;
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) compCustomPresets = parsed;
-  } catch (e) { /* ignore */ }
+  try { const raw=localStorage.getItem('compTableCustomPresets'); if(raw){const p=JSON.parse(raw);if(Array.isArray(p))compCustomPresets=p;} } catch(e){}
 }
-
 function compResetTablePrefs() {
-  try { localStorage.removeItem('compTablePrefs'); } catch (e) { /* ignore */ }
-  try { localStorage.removeItem('compTableCustomPresets'); } catch (e) { /* ignore */ }
-  compCustomPresets = [];
-  compTableColVis = {};
-  if (Array.isArray(compTableColsCache) && compTableColsCache.length) {
-    compApplyTablePreset('flat', false, compTableColsCache);
-  } else {
-    compApplyTablePreset('flat', false);
-  }
+  try { localStorage.removeItem('compTablePrefs'); } catch(e){}
+  try { localStorage.removeItem('compTableCustomPresets'); } catch(e){}
+  compCustomPresets = []; compTableColVis = {};
+  if (Array.isArray(compTableColsCache)&&compTableColsCache.length) compApplyTablePreset('flat',false,compTableColsCache);
+  else compApplyTablePreset('flat',false);
   compBuildMetricsTable();
 }
 function compRenderTableColToggles(cols) {
@@ -1919,26 +1727,15 @@ function compRenderTableColToggles(cols) {
   if (!wrap) return;
   wrap.innerHTML = '';
   cols.forEach(c => {
-    if (compTableColVis[c.key] === undefined) compTableColVis[c.key] = true;
-    const label = document.createElement('label');
-    label.className = 'col-toggle';
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.checked = compTableColVis[c.key] !== false;
-    cb.addEventListener('change', () => {
-      compTableColVis[c.key] = cb.checked;
-      compSaveTablePrefs();
-      compBuildMetricsTable();
-    });
-    const text = document.createElement('span');
-    text.textContent = c.label;
-    label.appendChild(cb);
-    label.appendChild(text);
-    wrap.appendChild(label);
+    if (compTableColVis[c.key]===undefined) compTableColVis[c.key]=true;
+    const label=document.createElement('label'); label.className='col-toggle';
+    const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=compTableColVis[c.key]!==false;
+    cb.addEventListener('change',()=>{ compTableColVis[c.key]=cb.checked; compSaveTablePrefs(); compBuildMetricsTable(); });
+    const text=document.createElement('span'); text.textContent=c.label;
+    label.appendChild(cb); label.appendChild(text); wrap.appendChild(label);
   });
 }
 
-// ── Table drawer ──
 function compToggleTable() {
   compTableOpen = !compTableOpen;
   const drawer = document.getElementById('comp-table-drawer');
@@ -1946,20 +1743,15 @@ function compToggleTable() {
   document.getElementById('comp-table-close-icon').textContent = compTableOpen ? '▼' : '▲';
   document.getElementById('comp-btn-table').classList.toggle('off', !compTableOpen);
   if (compTableOpen) {
-    compLoadCustomPresets();
-    compLoadTablePrefs();
+    compLoadCustomPresets(); compLoadTablePrefs();
     if (!compFindPreset(compTableColVis._preset)) {
-      if (Array.isArray(compTableColsCache) && compTableColsCache.length) {
-        compApplyTablePreset('flat', false, compTableColsCache);
-      } else {
-        compApplyTablePreset('flat', false);
-      }
+      if (Array.isArray(compTableColsCache)&&compTableColsCache.length) compApplyTablePreset('flat',false,compTableColsCache);
+      else compApplyTablePreset('flat',false);
     }
     compBuildMetricsTable();
   }
 }
 
-// ── CSV Export ──
 function compExportCSV() {
   const table = document.getElementById('comp-metrics-table');
   if (!table) return;
@@ -1976,12 +1768,9 @@ function compExportCSV() {
   URL.revokeObjectURL(url);
 }
 
-// ── Reset ──
 function compReset() {
   compClearAnalysis();
-  compSectors=[];
-  compActiveSectorId=null;
-  _compSectorIdCounter=0;
+  compSectors=[]; compActiveSectorId=null; _compSectorIdCounter=0;
   if (compStreamA) compAddSector(true);
   compLayerVis={traceA:true,traceB:true,sections:true};
   compApplyLayerVis(); compUpdateVisBtns();
