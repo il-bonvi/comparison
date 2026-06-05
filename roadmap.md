@@ -1,5 +1,4 @@
-comparison: vedere tutto con tutti i segmenti in giro. 
-Poter selezionare da zoom
+sector: funzione zoom o trascina su graico in barra laterale
 
 vari bug fix comparison dei settori
 In file molto lunghi in comparison la distance è sballatina
