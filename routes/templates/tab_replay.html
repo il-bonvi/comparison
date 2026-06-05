@@ -24,13 +24,6 @@
     <div id="replay-app" style="display:none;flex:1;flex-direction:column;overflow:hidden;min-height:0;">
       <div id="replay-topbar" style="display:flex; align-items:center; gap:8px; padding:4px 12px; background:var(--surface); border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:nowrap; overflow-x:auto;">
         
-        <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
-          <span class="badge badge-a" style="padding:2px 6px; font-size:0.72rem;">🔵 <span id="rp-lbl-a">A</span></span>
-          <span class="badge badge-b" style="padding:2px 6px; font-size:0.72rem;">🟠 <span id="rp-lbl-b">B</span></span>
-        </div>
-
-        <span style="width:1px; height:16px; background:var(--border-hi); flex-shrink:0;"></span>
-
         <select id="rp-align" onchange="rpOnAlignChange()" style="display:none"><option value="time" selected>Tempo</option></select>
 
         <div style="display:flex; align-items:center; gap:4px; flex-shrink:0; font-size:0.72rem;">
@@ -335,8 +328,8 @@ async function replayStart() {
     rpSB._rawSpeed = rpSB.speed ? rpSB.speed.slice() : null;
     rpApplySmoothing();
     rpNameA = sharedNameA; rpNameB = sharedNameB;
-    ['rp-lbl-a','rp-leg-a'].forEach(id => document.getElementById(id).textContent = rpNameA.slice(0,16));
-    ['rp-lbl-b','rp-leg-b'].forEach(id => document.getElementById(id).textContent = rpNameB.slice(0,16));
+    const _elRpA=document.getElementById('rp-leg-a'); if(_elRpA) _elRpA.textContent=rpNameA.slice(0,16);
+    const _elRpB=document.getElementById('rp-leg-b'); if(_elRpB) _elRpB.textContent=rpNameB.slice(0,16);
     compAutoInitFromShared(JSON.parse(JSON.stringify(sharedStreamA)), JSON.parse(JSON.stringify(sharedStreamB)), rpNameA, rpNameB);
     rpBoundStartA = 0; rpBoundEndA = rpSA.lat.length - 1;
     rpBoundStartB = 0; rpBoundEndB = rpSB.lat.length - 1;
@@ -398,8 +391,8 @@ async function replayStart() {
     rpNameA = nameA; rpNameB = nameB;
     sharedStreamA = streamA; sharedStreamB = streamB;
     sharedNameA = rpNameA; sharedNameB = rpNameB;
-    ['rp-lbl-a','rp-leg-a'].forEach(id => document.getElementById(id).textContent = rpNameA.slice(0,16));
-    ['rp-lbl-b','rp-leg-b'].forEach(id => document.getElementById(id).textContent = rpNameB.slice(0,16));
+    const _elRpA=document.getElementById('rp-leg-a'); if(_elRpA) _elRpA.textContent=rpNameA.slice(0,16);
+    const _elRpB=document.getElementById('rp-leg-b'); if(_elRpB) _elRpB.textContent=rpNameB.slice(0,16);
     compAutoInitFromShared(JSON.parse(JSON.stringify(streamA)), JSON.parse(JSON.stringify(streamB)), rpNameA, rpNameB);
     if (typeof updateHeaderFileInfo === 'function') updateHeaderFileInfo();
     document.getElementById('rp-slot-a')._slotReady = null;

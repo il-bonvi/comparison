@@ -39,8 +39,6 @@
       </style>
 
       <div id="comp-topbar">
-        <span class="badge badge-a">🔵 <span id="comp-lbl-a">A</span></span>
-        <span class="badge badge-b">🟠 <span id="comp-lbl-b">B</span></span>
         <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
 
         <label style="font-size:.7rem;color:var(--muted2)">Settore:</label>
@@ -457,8 +455,8 @@ async function compStart() {
     compStreamB._rawSpeed = compStreamB.speed ? compStreamB.speed.slice() : null;
     compApplySmoothing();
     compNameA = sharedNameA; compNameB = sharedNameB;
-    ['comp-lbl-a','comp-leg-a'].forEach(id => document.getElementById(id).textContent = compNameA.slice(0,16));
-    ['comp-lbl-b','comp-leg-b'].forEach(id => document.getElementById(id).textContent = compNameB.slice(0,16));
+    const _elCpA=document.getElementById('comp-leg-a'); if(_elCpA) _elCpA.textContent=compNameA.slice(0,16);
+    const _elCpB=document.getElementById('comp-leg-b'); if(_elCpB) _elCpB.textContent=compNameB.slice(0,16);
     compGlobalStartA = 0; compGlobalEndA = compStreamA.lat.length - 1;
     compGlobalStartB = 0; compGlobalEndB = compStreamB.lat.length - 1;
     slotA._slotReady = null; slotB._slotReady = null;
@@ -514,8 +512,8 @@ async function compStart() {
     compNameA = nameA; compNameB = nameB;
     sharedStreamA = streamA; sharedStreamB = streamB;
     sharedNameA = compNameA; sharedNameB = compNameB;
-    ['comp-lbl-a','comp-leg-a'].forEach(id => document.getElementById(id).textContent = compNameA.slice(0,16));
-    ['comp-lbl-b','comp-leg-b'].forEach(id => document.getElementById(id).textContent = compNameB.slice(0,16));
+    const _elCpA=document.getElementById('comp-leg-a'); if(_elCpA) _elCpA.textContent=compNameA.slice(0,16);
+    const _elCpB=document.getElementById('comp-leg-b'); if(_elCpB) _elCpB.textContent=compNameB.slice(0,16);
     compGlobalStartA = 0; compGlobalEndA = compStreamA.lat.length - 1;
     compGlobalStartB = 0; compGlobalEndB = compStreamB.lat.length - 1;
     slotA._slotReady = null; slotB._slotReady = null;
