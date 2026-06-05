@@ -83,7 +83,6 @@
         </div>
 
         <button class="btn btn-ghost" id="comp-btn-table" onclick="compToggleTable()" style="margin-left:4px;">📊 Tabella</button>
-        <button class="btn btn-danger" onclick="compReset()" style="margin-left:4px;">⟲ Reset</button>
         <span id="comp-status" style="font-size:.72rem;color:var(--muted);margin-left:auto;font-family:var(--font-mono);"></span>
       </div>
 
@@ -412,35 +411,44 @@ const COMP_SECTOR_COLORS = ['#3b82f6','#f97316','#22c55e','#a855f7','#22d3ee','#
 // ── File inputs ──
 document.getElementById('comp-file-a').addEventListener('change', e => {
   if (e.target.files[0]) {
-    document.getElementById('comp-slot-a').classList.add('filled-a');
+    const slot = document.getElementById('comp-slot-a');
+    slot.classList.add('filled-a');
+    slot._slotReady = null;
     document.getElementById('comp-name-a').textContent = e.target.files[0].name.slice(0,22);
     compCheckReady();
   }
 });
 document.getElementById('comp-file-b').addEventListener('change', e => {
   if (e.target.files[0]) {
-    document.getElementById('comp-slot-b').classList.add('filled-b');
+    const slot = document.getElementById('comp-slot-b');
+    slot.classList.add('filled-b');
+    slot._slotReady = null;
     document.getElementById('comp-name-b').textContent = e.target.files[0].name.slice(0,22);
     compCheckReady();
   }
 });
 function compCheckReady() {
-  const ok = document.getElementById('comp-file-a').files[0] && document.getElementById('comp-file-b').files[0];
-  document.getElementById('comp-btn-go').disabled = !ok;
+  const fA = document.getElementById('comp-file-a').files[0];
+  const fB = document.getElementById('comp-file-b').files[0];
+  const cachedA = document.getElementById('comp-slot-a')._slotReady === 'cached';
+  const cachedB = document.getElementById('comp-slot-b')._slotReady === 'cached';
+  document.getElementById('comp-btn-go').disabled = !((fA || cachedA) && (fB || cachedB));
 }
 
 // ── Upload ──
 async function compStart() {
   const fA = document.getElementById('comp-file-a').files[0];
   const fB = document.getElementById('comp-file-b').files[0];
-  if (!fA || !fB) return;
-  showLoading('Parsing FIT...');
-  try {
-    const fd = new FormData(); fd.append('file_a', fA); fd.append('file_b', fB);
-    const r = await fetch('/api/upload', { method:'POST', body:fd });
-    const d = await r.json();
-    if (!d.success) throw new Error(d.detail || 'Errore upload');
-    compStreamA = d.stream_a; compStreamB = d.stream_b;
+  const slotA = document.getElementById('comp-slot-a');
+  const slotB = document.getElementById('comp-slot-b');
+  const cachedA = slotA._slotReady === 'cached' && !fA;
+  const cachedB = slotB._slotReady === 'cached' && !fB;
+
+  // Entrambi cached: riusa direttamente gli stream in memoria
+  if (cachedA && cachedB && sharedStreamA && sharedStreamB) {
+    showLoading('Ricaricamento dati...');
+    compStreamA = JSON.parse(JSON.stringify(sharedStreamA));
+    compStreamB = JSON.parse(JSON.stringify(sharedStreamB));
     compOriginalStreams.A = JSON.parse(JSON.stringify(compStreamA));
     compOriginalStreams.B = JSON.parse(JSON.stringify(compStreamB));
     compStreamA._rawPower = compStreamA.power ? compStreamA.power.slice() : [];
@@ -448,23 +456,78 @@ async function compStart() {
     compStreamA._rawSpeed = compStreamA.speed ? compStreamA.speed.slice() : null;
     compStreamB._rawSpeed = compStreamB.speed ? compStreamB.speed.slice() : null;
     compApplySmoothing();
-    compNameA = (d.filename_a||'A').replace('.fit','');
-    compNameB = (d.filename_b||'B').replace('.fit','');
-    sharedStreamA = d.stream_a; sharedStreamB = d.stream_b;
-    sharedNameA = compNameA; sharedNameB = compNameB;
+    compNameA = sharedNameA; compNameB = sharedNameB;
     ['comp-lbl-a','comp-leg-a'].forEach(id => document.getElementById(id).textContent = compNameA.slice(0,16));
     ['comp-lbl-b','comp-leg-b'].forEach(id => document.getElementById(id).textContent = compNameB.slice(0,16));
-    compGlobalStartA = 0; compGlobalEndA = compStreamA.lat.length-1;
-    compGlobalStartB = 0; compGlobalEndB = compStreamB.lat.length-1;
+    compGlobalStartA = 0; compGlobalEndA = compStreamA.lat.length - 1;
+    compGlobalStartB = 0; compGlobalEndB = compStreamB.lat.length - 1;
+    slotA._slotReady = null; slotB._slotReady = null;
     document.getElementById('comp-upload').style.display = 'none';
     document.getElementById('comp-app').style.display = 'flex';
-    compSectors = [];
-    _compSectorIdCounter = 0;
+    compSectors = []; _compSectorIdCounter = 0;
     compAddSector(true);
     compInitMap();
     rpAutoInitFromShared();
     hideLoading();
-  } catch(e) { hideLoading(); alert('Errore: '+e.message); }
+    return;
+  }
+
+  if (!fA && !cachedA) return;
+  if (!fB && !cachedB) return;
+
+  showLoading('Parsing FIT...');
+  try {
+    let streamA, streamB, nameA, nameB;
+
+    if (fA && fB) {
+      const fd = new FormData(); fd.append('file_a', fA); fd.append('file_b', fB);
+      const r = await fetch('/api/upload', { method:'POST', body:fd });
+      const d = await r.json();
+      if (!d.success) throw new Error(d.detail || 'Errore upload');
+      streamA = d.stream_a; streamB = d.stream_b;
+      nameA = (d.filename_a||'A').replace('.fit','');
+      nameB = (d.filename_b||'B').replace('.fit','');
+    } else if (fA && cachedB) {
+      const fd = new FormData(); fd.append('file_a', fA);
+      const r = await fetch('/api/upload_single', { method:'POST', body:fd });
+      const d = await r.json();
+      if (!d.success) throw new Error(d.detail || 'Errore upload');
+      streamA = d.stream_a; streamB = JSON.parse(JSON.stringify(sharedStreamB));
+      nameA = (d.filename_a||'A').replace('.fit',''); nameB = sharedNameB;
+    } else if (cachedA && fB) {
+      const fd = new FormData(); fd.append('file_b', fB);
+      const r = await fetch('/api/upload_single_b', { method:'POST', body:fd });
+      const d = await r.json();
+      if (!d.success) throw new Error(d.detail || 'Errore upload');
+      streamA = JSON.parse(JSON.stringify(sharedStreamA)); streamB = d.stream_b;
+      nameA = sharedNameA; nameB = (d.filename_b||'B').replace('.fit','');
+    }
+
+    compStreamA = streamA; compStreamB = streamB;
+    compOriginalStreams.A = JSON.parse(JSON.stringify(compStreamA));
+    compOriginalStreams.B = JSON.parse(JSON.stringify(compStreamB));
+    compStreamA._rawPower = compStreamA.power ? compStreamA.power.slice() : [];
+    compStreamB._rawPower = compStreamB.power ? compStreamB.power.slice() : [];
+    compStreamA._rawSpeed = compStreamA.speed ? compStreamA.speed.slice() : null;
+    compStreamB._rawSpeed = compStreamB.speed ? compStreamB.speed.slice() : null;
+    compApplySmoothing();
+    compNameA = nameA; compNameB = nameB;
+    sharedStreamA = streamA; sharedStreamB = streamB;
+    sharedNameA = compNameA; sharedNameB = compNameB;
+    ['comp-lbl-a','comp-leg-a'].forEach(id => document.getElementById(id).textContent = compNameA.slice(0,16));
+    ['comp-lbl-b','comp-leg-b'].forEach(id => document.getElementById(id).textContent = compNameB.slice(0,16));
+    compGlobalStartA = 0; compGlobalEndA = compStreamA.lat.length - 1;
+    compGlobalStartB = 0; compGlobalEndB = compStreamB.lat.length - 1;
+    slotA._slotReady = null; slotB._slotReady = null;
+    document.getElementById('comp-upload').style.display = 'none';
+    document.getElementById('comp-app').style.display = 'flex';
+    compSectors = []; _compSectorIdCounter = 0;
+    compAddSector(true);
+    compInitMap();
+    rpAutoInitFromShared();
+    if (typeof updateHeaderFileInfo === 'function') updateHeaderFileInfo();
+    hideLoading();
+  } catch(e) { hideLoading(); alert('Errore: ' + e.message); }
 }
 
 // ── Terrain helper (global — also used by Race Replay module) ──
@@ -2334,6 +2397,9 @@ function compExportCSV() {
   const a=document.createElement('a'); a.href=url; a.download='comparison_metrics.csv'; a.click();
   URL.revokeObjectURL(url);
 }
+
+// ── BADGE: gestito dall'header globale (unified_app updateHeaderFileInfo) ──
+function compUpdateSharedBadge() { /* no-op */ }
 
 function compReset() {
   compClearAnalysis();

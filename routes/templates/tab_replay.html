@@ -3,16 +3,6 @@
       <div style="font-size:3rem">🏁</div>
       <div class="upload-title" style="color:var(--b)">RACE REPLAY</div>
       <div class="upload-desc">Gap animato frame per frame tra due atleti — visualizza lo svantaggio in mappa e su grafici selezionabili</div>
-
-      <!-- Badge shown when files are already loaded from Comparison tab -->
-      <div id="rp-shared-badge" style="display:none;align-items:center;gap:10px;
-           background:rgba(249,115,22,.12);border:1px solid var(--b);border-radius:8px;
-           padding:10px 18px;font-size:.8rem;">
-        <span>📂 File già caricati nella tab Comparison:</span>
-        <span id="rp-shared-names" style="font-weight:700;color:var(--b);font-family:var(--font-mono)"></span>
-        <button class="btn btn-primary-b" onclick="rpUseShared()">⚡ Usa questi file</button>
-      </div>
-
       <div class="upload-slots">
         <div class="upload-slot" id="rp-slot-a">
           <div class="slot-icon">🔵</div>
@@ -97,7 +87,6 @@
         <div style="margin-left:auto; display:flex; align-items:center; gap:8px; flex-shrink:0;">
           <span id="replay-status" style="font-size:.7rem; color:var(--muted2); font-family:var(--font-mono);"></span>
           <div id="replay-gap-big" style="color:var(--gap-pos); font-size:1.1rem; font-weight:700; font-family:var(--font-mono);">+0.0s</div>
-          <button class="btn btn-danger" onclick="replayReset()" style="padding:2px 8px; font-size:0.72rem;">⟲ Reset</button>
         </div>
       </div>
       <div id="rp-smooth-panel">
@@ -297,98 +286,133 @@ function rpNearestByDist(s, distM) {
   return best;
 }
 
-document.getElementById('rp-file-a').addEventListener('change',e=>{
-  if(e.target.files[0]){document.getElementById('rp-slot-a').classList.add('filled-a');document.getElementById('rp-name-a').textContent=e.target.files[0].name.slice(0,22);rpCheckReady();}
-});
-document.getElementById('rp-file-b').addEventListener('change',e=>{
-  if(e.target.files[0]){document.getElementById('rp-slot-b').classList.add('filled-b');document.getElementById('rp-name-b').textContent=e.target.files[0].name.slice(0,22);rpCheckReady();}
-});
-function rpCheckReady(){
-  document.getElementById('rp-btn-go').disabled=!(document.getElementById('rp-file-a').files[0]&&document.getElementById('rp-file-b').files[0]);
-}
-
-// ── SHARED STREAM (reuse files from Comparison tab) ──
-function rpUpdateSharedBadge() {
-  const badge = document.getElementById('rp-shared-badge');
-  if (!badge) return;
-  if (sharedStreamA && sharedStreamB) {
-    badge.style.display = 'flex';
-    document.getElementById('rp-shared-names').textContent =
-      `${sharedNameA.slice(0,18)} + ${sharedNameB.slice(0,18)}`;
-  } else {
-    badge.style.display = 'none';
+document.getElementById('rp-file-a').addEventListener('change', e => {
+  if (e.target.files[0]) {
+    const slot = document.getElementById('rp-slot-a');
+    slot.classList.add('filled-a');
+    slot._slotReady = null; // nuovo file: non usare la cache
+    document.getElementById('rp-name-a').textContent = e.target.files[0].name.slice(0, 22);
+    rpCheckReady();
   }
+});
+document.getElementById('rp-file-b').addEventListener('change', e => {
+  if (e.target.files[0]) {
+    const slot = document.getElementById('rp-slot-b');
+    slot.classList.add('filled-b');
+    slot._slotReady = null; // nuovo file: non usare la cache
+    document.getElementById('rp-name-b').textContent = e.target.files[0].name.slice(0, 22);
+    rpCheckReady();
+  }
+});
+function rpCheckReady() {
+  const fA = document.getElementById('rp-file-a').files[0];
+  const fB = document.getElementById('rp-file-b').files[0];
+  const cachedA = document.getElementById('rp-slot-a')._slotReady === 'cached';
+  const cachedB = document.getElementById('rp-slot-b')._slotReady === 'cached';
+  document.getElementById('rp-btn-go').disabled = !(( fA || cachedA) && (fB || cachedB));
 }
 
-function rpUseShared() {
-  if (!sharedStreamA || !sharedStreamB) return;
-  showLoading('Caricamento dati condivisi...');
-  rpSA = sharedStreamA; rpSB = sharedStreamB;
-  // Save raw copies for smoothing
-  rpSA._rawPower = rpSA.power ? rpSA.power.slice() : [];
-  rpSB._rawPower = rpSB.power ? rpSB.power.slice() : [];
-  rpSA._rawSpeed = rpSA.speed ? rpSA.speed.slice() : null;
-  rpSB._rawSpeed = rpSB.speed ? rpSB.speed.slice() : null;
-  // Apply default smoothing (5s)
-  rpApplySmoothing();
-  rpNameA = sharedNameA; rpNameB = sharedNameB;
-  ['rp-lbl-a','rp-leg-a'].forEach(id=>document.getElementById(id).textContent=rpNameA.slice(0,16));
-  ['rp-lbl-b','rp-leg-b'].forEach(id=>document.getElementById(id).textContent=rpNameB.slice(0,16));
-  rpBoundStartA=0; rpBoundEndA=rpSA.lat.length-1;
-  rpBoundStartB=0; rpBoundEndB=rpSB.lat.length-1;
-  rpUpdateBoundsPanelUI();
-  document.getElementById('replay-upload').style.display='none';
-  document.getElementById('replay-app').style.display='flex';
-  switchTab('replay');
-  rpBuildAlignment();
-  rpInitChart();
-  rpRenderCharts();
-  rpSetSpeed(1);
-  setTimeout(() => { rpInitMap(); hideLoading(); }, 80);
-}
+// ── SHARED STREAM: badge gestito dall'header globale (unified_app) ──
+function rpUpdateSharedBadge() { /* no-op: badge spostato nell'header globale */ }
 
 async function replayStart() {
-  const fA=document.getElementById('rp-file-a').files[0], fB=document.getElementById('rp-file-b').files[0];
-  if(!fA||!fB) return;
-  showLoading('Parsing FIT...');
-  try {
-    const fd=new FormData(); fd.append('file_a',fA); fd.append('file_b',fB);
-    const r=await fetch('/api/upload',{method:'POST',body:fd});
-    const d=await r.json();
-    if(!d.success) throw new Error(d.detail);
-    rpSA=d.stream_a; rpSB=d.stream_b;
+  const fA = document.getElementById('rp-file-a').files[0];
+  const fB = document.getElementById('rp-file-b').files[0];
+  const slotA = document.getElementById('rp-slot-a');
+  const slotB = document.getElementById('rp-slot-b');
+  const cachedA = slotA._slotReady === 'cached' && !fA;
+  const cachedB = slotB._slotReady === 'cached' && !fB;
+
+  // Se entrambi i file sono in cache e nessuno è stato sostituito, riusa senza fetch
+  if (cachedA && cachedB && sharedStreamA && sharedStreamB) {
+    showLoading('Ricaricamento dati...');
+    rpSA = JSON.parse(JSON.stringify(sharedStreamA));
+    rpSB = JSON.parse(JSON.stringify(sharedStreamB));
     rpSA._rawPower = rpSA.power ? rpSA.power.slice() : [];
     rpSB._rawPower = rpSB.power ? rpSB.power.slice() : [];
     rpSA._rawSpeed = rpSA.speed ? rpSA.speed.slice() : null;
     rpSB._rawSpeed = rpSB.speed ? rpSB.speed.slice() : null;
     rpApplySmoothing();
-    rpNameA=(d.filename_a||'A').replace('.fit','');
-    rpNameB=(d.filename_b||'B').replace('.fit','');
-    sharedStreamA=d.stream_a; sharedStreamB=d.stream_b;
-    sharedNameA=rpNameA; sharedNameB=rpNameB;
-    ['rp-lbl-a','rp-leg-a'].forEach(id=>document.getElementById(id).textContent=rpNameA.slice(0,16));
-    ['rp-lbl-b','rp-leg-b'].forEach(id=>document.getElementById(id).textContent=rpNameB.slice(0,16));
-    // Auto-init Comparison with same files
-    compAutoInitFromShared(d.stream_a, d.stream_b, rpNameA, rpNameB);
-    rpBoundStartA=0; rpBoundEndA=rpSA.lat.length-1;
-    rpBoundStartB=0; rpBoundEndB=rpSB.lat.length-1;
+    rpNameA = sharedNameA; rpNameB = sharedNameB;
+    ['rp-lbl-a','rp-leg-a'].forEach(id => document.getElementById(id).textContent = rpNameA.slice(0,16));
+    ['rp-lbl-b','rp-leg-b'].forEach(id => document.getElementById(id).textContent = rpNameB.slice(0,16));
+    compAutoInitFromShared(JSON.parse(JSON.stringify(sharedStreamA)), JSON.parse(JSON.stringify(sharedStreamB)), rpNameA, rpNameB);
+    rpBoundStartA = 0; rpBoundEndA = rpSA.lat.length - 1;
+    rpBoundStartB = 0; rpBoundEndB = rpSB.lat.length - 1;
     rpUpdateBoundsPanelUI();
-    document.getElementById('replay-upload').style.display='none';
-    document.getElementById('replay-app').style.display='flex';
-
+    slotA._slotReady = null; slotB._slotReady = null;
+    document.getElementById('replay-upload').style.display = 'none';
+    document.getElementById('replay-app').style.display = 'flex';
     switchTab('replay');
+    rpBuildAlignment(); rpInitChart(); rpRenderCharts(); rpSetSpeed(1);
+    setTimeout(() => { rpInitMap(); hideLoading(); }, 80);
+    return;
+  }
 
-    rpBuildAlignment();
-    rpInitChart();
-    rpRenderCharts();
-    rpSetSpeed(1);
+  // Altrimenti serve almeno un file reale per ogni slot non cached
+  if (!fA && !cachedA) return;
+  if (!fB && !cachedB) return;
+  showLoading('Parsing FIT...');
+  try {
+    let streamA, streamB, nameA, nameB;
 
-    setTimeout(() => {
-      rpInitMap();
-      hideLoading();
-    }, 80);
+    // Caso misto: uno o entrambi i file sono nuovi → upload solo quelli necessari
+    if (fA || fB) {
+      // Se solo uno dei due è nuovo, l'API si aspetta entrambi: per quello cached
+      // passiamo una sentinel o gestiamo i due casi separatamente
+      if (fA && fB) {
+        // Entrambi nuovi
+        const fd = new FormData(); fd.append('file_a', fA); fd.append('file_b', fB);
+        const r = await fetch('/api/upload', { method:'POST', body:fd });
+        const d = await r.json();
+        if (!d.success) throw new Error(d.detail);
+        streamA = d.stream_a; streamB = d.stream_b;
+        nameA = (d.filename_a||'A').replace('.fit','');
+        nameB = (d.filename_b||'B').replace('.fit','');
+      } else if (fA && cachedB) {
+        // Solo A nuovo, B da cache
+        const fd = new FormData(); fd.append('file_a', fA);
+        const r = await fetch('/api/upload_single', { method:'POST', body:fd });
+        const d = await r.json();
+        if (!d.success) throw new Error(d.detail);
+        streamA = d.stream_a; streamB = JSON.parse(JSON.stringify(sharedStreamB));
+        nameA = (d.filename_a||'A').replace('.fit',''); nameB = sharedNameB;
+      } else if (cachedA && fB) {
+        // Solo B nuovo, A da cache
+        const fd = new FormData(); fd.append('file_b', fB);
+        const r = await fetch('/api/upload_single_b', { method:'POST', body:fd });
+        const d = await r.json();
+        if (!d.success) throw new Error(d.detail);
+        streamA = JSON.parse(JSON.stringify(sharedStreamA)); streamB = d.stream_b;
+        nameA = sharedNameA; nameB = (d.filename_b||'B').replace('.fit','');
+      }
+    }
 
-  } catch(e){hideLoading();alert('Errore: '+e.message);}
+    rpSA = streamA; rpSB = streamB;
+    rpSA._rawPower = rpSA.power ? rpSA.power.slice() : [];
+    rpSB._rawPower = rpSB.power ? rpSB.power.slice() : [];
+    rpSA._rawSpeed = rpSA.speed ? rpSA.speed.slice() : null;
+    rpSB._rawSpeed = rpSB.speed ? rpSB.speed.slice() : null;
+    rpApplySmoothing();
+    rpNameA = nameA; rpNameB = nameB;
+    sharedStreamA = streamA; sharedStreamB = streamB;
+    sharedNameA = rpNameA; sharedNameB = rpNameB;
+    ['rp-lbl-a','rp-leg-a'].forEach(id => document.getElementById(id).textContent = rpNameA.slice(0,16));
+    ['rp-lbl-b','rp-leg-b'].forEach(id => document.getElementById(id).textContent = rpNameB.slice(0,16));
+    compAutoInitFromShared(JSON.parse(JSON.stringify(streamA)), JSON.parse(JSON.stringify(streamB)), rpNameA, rpNameB);
+    if (typeof updateHeaderFileInfo === 'function') updateHeaderFileInfo();
+    document.getElementById('rp-slot-a')._slotReady = null;
+    document.getElementById('rp-slot-b')._slotReady = null;
+    rpBoundStartA = 0; rpBoundEndA = rpSA.lat.length - 1;
+    rpBoundStartB = 0; rpBoundEndB = rpSB.lat.length - 1;
+    rpUpdateBoundsPanelUI();
+    document.getElementById('replay-upload').style.display = 'none';
+    document.getElementById('replay-app').style.display = 'flex';
+    switchTab('replay');
+    rpBuildAlignment(); rpInitChart(); rpRenderCharts(); rpSetSpeed(1);
+    setTimeout(() => { rpInitMap(); hideLoading(); }, 80);
+
+  } catch(e) { hideLoading(); alert('Errore: ' + e.message); }
 }
 
 // Alignment
@@ -1622,5 +1646,6 @@ function replayReset(){
     const c=colorMap[k]||k;
     document.getElementById(`rp-tog-${k}`).className=`chart-tog ct-${c}-${rpChartVis[k]?'on':'off'}`;
   });
+  // Il reset globale (cambia file) aggiorna anche l'header — qui non serve fare nulla
 }
 </script>
