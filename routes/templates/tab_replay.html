@@ -216,6 +216,7 @@
 
             <div style="display:flex;align-items:center;gap:10px;margin-top:2px;">
               <button class="btn btn-primary-b" style="font-size:.72rem;padding:4px 14px" onclick="rpApplyBounds()">✓ Applica e ricalcola</button>
+              <button class="btn btn-danger" style="font-size:.72rem;padding:4px 14px" onclick="rpResetFullActivity()">↺ Ripristina tracce complete</button>
               <span style="font-size:.7rem;color:var(--muted);font-family:var(--font-mono);">Sposta lo start/end di ogni atleta per allineare la partenza o ignorare i dati extra</span>
             </div>
           </div>
@@ -737,26 +738,73 @@ function rpOnGraphAlignChange(){ rpRenderCharts(); rpUpdateFrame(rpCurrentT); }
 // Map
 function rpInitMap(){
   rpMapReady = false;
-  const n=rpSA.lat.length, lat=rpSA.lat.reduce((a,b)=>a+b,0)/n, lon=rpSA.lon.reduce((a,b)=>a+b,0)/n;
+  const i0 = rpBoundStartA || 0;
+  const n = rpBoundEndA - i0 + 1 || rpSA.lat.length;
+  const lat = rpSA.lat.slice(i0, i0+n).reduce((a,b)=>a+b,0)/n;
+  const lon = rpSA.lon.slice(i0, i0+n).reduce((a,b)=>a+b,0)/n;
   rpMap=new maplibregl.Map({container:'replay-map',style:STYLES.streets,center:[lon,lat],zoom:12,pitch:45,bearing:0,antialias:true});
   rpMap.addControl(new maplibregl.NavigationControl(),'top-left');
   rpMap.on('load',()=>{
     rpMapReady = true;
     map_addTerrain_to(rpMap);
-    rpAddTrace('rp-ta',rpSA,'#3b82f6',3,false); rpAddTrace('rp-tb',rpSB,'#f97316',3,false);
-    rpAddTrace('rp-ta-tr',rpSA,'#60a5fa',5,true); rpAddTrace('rp-tb-tr',rpSB,'#fb923c',5,true);
+    rpAddTrace('rp-ta',    rpSA, '#3b82f6', 3, false, rpBoundStartA, rpBoundEndA);
+    rpAddTrace('rp-tb',    rpSB, '#f97316', 3, false, rpBoundStartB, rpBoundEndB);
+    rpAddTrace('rp-ta-tr', rpSA, '#60a5fa', 5, true,  rpBoundStartA, rpBoundEndA);
+    rpAddTrace('rp-tb-tr', rpSB, '#fb923c', 5, true,  rpBoundStartB, rpBoundEndB);
     rpFitAll();
     rpAddGapLine();
     rpSpawnMarkers();
     rpUpdateFrame(0);
   });
 }
-function rpAddTrace(id,s,color,w,trail){
-  const coords=s.lat.map((la,i)=>[s.lon[i],la,s.alt[i]||0]);
-  const geo={type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:coords}}]};
-  if(rpMap.getSource(id))rpMap.getSource(id).setData(geo);
-  else{rpMap.addSource(id,{type:'geojson',data:geo});rpMap.addLayer({id:`${id}-ln`,type:'line',source:id,paint:{'line-color':color,'line-width':w,'line-opacity':trail?0:0.42}});}
+function rpAddTrace(id, s, color, w, trail, i0, i1) {
+  const start = (i0 != null) ? i0 : 0;
+  const end   = (i1 != null) ? i1 : s.lat.length - 1;
+  const coords = [];
+  for (let i = start; i <= end; i++) coords.push([s.lon[i], s.lat[i], s.alt[i]||0]);
+  const geo = {type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:coords}}]};
+  if (rpMap.getSource(id)) rpMap.getSource(id).setData(geo);
+  else {
+    rpMap.addSource(id, {type:'geojson', data:geo});
+    rpMap.addLayer({id:`${id}-ln`, type:'line', source:id, paint:{'line-color':color,'line-width':w,'line-opacity':trail?0:0.42}});
+  }
 }
+
+// Ridisegna le tracce base (sfondo) usando i bounds correnti
+function rpRedrawTracesWithBounds() {
+  if (!rpMap || !rpMapReady) return;
+  _rpTrailLastA = -1; _rpTrailLastB = -1;
+  rpAddTrace('rp-ta',    rpSA, '#3b82f6', 3, false, rpBoundStartA, rpBoundEndA);
+  rpAddTrace('rp-tb',    rpSB, '#f97316', 3, false, rpBoundStartB, rpBoundEndB);
+  rpAddTrace('rp-ta-tr', rpSA, '#60a5fa', 5, true,  rpBoundStartA, rpBoundEndA);
+  rpAddTrace('rp-tb-tr', rpSB, '#fb923c', 5, true,  rpBoundStartB, rpBoundEndB);
+  // Sposta i marcatori di start al nuovo punto iniziale
+  if (rpMarkerA) rpMarkerA.setLngLat([rpSA.lon[rpBoundStartA], rpSA.lat[rpBoundStartA]]);
+  if (rpMarkerB) rpMarkerB.setLngLat([rpSB.lon[rpBoundStartB], rpSB.lat[rpBoundStartB]]);
+  // Fit sulla porzione selezionata
+  const lats = [], lons = [];
+  for (let i = rpBoundStartA; i <= rpBoundEndA; i++) { lats.push(rpSA.lat[i]); lons.push(rpSA.lon[i]); }
+  for (let i = rpBoundStartB; i <= rpBoundEndB; i++) { lats.push(rpSB.lat[i]); lons.push(rpSB.lon[i]); }
+  if (lats.length) rpMap.fitBounds([[Math.min(...lons),Math.min(...lats)],[Math.max(...lons),Math.max(...lats)]],{padding:60,duration:600});
+}
+
+// Ripristina il range completo (entrambe le tracce)
+function rpResetFullActivity() {
+  if (!rpSA || !rpSB) return;
+  rpBoundStartA = 0; rpBoundEndA = rpSA.lat.length - 1;
+  rpBoundStartB = 0; rpBoundEndB = rpSB.lat.length - 1;
+  rpUpdateBoundsPanelUI();
+  rpUpdateBoundsMarkersOnMap();
+  rpBuildAlignment();
+  rpRenderCharts();
+  rpUpdateFrame(0);
+  rpRedrawTracesWithBounds();
+  rpFitAll();
+  document.getElementById('replay-status').textContent = 'Tracce ripristinate';
+  // Sincronizza Comparison al full range
+  if (typeof compResetFullActivity === 'function') compResetFullActivity();
+}
+
 function rpAddGapLine(){
   rpMap.addSource('rp-gap',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
   rpMap.addLayer({id:'rp-gap-ln',type:'line',source:'rp-gap',paint:{'line-color':'#fff','line-width':2,'line-opacity':0.55,'line-dasharray':[3,3]}});
@@ -774,7 +822,8 @@ function rpUpdateTrail(fr, frameIdx) {
       _rpTrailLastA = iA;
       const src = rpMap.getSource('rp-ta-tr');
       if (src) {
-        const coords = rpSA.lat.slice(0, iA + 1).map((la,i) => [rpSA.lon[i], la, rpSA.alt[i]||0]);
+        const coords = [];
+        for (let i = rpBoundStartA; i <= iA; i++) coords.push([rpSA.lon[i], rpSA.lat[i], rpSA.alt[i]||0]);
         if (coords.length >= 2) {
           src.setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:coords}}]});
           rpMap.setPaintProperty('rp-ta-tr-ln','line-opacity', 0.85);
@@ -786,7 +835,8 @@ function rpUpdateTrail(fr, frameIdx) {
       _rpTrailLastB = iB;
       const src = rpMap.getSource('rp-tb-tr');
       if (src) {
-        const coords = rpSB.lat.slice(0, iB + 1).map((la,i) => [rpSB.lon[i], la, rpSB.alt[i]||0]);
+        const coords = [];
+        for (let i = rpBoundStartB; i <= iB; i++) coords.push([rpSB.lon[i], rpSB.lat[i], rpSB.alt[i]||0]);
         if (coords.length >= 2) {
           src.setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:coords}}]});
           rpMap.setPaintProperty('rp-tb-tr-ln','line-opacity', 0.85);
@@ -815,10 +865,10 @@ function replayChangeStyle(k){
     rpMapReady = true;
     _rpTrailLastA = -1; _rpTrailLastB = -1;
     map_addTerrain_to(rpMap);
-    rpAddTrace('rp-ta',rpSA,'#3b82f6',3,false);
-    rpAddTrace('rp-tb',rpSB,'#f97316',3,false);
-    rpAddTrace('rp-ta-tr',rpSA,'#60a5fa',5,true);
-    rpAddTrace('rp-tb-tr',rpSB,'#fb923c',5,true);
+    rpAddTrace('rp-ta',    rpSA, '#3b82f6', 3, false, rpBoundStartA, rpBoundEndA);
+    rpAddTrace('rp-tb',    rpSB, '#f97316', 3, false, rpBoundStartB, rpBoundEndB);
+    rpAddTrace('rp-ta-tr', rpSA, '#60a5fa', 5, true,  rpBoundStartA, rpBoundEndA);
+    rpAddTrace('rp-tb-tr', rpSB, '#fb923c', 5, true,  rpBoundStartB, rpBoundEndB);
     rpAddGapLine();
     rpSpawnMarkers();
     if(rpAligned.length) rpUpdateFrame(rpCurrentT);
@@ -1569,6 +1619,8 @@ function rpShift(which, deltaM) {
 
   rpUpdateBoundsPanelUI();
   rpUpdateBoundsMarkersOnMap();
+  // Aggiorna i marker del settore in Comparison in tempo reale
+  syncBoundsToComparison();
 }
 
 function rpResetBound(which) {
@@ -1578,6 +1630,7 @@ function rpResetBound(which) {
   if (which === 'endB')   rpBoundEndB   = rpSB.lat.length - 1;
   rpUpdateBoundsPanelUI();
   rpUpdateBoundsMarkersOnMap();
+  syncBoundsToComparison();
 }
 
 function rpApplyBounds() {
@@ -1585,8 +1638,34 @@ function rpApplyBounds() {
   rpBuildAlignment();
   rpRenderCharts();
   rpUpdateFrame(0);
+  rpRedrawTracesWithBounds();
   document.getElementById('replay-status').textContent =
     `Bounds applicati · ${rpAligned.length} frame · ${fmtTime(rpMaxT)}`;
+  syncBoundsToComparison();
+}
+
+// Propaga i bounds di Race Replay → settore attivo di Comparison (trim fisico)
+function syncBoundsToComparison() {
+  console.log('[sync→Comp] rpBounds:', rpBoundStartA, rpBoundEndA, rpBoundStartB, rpBoundEndB);
+  if (typeof compGetActiveSector !== 'function') { console.warn('[sync→Comp] compGetActiveSector non disponibile'); return; }
+  const sec = compGetActiveSector();
+  if (!sec) { console.warn('[sync→Comp] nessun settore attivo'); return; }
+  console.log('[sync→Comp] settore trovato:', sec.id, 'compOriginalStreams.A len:', compOriginalStreams?.A?.lat?.length);
+
+  sec.startIdxA = rpBoundStartA;
+  sec.endIdxA   = rpBoundEndA;
+  sec.startIdxB = rpBoundStartB;
+  sec.endIdxB   = rpBoundEndB;
+
+  if (typeof compTrimToCurrentSector === 'function') {
+    compTrimToCurrentSector();
+    console.log('[sync→Comp] dopo trim: compStreamA len:', compStreamA?.lat?.length, 'compMapReady:', compMapReady);
+  } else { console.warn('[sync→Comp] compTrimToCurrentSector non disponibile'); }
+
+  if (typeof compMapReady !== 'undefined' && !compMapReady && typeof compMap !== 'undefined' && compMap) {
+    window._compPendingInit = true;
+    console.log('[sync→Comp] mappa non pronta, _compPendingInit=true');
+  }
 }
 
 let rpBoundMarkersMap = {};

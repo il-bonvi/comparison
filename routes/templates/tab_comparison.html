@@ -661,14 +661,29 @@ function compUpdateMapHoverFromChart(xKm) {
   }
 }
 
-function compDrawTrace(id, s, color) {
-  const coords = s.lat.map((la,i) => [s.lon[i],la,s.alt[i]||0]);
+function compDrawTrace(id, s, color, startIdx, endIdx) {
+  const i0 = (startIdx != null) ? startIdx : 0;
+  const i1 = (endIdx   != null) ? endIdx   : s.lat.length - 1;
+  const coords = [];
+  for (let i = i0; i <= i1; i++) coords.push([s.lon[i], s.lat[i], s.alt[i]||0]);
   const geo = { type:'FeatureCollection', features:[{ type:'Feature', geometry:{type:'LineString',coordinates:coords}}]};
   if (compMap.getSource(id)) compMap.getSource(id).setData(geo);
   else {
     compMap.addSource(id, { type:'geojson', data:geo });
     compMap.addLayer({ id:`${id}-line`, type:'line', source:id, paint:{'line-color':color,'line-width':3,'line-opacity':0.85}});
   }
+}
+
+// Ridisegna le tracce usando i bounds del settore attivo (o globali se nessun settore)
+function compRedrawTracesWithBounds() {
+  if (!compMap || !compMapReady || !compStreamA) return;
+  const sec = compGetActiveSector();
+  const sA = sec ? sec.startIdxA : compGlobalStartA;
+  const eA = sec ? sec.endIdxA   : compGlobalEndA;
+  const sB = sec ? sec.startIdxB : compGlobalStartB;
+  const eB = sec ? sec.endIdxB   : compGlobalEndB;
+  compDrawTrace('comp-ta', compStreamA, '#3b82f6', sA, eA);
+  if (compStreamB) compDrawTrace('comp-tb', compStreamB, '#f97316', sB, eB);
 }
 function compFit() {
   if (!compMap||!compStreamA) return;
@@ -843,6 +858,7 @@ function compSectorShift(which, deltaM) {
   compUpdateSectorPanelUI();
   compRenderSectorMarkersAll();
   compUpdateElevChart();
+  syncBoundsToReplay();
 }
 
 function compSectorResetEnd(who) {
@@ -857,6 +873,7 @@ function compApplySector() {
   compUpdateSectorPanelUI();
   compRenderSectorMarkersAll();
   compUpdateElevChart();
+  syncBoundsToReplay();
 }
 
 // ── Sector boundary markers on map ──
@@ -978,6 +995,7 @@ function compAlignStartBtoA() {
   compUpdateSectorPanelUI();
   compRenderSectorMarkersAll();
   compUpdateElevChart();
+  syncBoundsToReplay();
 }
 
 function compAlignStartAtoB() {
@@ -990,6 +1008,7 @@ function compAlignStartAtoB() {
   compUpdateSectorPanelUI();
   compRenderSectorMarkersAll();
   compUpdateElevChart();
+  syncBoundsToReplay();
 }
 
 function compAlignEndBtoA() {
@@ -1002,6 +1021,7 @@ function compAlignEndBtoA() {
   compUpdateSectorPanelUI();
   compRenderSectorMarkersAll();
   compUpdateElevChart();
+  syncBoundsToReplay();
 }
 
 function compAlignEndAtoB() {
@@ -1014,11 +1034,38 @@ function compAlignEndAtoB() {
   compUpdateSectorPanelUI();
   compRenderSectorMarkersAll();
   compUpdateElevChart();
+  syncBoundsToReplay();
 }
 
-// ────────────────────────────────────────────────────────────────
-// TAGLIO ATTIVITÀ (usa gli start/end del settore corrente)
-// ────────────────────────────────────────────────────────────────
+// Propaga il settore attivo di Comparison → bounds di Race Replay
+function syncBoundsToReplay() {
+  if (typeof rpBoundStartA === 'undefined') return;
+
+  // Usa gli indici assoluti sull'originale se disponibili (post-trim),
+  // altrimenti usa gli indici del settore direttamente
+  if (window._compAbsoluteBoundsA && window._compAbsoluteBoundsB) {
+    rpBoundStartA = window._compAbsoluteBoundsA.start;
+    rpBoundEndA   = window._compAbsoluteBoundsA.end;
+    rpBoundStartB = window._compAbsoluteBoundsB.start;
+    rpBoundEndB   = window._compAbsoluteBoundsB.end;
+  } else {
+    const sec = compGetActiveSector();
+    if (!sec) return;
+    rpBoundStartA = sec.startIdxA;
+    rpBoundEndA   = sec.endIdxA;
+    rpBoundStartB = sec.startIdxB;
+    rpBoundEndB   = sec.endIdxB;
+  }
+
+  if (typeof rpUpdateBoundsPanelUI === 'function') rpUpdateBoundsPanelUI();
+  if (typeof rpUpdateBoundsMarkersOnMap === 'function') rpUpdateBoundsMarkersOnMap();
+  if (typeof rpBuildAlignment === 'function') {
+    rpBuildAlignment();
+    if (typeof rpRenderCharts === 'function') rpRenderCharts();
+    if (typeof rpUpdateFrame === 'function') rpUpdateFrame(0);
+  }
+}
+
 function compTrimToCurrentSector() {
   const sec = compGetActiveSector();
   if (!sec) return;
@@ -1027,6 +1074,10 @@ function compTrimToCurrentSector() {
   const newEndA = sec.endIdxA;
   const newStartB = sec.startIdxB;
   const newEndB = sec.endIdxB;
+
+  // Salva gli indici assoluti sull'originale per la sincronizzazione con Replay
+  window._compAbsoluteBoundsA = { start: newStartA, end: newEndA };
+  window._compAbsoluteBoundsB = { start: newStartB, end: newEndB };
 
   const rebuildStream = (orig, start, end) => {
     const sliced = {};
@@ -1080,10 +1131,15 @@ function compTrimToCurrentSector() {
   compRenderSectorMarkersAll();
   compUpdateSectorLegend();
   document.getElementById('comp-status').textContent = `Attività tagliata: A [${(compStreamA.distance_m[compStreamA.distance_m.length-1]/1000).toFixed(1)}km] B [${(compStreamB.distance_m[compStreamB.distance_m.length-1]/1000).toFixed(1)}km]`;
+  // Propaga i bounds a Race Replay
+  syncBoundsToReplay();
 }
 
 function compResetFullActivity() {
   if (!compOriginalStreams.A || !compOriginalStreams.B) return;
+  // Azzera i bounds assoluti salvati
+  window._compAbsoluteBoundsA = null;
+  window._compAbsoluteBoundsB = null;
   compStreamA = JSON.parse(JSON.stringify(compOriginalStreams.A));
   compStreamB = JSON.parse(JSON.stringify(compOriginalStreams.B));
   compStreamA._rawPower = compStreamA.power ? compStreamA.power.slice() : [];
@@ -1106,6 +1162,14 @@ function compResetFullActivity() {
   compRenderSectorMarkersAll();
   compUpdateSectorLegend();
   document.getElementById('comp-status').textContent = 'Attività ripristinata';
+  // Riporta Replay al range completo
+  if (typeof rpBoundStartA !== 'undefined' && rpSA) {
+    rpBoundStartA = 0; rpBoundEndA = rpSA.lat.length - 1;
+    rpBoundStartB = 0; rpBoundEndB = rpSB.lat.length - 1;
+    if (typeof rpUpdateBoundsPanelUI === 'function') rpUpdateBoundsPanelUI();
+    if (typeof rpUpdateBoundsMarkersOnMap === 'function') rpUpdateBoundsMarkersOnMap();
+    if (typeof rpBuildAlignment === 'function') { rpBuildAlignment(); rpRenderCharts(); rpUpdateFrame(0); }
+  }
 }
 
 // ────────────────────────────────────────────────────────────────

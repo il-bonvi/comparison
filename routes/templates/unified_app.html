@@ -714,29 +714,40 @@ function switchTab(tab) {
       if (window._compPendingInit && compStreamA && compStreamB) {
         window._compPendingInit = false;
         if (!compMap) {
-          // Prima volta: inizializza mappa (compInitElevChart viene chiamato nel suo callback 'load')
+          // Prima volta assoluta: inizializza mappa
+          // compInitElevChart viene chiamato nel callback 'load' della mappa
           compInitMap();
+        } else if (compMapReady) {
+          // Mappa già pronta: ridisegna rispettando il trim già eseguito
+          compDrawTrace('comp-ta', compStreamA, '#3b82f6');
+          compDrawTrace('comp-tb', compStreamB, '#f97316');
+          compFit();
+          compRenderSectorMarkersAll();
+          compInitElevChart();
         } else {
-          // Mappa già esistente (es. caricamento da Replay dopo che Comp era già stato usato):
-          // ridisegna tracce e reinizializza grafico direttamente
-          if (typeof compMapReady !== 'undefined' && compMapReady) {
-            if (typeof compDrawTrace === 'function') {
-              compDrawTrace('comp-ta', compStreamA, '#3b82f6');
-              compDrawTrace('comp-tb', compStreamB, '#f97316');
-            }
-            if (typeof compRenderSectorMarkersAll === 'function') compRenderSectorMarkersAll();
-          }
-          if (typeof compInitElevChart === 'function') compInitElevChart();
+          // Mappa esiste ma non ancora pronta: aspetta styledata
+          compMap.once('styledata', () => {
+            compDrawTrace('comp-ta', compStreamA, '#3b82f6');
+            compDrawTrace('comp-tb', compStreamB, '#f97316');
+            compFit();
+            compRenderSectorMarkersAll();
+            compInitElevChart();
+          });
         }
-      } else if (compElevChart) {
-        // Grafico già esistente: controlla che l'SVG abbia dimensioni valide
+      } else if (compStreamA && compMapReady) {
+        // Tab già inizializzata: aggiorna mappa e grafico
         const dom = document.getElementById('comp-elevation-chart');
         const svgEl = dom && dom.querySelector('svg');
         if (!svgEl || parseInt(svgEl.getAttribute('width') || '0') < 10) {
-          if (typeof compUpdateElevChart === 'function') compUpdateElevChart();
+          compUpdateElevChart();
         } else {
-          if (typeof compResizeChart === 'function') compResizeChart();
+          compResizeChart();
         }
+        // Ridisegna le tracce con lo stream corrente (già trimmato se sync da Replay)
+        compDrawTrace('comp-ta', compStreamA, '#3b82f6');
+        compDrawTrace('comp-tb', compStreamB, '#f97316');
+        compRenderSectorMarkersAll();
+        if (compMap) compMap.resize();
       }
     }
     if (tab === 'replay') {
