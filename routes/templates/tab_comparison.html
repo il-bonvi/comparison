@@ -39,8 +39,6 @@
       </style>
 
       <div id="comp-topbar">
-        <span class="badge badge-a">🔵 <span id="comp-lbl-a">A</span></span>
-        <span class="badge badge-b">🟠 <span id="comp-lbl-b">B</span></span>
         <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
 
         <label style="font-size:.7rem;color:var(--muted2)">Settore:</label>
@@ -83,7 +81,6 @@
         </div>
 
         <button class="btn btn-ghost" id="comp-btn-table" onclick="compToggleTable()" style="margin-left:4px;">📊 Tabella</button>
-        <button class="btn btn-danger" onclick="compReset()" style="margin-left:4px;">⟲ Reset</button>
         <span id="comp-status" style="font-size:.72rem;color:var(--muted);margin-left:auto;font-family:var(--font-mono);"></span>
       </div>
 
@@ -133,13 +130,17 @@
             <div style="margin-left:auto; display:flex; align-items:center; gap:6px;">
               <button class="btn btn-ghost" onclick="compAddSector()" title="Crea un nuovo settore personalizzato" style="padding:2px 8px; font-size:.7rem; background:rgba(59,130,246,0.1); border:1px solid var(--a); color:#fff; border-radius:4px;">＋ Nuovo Settore</button>
               <button class="btn btn-ghost" onclick="compDeleteSector()" title="Elimina il settore selezionato" style="padding:2px 8px; font-size:.7rem; background:rgba(244,63,94,0.1); border:1px solid #f43f5e; color:#f43f5e; border-radius:4px;">✕ Elimina</button>
+              <button class="btn btn-success" onclick="compTrimToCurrentSector()" style="padding:2px 8px; font-size:.7rem; background:rgba(34,197,94,0.15); border:1px solid #22c55e; color:#22c55e; border-radius:4px;">✂️ Taglia attività a questo settore</button>
+              <button class="btn btn-ghost" onclick="compResetFullActivity()" style="padding:2px 8px; font-size:.7rem;">⟲ Ripristina attività completa</button>
             </div>
           </div>
 
+          <!-- 🔵 ATLETA A -->
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <span style="color:var(--a); font-weight:700; min-width:85px;">🔵 ATLETA A:</span>
+            <span style="color:var(--a); font-weight:700; min-width:85px;">🔵 ATL A:</span>
             
             <span style="color:var(--muted2); margin-left:4px;">Inizio:</span>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startA',-10000)">◀10km</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startA',-1000)">◀1km</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startA',-100)">◀100m</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startA',-10)">◀10m</button>
@@ -147,10 +148,12 @@
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startA',10)">10m▶</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startA',100)">100m▶</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startA',1000)">1km▶</button>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startA',10000)">10km▶</button>
             
             <span style="width:1px; height:12px; background:var(--border); margin:0 8px"></span>
             
             <span style="color:var(--muted2);">Fine:</span>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endA',-10000)">◀10km</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endA',-1000)">◀1km</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endA',-100)">◀100m</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endA',-10)">◀10m</button>
@@ -158,12 +161,19 @@
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endA',10)">10m▶</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endA',100)">100m▶</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endA',1000)">1km▶</button>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endA',10000)">10km▶</button>
+
+            <!-- Pulsanti allineamento A -->
+            <button class="btn btn-primary-b" style="padding:1px 8px; font-size:.68rem; margin-left:8px;" onclick="compAlignStartAtoB()">🔗 Start 🔵 su 🟠</button>
+            <button class="btn btn-primary-b" style="padding:1px 8px; font-size:.68rem;" onclick="compAlignEndAtoB()">🔗 End 🔵 su 🟠</button>
           </div>
 
+          <!-- 🟠 ATLETA B -->
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <span style="color:var(--b); font-weight:700; min-width:85px;">🟠 ATLETA B:</span>
+            <span style="color:var(--b); font-weight:700; min-width:85px;">🟠 ATL B:</span>
             
             <span style="color:var(--muted2); margin-left:4px;">Inizio:</span>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startB',-10000)">◀10km</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startB',-1000)">◀1km</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startB',-100)">◀100m</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startB',-10)">◀10m</button>
@@ -171,10 +181,12 @@
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startB',10)">10m▶</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startB',100)">100m▶</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startB',1000)">1km▶</button>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('startB',10000)">10km▶</button>
             
             <span style="width:1px; height:12px; background:var(--border); margin:0 8px"></span>
             
             <span style="color:var(--muted2);">Fine:</span>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endB',-10000)">◀10km</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endB',-1000)">◀1km</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endB',-100)">◀100m</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endB',-10)">◀10m</button>
@@ -182,6 +194,11 @@
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endB',10)">10m▶</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endB',100)">100m▶</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endB',1000)">1km▶</button>
+            <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endB',10000)">10km▶</button>
+
+            <!-- Pulsanti allineamento B -->
+            <button class="btn btn-primary-b" style="padding:1px 8px; font-size:.68rem; margin-left:8px;" onclick="compAlignStartBtoA()">🔗 Start 🟠 su 🔵</button>
+            <button class="btn btn-primary-b" style="padding:1px 8px; font-size:.68rem;" onclick="compAlignEndBtoA()">🔗 End 🟠 su 🔵</button>
           </div>
 
         </div>
@@ -374,65 +391,141 @@ let compSectorPanelOpen = false;
 let compCurrentChartTab = 'elev';
 let compSmoothPanelOpen = false;
 
+// ZOOM grafici 
+let compZoomDomainX = null;   // null = vista intera, altrimenti [minX, maxX] in km
+
 // ── Sectors store ──
 let compSectors = [];
 let compActiveSectorId = null;
 let _compSectorIdCounter = 0;
+
+// ── Global bounds for activity trimming ──
+let compGlobalStartA = 0, compGlobalEndA = 0;
+let compGlobalStartB = 0, compGlobalEndB = 0;
+let compOriginalStreams = { A: null, B: null };
 
 const COMP_SECTOR_COLORS = ['#3b82f6','#f97316','#22c55e','#a855f7','#22d3ee','#f59e0b','#ef4444','#84cc16'];
 
 // ── File inputs ──
 document.getElementById('comp-file-a').addEventListener('change', e => {
   if (e.target.files[0]) {
-    document.getElementById('comp-slot-a').classList.add('filled-a');
+    const slot = document.getElementById('comp-slot-a');
+    slot.classList.add('filled-a');
+    slot._slotReady = null;
     document.getElementById('comp-name-a').textContent = e.target.files[0].name.slice(0,22);
     compCheckReady();
   }
 });
 document.getElementById('comp-file-b').addEventListener('change', e => {
   if (e.target.files[0]) {
-    document.getElementById('comp-slot-b').classList.add('filled-b');
+    const slot = document.getElementById('comp-slot-b');
+    slot.classList.add('filled-b');
+    slot._slotReady = null;
     document.getElementById('comp-name-b').textContent = e.target.files[0].name.slice(0,22);
     compCheckReady();
   }
 });
 function compCheckReady() {
-  const ok = document.getElementById('comp-file-a').files[0] && document.getElementById('comp-file-b').files[0];
-  document.getElementById('comp-btn-go').disabled = !ok;
+  const fA = document.getElementById('comp-file-a').files[0];
+  const fB = document.getElementById('comp-file-b').files[0];
+  const cachedA = document.getElementById('comp-slot-a')._slotReady === 'cached';
+  const cachedB = document.getElementById('comp-slot-b')._slotReady === 'cached';
+  document.getElementById('comp-btn-go').disabled = !((fA || cachedA) && (fB || cachedB));
 }
 
 // ── Upload ──
 async function compStart() {
   const fA = document.getElementById('comp-file-a').files[0];
   const fB = document.getElementById('comp-file-b').files[0];
-  if (!fA || !fB) return;
-  showLoading('Parsing FIT...');
-  try {
-    const fd = new FormData(); fd.append('file_a', fA); fd.append('file_b', fB);
-    const r = await fetch('/api/upload', { method:'POST', body:fd });
-    const d = await r.json();
-    if (!d.success) throw new Error(d.detail || 'Errore upload');
-    compStreamA = d.stream_a; compStreamB = d.stream_b;
+  const slotA = document.getElementById('comp-slot-a');
+  const slotB = document.getElementById('comp-slot-b');
+  const cachedA = slotA._slotReady === 'cached' && !fA;
+  const cachedB = slotB._slotReady === 'cached' && !fB;
+
+  // Entrambi cached: riusa direttamente gli stream in memoria
+  if (cachedA && cachedB && sharedStreamA && sharedStreamB) {
+    showLoading('Ricaricamento dati...');
+    compStreamA = JSON.parse(JSON.stringify(sharedStreamA));
+    compStreamB = JSON.parse(JSON.stringify(sharedStreamB));
+    compOriginalStreams.A = JSON.parse(JSON.stringify(compStreamA));
+    compOriginalStreams.B = JSON.parse(JSON.stringify(compStreamB));
     compStreamA._rawPower = compStreamA.power ? compStreamA.power.slice() : [];
     compStreamB._rawPower = compStreamB.power ? compStreamB.power.slice() : [];
     compStreamA._rawSpeed = compStreamA.speed ? compStreamA.speed.slice() : null;
     compStreamB._rawSpeed = compStreamB.speed ? compStreamB.speed.slice() : null;
     compApplySmoothing();
-    compNameA = (d.filename_a||'A').replace('.fit','');
-    compNameB = (d.filename_b||'B').replace('.fit','');
-    sharedStreamA = d.stream_a; sharedStreamB = d.stream_b;
-    sharedNameA = compNameA; sharedNameB = compNameB;
-    ['comp-lbl-a','comp-leg-a'].forEach(id => document.getElementById(id).textContent = compNameA.slice(0,16));
-    ['comp-lbl-b','comp-leg-b'].forEach(id => document.getElementById(id).textContent = compNameB.slice(0,16));
+    compNameA = sharedNameA; compNameB = sharedNameB;
+    const _elCpA=document.getElementById('comp-leg-a'); if(_elCpA) _elCpA.textContent=compNameA.slice(0,16);
+    const _elCpB=document.getElementById('comp-leg-b'); if(_elCpB) _elCpB.textContent=compNameB.slice(0,16);
+    compGlobalStartA = 0; compGlobalEndA = compStreamA.lat.length - 1;
+    compGlobalStartB = 0; compGlobalEndB = compStreamB.lat.length - 1;
+    slotA._slotReady = null; slotB._slotReady = null;
     document.getElementById('comp-upload').style.display = 'none';
     document.getElementById('comp-app').style.display = 'flex';
-    compSectors = [];
-    _compSectorIdCounter = 0;
+    compSectors = []; _compSectorIdCounter = 0;
     compAddSector(true);
     compInitMap();
     rpAutoInitFromShared();
     hideLoading();
-  } catch(e) { hideLoading(); alert('Errore: '+e.message); }
+    return;
+  }
+
+  if (!fA && !cachedA) return;
+  if (!fB && !cachedB) return;
+
+  showLoading('Parsing FIT...');
+  try {
+    let streamA, streamB, nameA, nameB;
+
+    if (fA && fB) {
+      const fd = new FormData(); fd.append('file_a', fA); fd.append('file_b', fB);
+      const r = await fetch('/api/upload', { method:'POST', body:fd });
+      const d = await r.json();
+      if (!d.success) throw new Error(d.detail || 'Errore upload');
+      streamA = d.stream_a; streamB = d.stream_b;
+      nameA = (d.filename_a||'A').replace('.fit','');
+      nameB = (d.filename_b||'B').replace('.fit','');
+    } else if (fA && cachedB) {
+      const fd = new FormData(); fd.append('file_a', fA);
+      const r = await fetch('/api/upload_single', { method:'POST', body:fd });
+      const d = await r.json();
+      if (!d.success) throw new Error(d.detail || 'Errore upload');
+      streamA = d.stream_a; streamB = JSON.parse(JSON.stringify(sharedStreamB));
+      nameA = (d.filename_a||'A').replace('.fit',''); nameB = sharedNameB;
+    } else if (cachedA && fB) {
+      const fd = new FormData(); fd.append('file_b', fB);
+      const r = await fetch('/api/upload_single_b', { method:'POST', body:fd });
+      const d = await r.json();
+      if (!d.success) throw new Error(d.detail || 'Errore upload');
+      streamA = JSON.parse(JSON.stringify(sharedStreamA)); streamB = d.stream_b;
+      nameA = sharedNameA; nameB = (d.filename_b||'B').replace('.fit','');
+    }
+
+    compStreamA = streamA; compStreamB = streamB;
+    compOriginalStreams.A = JSON.parse(JSON.stringify(compStreamA));
+    compOriginalStreams.B = JSON.parse(JSON.stringify(compStreamB));
+    compStreamA._rawPower = compStreamA.power ? compStreamA.power.slice() : [];
+    compStreamB._rawPower = compStreamB.power ? compStreamB.power.slice() : [];
+    compStreamA._rawSpeed = compStreamA.speed ? compStreamA.speed.slice() : null;
+    compStreamB._rawSpeed = compStreamB.speed ? compStreamB.speed.slice() : null;
+    compApplySmoothing();
+    compNameA = nameA; compNameB = nameB;
+    sharedStreamA = streamA; sharedStreamB = streamB;
+    sharedNameA = compNameA; sharedNameB = compNameB;
+    const _elCpA=document.getElementById('comp-leg-a'); if(_elCpA) _elCpA.textContent=compNameA.slice(0,16);
+    const _elCpB=document.getElementById('comp-leg-b'); if(_elCpB) _elCpB.textContent=compNameB.slice(0,16);
+    compGlobalStartA = 0; compGlobalEndA = compStreamA.lat.length - 1;
+    compGlobalStartB = 0; compGlobalEndB = compStreamB.lat.length - 1;
+    slotA._slotReady = null; slotB._slotReady = null;
+    document.getElementById('comp-upload').style.display = 'none';
+    document.getElementById('comp-app').style.display = 'flex';
+    compSectors = []; _compSectorIdCounter = 0;
+    compAddSector(true);
+    compInitMap();
+    rpAutoInitFromShared();
+    if (typeof updateHeaderFileInfo === 'function') updateHeaderFileInfo();
+    hideLoading();
+  } catch(e) { hideLoading(); alert('Errore: ' + e.message); }
 }
 
 // ── Terrain helper (global — also used by Race Replay module) ──
@@ -470,8 +563,6 @@ function compInitMap() {
     compDrawTrace('comp-tb', compStreamB, '#f97316');
     compInitChartHoverOnMap();
     compFit();
-    // Garantisce che il settore default esista sempre,
-    // indipendentemente dal percorso di inizializzazione (upload diretto o via Replay)
     if (compSectors.length === 0) {
       _compSectorIdCounter = 0;
       compAddSector(true);
@@ -542,10 +633,10 @@ function compHideChartHoverMarkers() {
 function compUpdateMapHoverFromChart(xKm) {
   if (!compMap || !compMapReady || !compStreamA || !compStreamB) { compClearMapHoverFromChart(); return; }
   const sec = compGetActiveSector();
-  const s0A = sec ? sec.startIdxA : 0;
-  const e0A = sec ? sec.endIdxA : compStreamA.lat.length-1;
-  const s0B = sec ? sec.startIdxB : 0;
-  const e0B = sec ? sec.endIdxB : compStreamB.lat.length-1;
+  const s0A = sec ? sec.startIdxA : compGlobalStartA;
+  const e0A = sec ? sec.endIdxA : compGlobalEndA;
+  const s0B = sec ? sec.startIdxB : compGlobalStartB;
+  const e0B = sec ? sec.endIdxB : compGlobalEndB;
   const d0A = compStreamA.distance_m[s0A] || 0;
   const d0B = compStreamB.distance_m[s0B] || 0;
   const dA = d0A + (xKm * 1000);
@@ -568,14 +659,29 @@ function compUpdateMapHoverFromChart(xKm) {
   }
 }
 
-function compDrawTrace(id, s, color) {
-  const coords = s.lat.map((la,i) => [s.lon[i],la,s.alt[i]||0]);
+function compDrawTrace(id, s, color, startIdx, endIdx) {
+  const i0 = (startIdx != null) ? startIdx : 0;
+  const i1 = (endIdx   != null) ? endIdx   : s.lat.length - 1;
+  const coords = [];
+  for (let i = i0; i <= i1; i++) coords.push([s.lon[i], s.lat[i], s.alt[i]||0]);
   const geo = { type:'FeatureCollection', features:[{ type:'Feature', geometry:{type:'LineString',coordinates:coords}}]};
   if (compMap.getSource(id)) compMap.getSource(id).setData(geo);
   else {
     compMap.addSource(id, { type:'geojson', data:geo });
     compMap.addLayer({ id:`${id}-line`, type:'line', source:id, paint:{'line-color':color,'line-width':3,'line-opacity':0.85}});
   }
+}
+
+// Ridisegna le tracce usando i bounds del settore attivo (o globali se nessun settore)
+function compRedrawTracesWithBounds() {
+  if (!compMap || !compMapReady || !compStreamA) return;
+  const sec = compGetActiveSector();
+  const sA = sec ? sec.startIdxA : compGlobalStartA;
+  const eA = sec ? sec.endIdxA   : compGlobalEndA;
+  const sB = sec ? sec.startIdxB : compGlobalStartB;
+  const eB = sec ? sec.endIdxB   : compGlobalEndB;
+  compDrawTrace('comp-ta', compStreamA, '#3b82f6', sA, eA);
+  if (compStreamB) compDrawTrace('comp-tb', compStreamB, '#f97316', sB, eB);
 }
 function compFit() {
   if (!compMap||!compStreamA) return;
@@ -623,17 +729,19 @@ function compMakeSectorId() { return ++_compSectorIdCounter; }
 function compAddSector(isDefault) {
   const id = compMakeSectorId();
   const color = COMP_SECTOR_COLORS[(compSectors.length) % COMP_SECTOR_COLORS.length];
-  const nA = compStreamA ? compStreamA.lat.length-1 : 0;
-  const nB = compStreamB ? compStreamB.lat.length-1 : 0;
+  const startA = (compGlobalStartA !== undefined) ? compGlobalStartA : 0;
+  const endA = (compGlobalEndA !== undefined) ? compGlobalEndA : (compStreamA ? compStreamA.lat.length-1 : 0);
+  const startB = (compGlobalStartB !== undefined) ? compGlobalStartB : 0;
+  const endB = (compGlobalEndB !== undefined) ? compGlobalEndB : (compStreamB ? compStreamB.lat.length-1 : 0);
   const sector = {
     id, color,
     name: isDefault ? 'Settore 1' : `Settore ${id}`,
-    startIdxA: 0, endIdxA: nA,
-    startIdxB: 0, endIdxB: nB,
+    startIdxA: startA, endIdxA: endA,
+    startIdxB: startB, endIdxB: endB,
     analyzed: false, sections: { sA:[], sB:[] }
   };
   compSectors.push(sector);
-  compActiveSectorId = id;
+  if (isDefault) compActiveSectorId = id;
   compRebuildSectorSelect();
   compUpdateSectorPanelUI();
   compRenderSectorMarkersAll();
@@ -675,6 +783,7 @@ function compOnSectorChange() {
   compActiveSectorId = parseInt(sel.value);
   compUpdateSectorPanelUI();
   compRenderSectorMarkersAll();
+  compUpdateElevChart();
 }
 
 function compUpdateSectorName(name) {
@@ -746,6 +855,8 @@ function compSectorShift(which, deltaM) {
   if (which==='endB')   sec.endIdxB   = Math.max(idx, sec.startIdxB+5);
   compUpdateSectorPanelUI();
   compRenderSectorMarkersAll();
+  compUpdateElevChart();
+  syncBoundsToReplay();
 }
 
 function compSectorResetEnd(who) {
@@ -760,6 +871,7 @@ function compApplySector() {
   compUpdateSectorPanelUI();
   compRenderSectorMarkersAll();
   compUpdateElevChart();
+  syncBoundsToReplay();
 }
 
 // ── Sector boundary markers on map ──
@@ -829,6 +941,236 @@ function compUpdateSectorChips() {
 }
 
 // ────────────────────────────────────────────────────────────────
+// FUNZIONI PER ALLINEAMENTO GEOGRAFICO
+// ────────────────────────────────────────────────────────────────
+function haversineDistanceSq(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const toRad = Math.PI / 180;
+  const phi1 = lat1 * toRad;
+  const phi2 = lat2 * toRad;
+  const dPhi = (lat2 - lat1) * toRad;
+  const dLambda = (lon2 - lon1) * toRad;
+  const a = Math.sin(dPhi/2) * Math.sin(dPhi/2) +
+            Math.cos(phi1) * Math.cos(phi2) *
+            Math.sin(dLambda/2) * Math.sin(dLambda/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const dist = R * c;
+  return dist * dist;
+}
+
+function nearestGeoMonotone(la, lo, targetLat, targetLon, prevIdx) {
+  let bestI = prevIdx;
+  let bestD2 = haversineDistanceSq(la, lo, targetLat[prevIdx], targetLon[prevIdx]);
+  for (let i = prevIdx + 1; i < targetLat.length; i++) {
+    const d2 = haversineDistanceSq(la, lo, targetLat[i], targetLon[i]);
+    if (d2 < bestD2) {
+      bestD2 = d2;
+      bestI = i;
+    } else if (d2 > bestD2 * 1.5) break;
+  }
+  if (bestD2 > 0.0001) {
+    for (let i = prevIdx - 1; i >= 0; i--) {
+      const d2 = haversineDistanceSq(la, lo, targetLat[i], targetLon[i]);
+      if (d2 < bestD2) {
+        bestD2 = d2;
+        bestI = i;
+      } else if (d2 > bestD2 * 1.5) break;
+    }
+  }
+  return bestI;
+}
+
+// ────────────────────────────────────────────────────────────────
+// ALLINEAMENTO AUTOMATICO START/END DEL SETTORE ATTIVO
+// ────────────────────────────────────────────────────────────────
+function compAlignStartBtoA() {
+  const sec = compGetActiveSector();
+  if (!sec || !compStreamA || !compStreamB) return;
+  const latA = compStreamA.lat[sec.startIdxA];
+  const lonA = compStreamA.lon[sec.startIdxA];
+  const bestIdx = nearestGeoMonotone(latA, lonA, compStreamB.lat, compStreamB.lon, sec.startIdxB);
+  sec.startIdxB = Math.min(bestIdx, sec.endIdxB - 5);
+  compUpdateSectorPanelUI();
+  compRenderSectorMarkersAll();
+  compUpdateElevChart();
+  syncBoundsToReplay();
+}
+
+function compAlignStartAtoB() {
+  const sec = compGetActiveSector();
+  if (!sec || !compStreamA || !compStreamB) return;
+  const latB = compStreamB.lat[sec.startIdxB];
+  const lonB = compStreamB.lon[sec.startIdxB];
+  const bestIdx = nearestGeoMonotone(latB, lonB, compStreamA.lat, compStreamA.lon, sec.startIdxA);
+  sec.startIdxA = Math.min(bestIdx, sec.endIdxA - 5);
+  compUpdateSectorPanelUI();
+  compRenderSectorMarkersAll();
+  compUpdateElevChart();
+  syncBoundsToReplay();
+}
+
+function compAlignEndBtoA() {
+  const sec = compGetActiveSector();
+  if (!sec || !compStreamA || !compStreamB) return;
+  const latA = compStreamA.lat[sec.endIdxA];
+  const lonA = compStreamA.lon[sec.endIdxA];
+  const bestIdx = nearestGeoMonotone(latA, lonA, compStreamB.lat, compStreamB.lon, sec.endIdxB);
+  sec.endIdxB = Math.max(bestIdx, sec.startIdxB + 5);
+  compUpdateSectorPanelUI();
+  compRenderSectorMarkersAll();
+  compUpdateElevChart();
+  syncBoundsToReplay();
+}
+
+function compAlignEndAtoB() {
+  const sec = compGetActiveSector();
+  if (!sec || !compStreamA || !compStreamB) return;
+  const latB = compStreamB.lat[sec.endIdxB];
+  const lonB = compStreamB.lon[sec.endIdxB];
+  const bestIdx = nearestGeoMonotone(latB, lonB, compStreamA.lat, compStreamA.lon, sec.endIdxA);
+  sec.endIdxA = Math.max(bestIdx, sec.startIdxA + 5);
+  compUpdateSectorPanelUI();
+  compRenderSectorMarkersAll();
+  compUpdateElevChart();
+  syncBoundsToReplay();
+}
+
+// Propaga il settore attivo di Comparison → bounds di Race Replay
+function syncBoundsToReplay() {
+  if (typeof rpBoundStartA === 'undefined') return;
+
+  // Usa gli indici assoluti sull'originale se disponibili (post-trim),
+  // altrimenti usa gli indici del settore direttamente
+  if (window._compAbsoluteBoundsA && window._compAbsoluteBoundsB) {
+    rpBoundStartA = window._compAbsoluteBoundsA.start;
+    rpBoundEndA   = window._compAbsoluteBoundsA.end;
+    rpBoundStartB = window._compAbsoluteBoundsB.start;
+    rpBoundEndB   = window._compAbsoluteBoundsB.end;
+  } else {
+    const sec = compGetActiveSector();
+    if (!sec) return;
+    rpBoundStartA = sec.startIdxA;
+    rpBoundEndA   = sec.endIdxA;
+    rpBoundStartB = sec.startIdxB;
+    rpBoundEndB   = sec.endIdxB;
+  }
+
+  if (typeof rpUpdateBoundsPanelUI === 'function') rpUpdateBoundsPanelUI();
+  if (typeof rpUpdateBoundsMarkersOnMap === 'function') rpUpdateBoundsMarkersOnMap();
+  if (typeof rpBuildAlignment === 'function') {
+    rpBuildAlignment();
+    if (typeof rpRenderCharts === 'function') rpRenderCharts();
+    if (typeof rpUpdateFrame === 'function') rpUpdateFrame(0);
+  }
+}
+
+function compTrimToCurrentSector() {
+  const sec = compGetActiveSector();
+  if (!sec) return;
+
+  const newStartA = sec.startIdxA;
+  const newEndA = sec.endIdxA;
+  const newStartB = sec.startIdxB;
+  const newEndB = sec.endIdxB;
+
+  // Salva gli indici assoluti sull'originale per la sincronizzazione con Replay
+  window._compAbsoluteBoundsA = { start: newStartA, end: newEndA };
+  window._compAbsoluteBoundsB = { start: newStartB, end: newEndB };
+
+  const rebuildStream = (orig, start, end) => {
+    const sliced = {};
+    for (let k in orig) {
+      if (Array.isArray(orig[k])) {
+        sliced[k] = orig[k].slice(start, end+1);
+      } else {
+        sliced[k] = orig[k];
+      }
+    }
+    const baseDist = sliced.distance_m[0] || 0;
+    const baseTime = sliced.time_sec[0] || 0;
+    if (sliced.distance_m) sliced.distance_m = sliced.distance_m.map(d => d - baseDist);
+    if (sliced.time_sec) sliced.time_sec = sliced.time_sec.map(t => t - baseTime);
+    if (sliced._rawPower) sliced._rawPower = sliced._rawPower.slice(start, end+1);
+    if (sliced._rawSpeed) sliced._rawSpeed = sliced._rawSpeed.slice(start, end+1);
+    return sliced;
+  };
+
+  compStreamA = rebuildStream(compOriginalStreams.A, newStartA, newEndA);
+  compStreamB = rebuildStream(compOriginalStreams.B, newStartB, newEndB);
+
+  // Aggiorna i global bounds
+  compGlobalStartA = 0;
+  compGlobalEndA = compStreamA.lat.length - 1;
+  compGlobalStartB = 0;
+  compGlobalEndB = compStreamB.lat.length - 1;
+
+  // Riapplica smoothing
+  compStreamA._rawPower = compStreamA.power ? compStreamA.power.slice() : [];
+  compStreamB._rawPower = compStreamB.power ? compStreamB.power.slice() : [];
+  compStreamA._rawSpeed = compStreamA.speed ? compStreamA.speed.slice() : null;
+  compStreamB._rawSpeed = compStreamB.speed ? compStreamB.speed.slice() : null;
+  compApplySmoothing();
+
+  // Reset settori e crea un nuovo settore default che copre tutta l'attività tagliata
+  compSectors = [];
+  _compSectorIdCounter = 0;
+  compAddSector(true); // il nuovo settore avrà start=0 e end=compGlobalEndA / compGlobalEndB
+
+  compActiveSectorId = compSectors[0]?.id;
+  compRebuildSectorSelect();
+  compUpdateSectorPanelUI();
+
+  if (compMap && compMapReady) {
+    compDrawTrace('comp-ta', compStreamA, '#3b82f6');
+    compDrawTrace('comp-tb', compStreamB, '#f97316');
+    compFit();
+  }
+  compUpdateElevChart();
+  compRenderSectorMarkersAll();
+  compUpdateSectorLegend();
+  document.getElementById('comp-status').textContent = `Attività tagliata: A [${(compStreamA.distance_m[compStreamA.distance_m.length-1]/1000).toFixed(1)}km] B [${(compStreamB.distance_m[compStreamB.distance_m.length-1]/1000).toFixed(1)}km]`;
+  // Propaga i bounds a Race Replay
+  syncBoundsToReplay();
+}
+
+function compResetFullActivity() {
+  if (!compOriginalStreams.A || !compOriginalStreams.B) return;
+  // Azzera i bounds assoluti salvati
+  window._compAbsoluteBoundsA = null;
+  window._compAbsoluteBoundsB = null;
+  compStreamA = JSON.parse(JSON.stringify(compOriginalStreams.A));
+  compStreamB = JSON.parse(JSON.stringify(compOriginalStreams.B));
+  compStreamA._rawPower = compStreamA.power ? compStreamA.power.slice() : [];
+  compStreamB._rawPower = compStreamB.power ? compStreamB.power.slice() : [];
+  compStreamA._rawSpeed = compStreamA.speed ? compStreamA.speed.slice() : null;
+  compStreamB._rawSpeed = compStreamB.speed ? compStreamB.speed.slice() : null;
+  compApplySmoothing();
+  compGlobalStartA = 0; compGlobalEndA = compStreamA.lat.length-1;
+  compGlobalStartB = 0; compGlobalEndB = compStreamB.lat.length-1;
+  compSectors = [];
+  _compSectorIdCounter = 0;
+  compAddSector(true);
+  if (compMap && compMapReady) {
+    compDrawTrace('comp-ta', compStreamA, '#3b82f6');
+    compDrawTrace('comp-tb', compStreamB, '#f97316');
+    compFit();
+  }
+  compUpdateElevChart();
+  compUpdateSectorPanelUI();
+  compRenderSectorMarkersAll();
+  compUpdateSectorLegend();
+  document.getElementById('comp-status').textContent = 'Attività ripristinata';
+  // Riporta Replay al range completo
+  if (typeof rpBoundStartA !== 'undefined' && rpSA) {
+    rpBoundStartA = 0; rpBoundEndA = rpSA.lat.length - 1;
+    rpBoundStartB = 0; rpBoundEndB = rpSB.lat.length - 1;
+    if (typeof rpUpdateBoundsPanelUI === 'function') rpUpdateBoundsPanelUI();
+    if (typeof rpUpdateBoundsMarkersOnMap === 'function') rpUpdateBoundsMarkersOnMap();
+    if (typeof rpBuildAlignment === 'function') { rpBuildAlignment(); rpRenderCharts(); rpUpdateFrame(0); }
+  }
+}
+
+// ────────────────────────────────────────────────────────────────
 // ANALYSIS
 // ────────────────────────────────────────────────────────────────
 function compOnSecModeChange() {
@@ -845,9 +1187,7 @@ function compOnSecModeChange() {
   localStorage.setItem('comp_saved_mode', mode);
 }
 
-// ────────────────────────────────────────────────────────────────
-// SMOOTHING
-// ────────────────────────────────────────────────────────────────
+// ── SMOOTHING ──
 function compRollingAvg(arr, win) {
   if (!win || win <= 1) return arr.slice();
   const out = new Array(arr.length);
@@ -1161,14 +1501,14 @@ function compUpdateElevChart() {
   if (!compElevChart || !compStreamA) return;
   const tab = compCurrentChartTab;
 
-  const sec = compGetActiveSector();
-  const s0A = sec ? sec.startIdxA : 0;
-  const e0A = sec ? sec.endIdxA : compStreamA.lat.length-1;
-  const s0B = sec ? sec.startIdxB : 0;
-  const e0B = sec ? sec.endIdxB : compStreamB.lat.length-1;
+  // Usa l'intera attività (global bounds) per l'asse X
+  const globalS0A = compGlobalStartA;
+  const globalE0A = compGlobalEndA;
+  const globalS0B = compGlobalStartB;
+  const globalE0B = compGlobalEndB;
 
-  const sliceA = (arr) => arr.slice(s0A, e0A+1);
-  const sliceB = (arr) => arr.slice(s0B, e0B+1);
+  const sliceA = (arr) => arr.slice(globalS0A, globalE0A+1);
+  const sliceB = (arr) => arr.slice(globalS0B, globalE0B+1);
   const distA = sliceA(compStreamA.distance_m);
   const distB = sliceB(compStreamB.distance_m);
   const d0A = distA[0]||0, d0B = distB[0]||0;
@@ -1239,27 +1579,48 @@ function compUpdateElevChart() {
   const dataA = distA.map((d,i) => [(d-d0A)/1000, seriesA[i]||0]);
   const dataB = distB.map((d,i) => [(d-d0B)/1000, seriesB[i]||0]);
 
+  // Aree delle sezioni già analizzate (rimangono uguali)
   const markAreas = [];
   compSectors.forEach(sector => {
     if (!sector.analyzed) return;
     sector.sections.sA.forEach((s,i) => {
+      const refStart = compStreamA.distance_m[sector.startIdxA] || 0;
       markAreas.push({
-        x0: (s.startDist - (compStreamA.distance_m[sector.startIdxA]||0))/1000,
-        x1: (s.endDist   - (compStreamA.distance_m[sector.startIdxA]||0))/1000,
+        x0: (s.startDist - refStart)/1000,
+        x1: (s.endDist   - refStart)/1000,
         color: SECTION_PALETTE[s.sectionIdx % SECTION_PALETTE.length],
         opacity: sector.id === compActiveSectorId ? 0.14 : 0.06
       });
     });
   });
 
+  // ANTEPRIMA START/END DEL SETTORE ATTIVO (su tutto il grafico, senza zoom)
+  const previewLines = [];
+  const activeSec = compGetActiveSector();
+  if (activeSec && compStreamA) {
+    const xStart = (compStreamA.distance_m[activeSec.startIdxA] - d0A) / 1000;
+    const xEnd   = (compStreamA.distance_m[activeSec.endIdxA]   - d0A) / 1000;
+    // linee
+    previewLines.push({ x: xStart, color: '#22c55e', label: 'START ▸', active: true, width: 2 });
+    previewLines.push({ x: xEnd,   color: '#ef4444', label: '◂ END',    active: true, width: 2 });
+    // area grigia trasparente tra start e end
+    if (xEnd > xStart) {
+      markAreas.push({
+        x0: xStart, x1: xEnd, color: '#888888', opacity: 0.1
+      });
+    }
+  }
+
+  // Linee dei settori analizzati (confini)
   const boundLines = [];
   compSectors.forEach(sec2 => {
-    const sDistA = (compStreamA.distance_m[sec2.startIdxA]||0);
-    const eDistA = (compStreamA.distance_m[sec2.endIdxA]||0);
-    const refD0 = compStreamA.distance_m[s0A]||0;
-    boundLines.push({ x:(sDistA-refD0)/1000, color:sec2.color, label:sec2.name+' ▶', active:sec2.id===compActiveSectorId });
-    boundLines.push({ x:(eDistA-refD0)/1000, color:sec2.color, label:'◀ '+sec2.name, active:sec2.id===compActiveSectorId });
+    const sDistA = compStreamA.distance_m[sec2.startIdxA]||0;
+    const eDistA = compStreamA.distance_m[sec2.endIdxA]||0;
+    boundLines.push({ x:(sDistA-d0A)/1000, color:sec2.color, label:sec2.name+' ▶', active:sec2.id===compActiveSectorId });
+    boundLines.push({ x:(eDistA-d0A)/1000, color:sec2.color, label:'◀ '+sec2.name, active:sec2.id===compActiveSectorId });
   });
+
+  const allLines = [...previewLines, ...boundLines];
 
   _compD3Render({
     series:[
@@ -1267,126 +1628,451 @@ function compUpdateElevChart() {
       { name:labelB, data:dataB, color:'#f97316', area: tab==='elev'?'rgba(249,115,22,.08)':null, width:2 },
     ],
     yLeft:{ name:yLabel, color:yLabelColor },
-    arrivalLines: boundLines,
+    arrivalLines: allLines,
     sections: markAreas,
-    xLabel:'km (relativo settore)',
+    xLabel:'km (progressivo)',
     tooltip:(xv,pts) => `<b>${xv.toFixed(2)} km</b><br/>${pts.map(p=>`<span style="color:${p.color}">■</span> ${p.name}: <b>${p.val.toFixed(tab==='speed'?1:0)}${yLabel}</b>`).join('<br/>')}`,
     onHover:(xv) => compUpdateMapHoverFromChart(xv),
     onLeave:() => compClearMapHoverFromChart()
   });
 }
 
-/* D3 render helper */
 function _compD3Render(opts) {
+ 
+  /* ── contenitore ──────────────────────────────────────────────────── */
   const container = document.getElementById('comp-elevation-chart');
+  if (!container) return;
   container.innerHTML = '';
-  container.style.position='relative';
-
-  const totalW = container.clientWidth||600;
-  const totalH = container.clientHeight||160;
-  const margin = { top:22, right: opts.yRight?52:14, bottom:24, left:46 };
-  const W = totalW-margin.left-margin.right;
-  const H = totalH-margin.top-margin.bottom;
-  if (W<=0||H<=0) return;
-
-  const svg = d3.select(container).append('svg').attr('width',totalW).attr('height',totalH).style('display','block');
-  svg.append('defs').append('clipPath').attr('id','comp-clip2').append('rect').attr('width',W).attr('height',H);
-  const g = svg.append('g').attr('transform',`translate(${margin.left},${margin.top})`);
-
-  const allX = opts.series.flatMap(s=>s.data.map(d=>d[0]));
-  const xScale = d3.scaleLinear().domain([Math.min(...allX),Math.max(...allX)]).range([0,W]);
-
-  const allYL = opts.series.filter(s=>!s.yRight).flatMap(s=>s.data.map(d=>d[1]));
-  const yMin = d3.min(allYL), yMax = d3.max(allYL);
-  const yPad = (yMax-yMin)*0.08||5;
-  const yScaleL = d3.scaleLinear().domain([yMin-yPad,yMax+yPad]).range([H,0]).nice();
-
-  let yScaleR=null;
+  container.style.position = 'relative';
+ 
+  const totalW = container.clientWidth  || 600;
+  const totalH = container.clientHeight || 160;
+  const margin = { top: 22, right: opts.yRight ? 52 : 14, bottom: 24, left: 46 };
+  const W = totalW - margin.left - margin.right;
+  const H = totalH - margin.top  - margin.bottom;
+  if (W <= 0 || H <= 0) return;
+ 
+  /* ── scale X ──────────────────────────────────────────────────────── */
+  const allX        = opts.series.flatMap(s => s.data.map(d => d[0]));
+  const fullXDomain = [d3.min(allX), d3.max(allX)];
+  const xScaleOrig  = d3.scaleLinear().domain(fullXDomain).range([0, W]);
+ 
+  // Usa il dominio di zoom esterno se valido
+  let currentXScale = (typeof compZoomDomainX !== 'undefined' &&
+                       compZoomDomainX &&
+                       compZoomDomainX[0] < compZoomDomainX[1])
+    ? d3.scaleLinear().domain(compZoomDomainX).range([0, W])
+    : xScaleOrig;
+ 
+  /* ── scale Y ──────────────────────────────────────────────────────── */
+  const allYL  = opts.series.filter(s => !s.yRight).flatMap(s => s.data.map(d => d[1]));
+  const yMin   = d3.min(allYL), yMax = d3.max(allYL);
+  const yPad   = (yMax - yMin) * 0.08 || 5;
+  const yScaleL = d3.scaleLinear().domain([yMin - yPad, yMax + yPad]).range([H, 0]).nice();
+ 
+  let yScaleR = null;
   if (opts.yRight) {
-    const allYR = opts.series.filter(s=>s.yRight).flatMap(s=>s.data.map(d=>d[1]));
-    yScaleR = d3.scaleLinear().domain([d3.min(allYR)*0.97,d3.max(allYR)*1.03]).range([H,0]).nice();
+    const allYR = opts.series.filter(s => s.yRight).flatMap(s => s.data.map(d => d[1]));
+    yScaleR = d3.scaleLinear()
+      .domain([d3.min(allYR) * 0.97, d3.max(allYR) * 1.03])
+      .range([H, 0])
+      .nice();
   }
-
-  g.append('g').call(d3.axisLeft(yScaleL).tickSize(-W).tickFormat(''))
-    .call(ax=>{ax.select('.domain').remove();ax.selectAll('line').attr('stroke','#1e293b');});
-
-  opts.sections.forEach(sec=>{
-    g.append('rect').attr('x',xScale(sec.x0)).attr('y',0)
-      .attr('width',Math.max(0,xScale(sec.x1)-xScale(sec.x0))).attr('height',H)
-      .attr('fill',sec.color).attr('opacity',sec.opacity);
-  });
-
-  g.append('g').attr('transform',`translate(0,${H})`).call(d3.axisBottom(xScale).ticks(Math.min(8,Math.floor(W/70))).tickFormat(v=>v.toFixed(1)))
-    .call(ax=>{ax.select('.domain').attr('stroke','#1a2540');ax.selectAll('text').attr('fill','#94a3b8').attr('font-size','8px');ax.selectAll('line').attr('stroke','#1a2540');});
-  g.append('text').attr('x',W/2).attr('y',H+22).attr('fill','#475569').attr('font-size','7px').attr('text-anchor','middle').text(opts.xLabel||'km');
-
-  g.append('g').call(d3.axisLeft(yScaleL).ticks(4))
-    .call(ax=>{ax.select('.domain').attr('stroke','#1a2540');ax.selectAll('text').attr('fill','#94a3b8').attr('font-size','7px');ax.selectAll('line').attr('stroke','#1a2540');});
-  g.append('text').attr('transform','rotate(-90)').attr('x',-H/2).attr('y',-36).attr('fill',opts.yLeft.color||'#64748b').attr('font-size','7px').attr('text-anchor','middle').text(opts.yLeft.name);
-
-  if (opts.yRight&&yScaleR) {
-    g.append('g').attr('transform',`translate(${W},0)`).call(d3.axisRight(yScaleR).ticks(4))
-      .call(ax=>{ax.select('.domain').attr('stroke','#1a2540');ax.selectAll('text').attr('fill',opts.yRight.color||'#94a3b8').attr('font-size','7px');ax.selectAll('line').attr('stroke','#1a2540');});
-    g.append('text').attr('transform','rotate(-90)').attr('x',-H/2).attr('y',W+44).attr('fill',opts.yRight.color||'#22c55e').attr('font-size','7px').attr('text-anchor','middle').text(opts.yRight.name);
-  }
-
-  opts.series.forEach(ser=>{
-    const ys=(ser.yRight&&yScaleR)?yScaleR:yScaleL;
-    const lineGen=d3.line().x(d=>xScale(d[0])).y(d=>ys(d[1])).curve(d3.curveCatmullRom.alpha(0.5));
-    if (ser.area) {
-      const ag=d3.area().x(d=>xScale(d[0])).y0(H).y1(d=>ys(d[1])).curve(d3.curveCatmullRom.alpha(0.5));
-      g.append('path').datum(ser.data).attr('clip-path','url(#comp-clip2)').attr('fill',ser.area).attr('d',ag);
+ 
+  /* ── SVG root ─────────────────────────────────────────────────────── */
+  const svg = d3.select(container)
+    .append('svg')
+    .attr('width',  totalW)
+    .attr('height', totalH)
+    .style('display', 'block');
+ 
+  svg.append('defs')
+    .append('clipPath').attr('id', 'comp-clip-main')
+    .append('rect').attr('width', W).attr('height', H);
+ 
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+ 
+  /* ── funzione di (ri)disegno degli elementi del grafico ───────────── */
+  function drawChart() {
+    g.selectAll('*').remove();
+ 
+    // Griglia
+    g.append('g')
+      .call(d3.axisLeft(yScaleL).tickSize(-W).tickFormat(''))
+      .call(ax => {
+        ax.select('.domain').remove();
+        ax.selectAll('line').attr('stroke', '#1e293b');
+      });
+ 
+    // Sezioni colorate
+    if (opts.sections) {
+      opts.sections.forEach(sec => {
+        const x0 = currentXScale(sec.x0);
+        const x1 = currentXScale(sec.x1);
+        if (isNaN(x0) || isNaN(x1)) return;
+        g.append('rect')
+          .attr('x', x0).attr('y', 0)
+          .attr('width', Math.max(0, x1 - x0)).attr('height', H)
+          .attr('fill', sec.color).attr('opacity', sec.opacity);
+      });
     }
-    const p=g.append('path').datum(ser.data).attr('clip-path','url(#comp-clip2)').attr('fill','none').attr('stroke',ser.color).attr('stroke-width',ser.width||2).attr('d',lineGen);
-    if(ser.dash)p.attr('stroke-dasharray',ser.dash);
+ 
+    // Asse X
+    g.append('g')
+      .attr('transform', `translate(0,${H})`)
+      .call(
+        d3.axisBottom(currentXScale)
+          .ticks(Math.min(8, Math.floor(W / 70)))
+          .tickFormat(v => v.toFixed(1))
+      )
+      .call(ax => {
+        ax.select('.domain').attr('stroke', '#1a2540');
+        ax.selectAll('text').attr('fill', '#94a3b8').attr('font-size', '8px');
+        ax.selectAll('line').attr('stroke', '#1a2540');
+      });
+    g.append('text')
+      .attr('x', W / 2).attr('y', H + 22)
+      .attr('fill', '#475569').attr('font-size', '7px').attr('text-anchor', 'middle')
+      .text(opts.xLabel || 'km');
+ 
+    // Asse Y sinistro
+    g.append('g')
+      .call(d3.axisLeft(yScaleL).ticks(4))
+      .call(ax => {
+        ax.select('.domain').attr('stroke', '#1a2540');
+        ax.selectAll('text').attr('fill', '#94a3b8').attr('font-size', '7px');
+        ax.selectAll('line').attr('stroke', '#1a2540');
+      });
+    g.append('text')
+      .attr('transform', 'rotate(-90)')
+      .attr('x', -H / 2).attr('y', -36)
+      .attr('fill', opts.yLeft.color || '#64748b')
+      .attr('font-size', '7px').attr('text-anchor', 'middle')
+      .text(opts.yLeft.name);
+ 
+    // Asse Y destro
+    if (opts.yRight && yScaleR) {
+      g.append('g')
+        .attr('transform', `translate(${W},0)`)
+        .call(d3.axisRight(yScaleR).ticks(4))
+        .call(ax => {
+          ax.select('.domain').attr('stroke', '#1a2540');
+          ax.selectAll('text').attr('fill', opts.yRight.color || '#94a3b8').attr('font-size', '7px');
+          ax.selectAll('line').attr('stroke', '#1a2540');
+        });
+      g.append('text')
+        .attr('transform', 'rotate(-90)')
+        .attr('x', -H / 2).attr('y', W + 44)
+        .attr('fill', opts.yRight.color || '#22c55e')
+        .attr('font-size', '7px').attr('text-anchor', 'middle')
+        .text(opts.yRight.name);
+    }
+ 
+    // Linee verticali (arrivi / waypoint)
+    if (opts.arrivalLines) {
+      opts.arrivalLines.forEach(al => {
+        const x = currentXScale(al.x);
+        if (x < 0 || x > W) return;
+        g.append('line')
+          .attr('x1', x).attr('x2', x).attr('y1', 0).attr('y2', H)
+          .attr('stroke', al.color)
+          .attr('stroke-width', al.width || (al.active ? 2 : 1))
+          .attr('stroke-dasharray',
+            al.dash || (al.label.includes('START') || al.label.includes('END') ? '' : '5,3'))
+          .attr('opacity', al.active ? 1 : 0.6);
+        g.append('text')
+          .attr('x', x + 3)
+          .attr('y', al.label.includes('END') ? H - 5 : 10)
+          .attr('fill', al.color)
+          .attr('font-size', '8px')
+          .attr('font-weight', al.active ? '700' : '400')
+          .text(al.label);
+      });
+    }
+ 
+    // Serie (area + linea)
+    opts.series.forEach(ser => {
+      const ys = (ser.yRight && yScaleR) ? yScaleR : yScaleL;
+      const lineGen = d3.line()
+        .x(d => currentXScale(d[0]))
+        .y(d => ys(d[1]))
+        .curve(d3.curveCatmullRom.alpha(0.5));
+ 
+      if (ser.area) {
+        const areaGen = d3.area()
+          .x(d => currentXScale(d[0]))
+          .y0(H).y1(d => ys(d[1]))
+          .curve(d3.curveCatmullRom.alpha(0.5));
+        g.append('path')
+          .datum(ser.data)
+          .attr('clip-path', 'url(#comp-clip-main)')
+          .attr('fill', ser.area)
+          .attr('d', areaGen);
+      }
+ 
+      g.append('path')
+        .datum(ser.data)
+        .attr('clip-path', 'url(#comp-clip-main)')
+        .attr('fill', 'none')
+        .attr('stroke', ser.color)
+        .attr('stroke-width', ser.width || 2)
+        .attr('stroke-dasharray', ser.dash || null)
+        .attr('d', lineGen);
+    });
+  }
+ 
+  // Legenda (fuori dal gruppo ridesegnabile, non cambia con lo zoom)
+  const leg = svg.append('g')
+    .attr('transform', `translate(${totalW - margin.right - 4}, 6)`);
+  opts.series.forEach((ser, i) => {
+    const row = leg.append('g').attr('transform', `translate(0, ${i * 12})`);
+    row.append('line')
+      .attr('x1', -36).attr('x2', -22).attr('y1', 4).attr('y2', 4)
+      .attr('stroke', ser.color).attr('stroke-width', ser.width || 2)
+      .attr('stroke-dasharray', ser.dash || null);
+    row.append('text')
+      .attr('x', -19).attr('y', 8)
+      .attr('fill', '#64748b').attr('font-size', '8px')
+      .text(ser.name);
   });
-
-  opts.arrivalLines.forEach(al=>{
-    const x=xScale(al.x);
-    if(x<0||x>W) return;
-    g.append('line').attr('x1',x).attr('x2',x).attr('y1',0).attr('y2',H)
-      .attr('stroke',al.color).attr('stroke-width',al.active?2:1).attr('stroke-dasharray','5,3').attr('opacity',al.active?1:.5);
-    g.append('text').attr('x',x+3).attr('y',10).attr('fill',al.color).attr('font-size','8px').attr('font-weight',al.active?'700':'400').text(al.label);
-  });
-
-  const leg=svg.append('g').attr('transform',`translate(${totalW-margin.right-4},${6})`);
-  opts.series.forEach((ser,i)=>{
-    const row=leg.append('g').attr('transform',`translate(0,${i*12})`);
-    row.append('line').attr('x1',-36).attr('x2',-22).attr('y1',4).attr('y2',4).attr('stroke',ser.color).attr('stroke-width',ser.width||2).attr('stroke-dasharray',ser.dash||null);
-    row.append('text').attr('x',-19).attr('y',8).attr('fill','#64748b').attr('font-size','8px').text(ser.name);
-  });
-
+ 
+  /* ── linea cursore (sopra tutto, non nel gruppo ridesegnabile) ─────── */
   const cursorLine = svg.append('line')
-    .attr('x1', margin.left).attr('x2', margin.left).attr('y1', margin.top).attr('y2', margin.top + H)
+    .attr('x1', margin.left).attr('x2', margin.left)
+    .attr('y1', margin.top).attr('y2', margin.top + H)
     .attr('stroke', '#ffffff').attr('stroke-width', 1.5).attr('stroke-opacity', 0.8)
-    .attr('pointer-events', 'none').attr('visibility', 'hidden');
-
-  const tooltip=d3.select(container).append('div')
-    .style('position','absolute').style('pointer-events','none').style('display','none')
-    .style('background','rgba(8,12,20,.96)').style('border','1px solid #253560').style('border-radius','6px')
-    .style('padding','7px 11px').style('font-size','10px').style('color','#e2e8f0')
-    .style('font-family','Space Mono,monospace').style('line-height','1.8').style('z-index','200');
-
-  if (typeof opts.onLeave === 'function') opts.onLeave();
-
-  const bisect=d3.bisector(d=>d[0]).left;
-  svg.append('rect').attr('width',totalW).attr('height',totalH).attr('fill','none').attr('pointer-events','all')
-    .on('mousemove',function(event){
-      const [mx]=d3.pointer(event,this);
-      const xi = mx - margin.left;
-      if (xi < 0 || xi > W) { tooltip.style('display','none'); cursorLine.attr('visibility','hidden'); return; }
-      const xVal=xScale.invert(xi);
-      const ser0=opts.series[0]; if(!ser0||!ser0.data.length) return;
-      const idx=Math.max(0,bisect(ser0.data,xVal,1)-1);
-      const pts=opts.series.map(s=>({name:s.name,color:s.color,val:(s.data[idx]||s.data[s.data.length-1])[1]}));
-      const xv=(ser0.data[idx]||ser0.data[0])[0];
-      cursorLine.attr('x1', mx).attr('x2', mx).attr('visibility','visible');
-      tooltip.style('display','block').style('left',(mx+10)+'px').style('top','8px')
-        .html(opts.tooltip?opts.tooltip(xv,pts):`<b>${xv.toFixed(2)} km</b><br/>${pts.map(p=>`<span style="color:${p.color}">■</span> ${p.name}: <b>${Math.round(p.val)}</b>`).join('<br/>')}`);
-      if (typeof opts.onHover === 'function') opts.onHover(xv, idx);
-    })
-    .on('mouseleave',()=>{ tooltip.style('display','none'); cursorLine.attr('visibility','hidden'); if (typeof opts.onLeave === 'function') opts.onLeave(); });
+    .attr('pointer-events', 'none')
+    .attr('visibility', 'hidden');
+ 
+  /* ── rettangolo di selezione zoom ─────────────────────────────────── */
+  // Creato nel gruppo g (coordinate locali) ma DOPO drawChart per stare sopra
+  // — verrà ricreato dopo ogni redraw tramite attachInteraction()
+  let selRect = null;
+  let overlay = null;
+ 
+  /* ── tooltip div (position:fixed, fuori dall'SVG) ─────────────────── */
+  let tooltipDiv = container.querySelector('.comp-tooltip');
+  if (!tooltipDiv) {
+    tooltipDiv = document.createElement('div');
+    tooltipDiv.className = 'comp-tooltip';
+    Object.assign(tooltipDiv.style, {
+      position:      'fixed',
+      pointerEvents: 'none',
+      display:       'none',
+      background:    'rgba(8,12,20,.96)',
+      border:        '1px solid #253560',
+      borderRadius:  '6px',
+      padding:       '7px 11px',
+      fontSize:      '10px',
+      color:         '#e2e8f0',
+      fontFamily:    'Space Mono,monospace',
+      lineHeight:    '1.8',
+      zIndex:        '9999',
+    });
+    // Aggiungiamo al body per evitare problemi di overflow/stacking context
+    document.body.appendChild(tooltipDiv);
+  }
+ 
+  const bisect = d3.bisector(d => d[0]).left;
+ 
+  /* ── helpers tooltip ──────────────────────────────────────────────── */
+  function showTooltip(clientX, clientY, xPx) {
+    const xVal = currentXScale.invert(xPx);
+    const ser0 = opts.series[0];
+    if (!ser0 || !ser0.data.length) return;
+ 
+    const i = bisect(ser0.data, xVal);
+    let idx;
+    if (i <= 0) idx = 0;
+    else if (i >= ser0.data.length) idx = ser0.data.length - 1;
+    else {
+      const d0 = ser0.data[i - 1], d1 = ser0.data[i];
+      idx = (xVal - d0[0]) > (d1[0] - xVal) ? i : i - 1;
+    }
+ 
+    const pts = opts.series.map(s => ({
+      name:  s.name,
+      color: s.color,
+      val:   (s.data[idx] || s.data[s.data.length - 1])[1],
+    }));
+    const xv = (ser0.data[idx] || ser0.data[0])[0];
+ 
+    // Linea cursore
+    cursorLine
+      .attr('x1', margin.left + xPx)
+      .attr('x2', margin.left + xPx)
+      .attr('visibility', 'visible');
+ 
+    // Tooltip
+    tooltipDiv.style.display = 'block';
+    tooltipDiv.style.left    = (clientX + 14) + 'px';
+    tooltipDiv.style.top     = (clientY - 32) + 'px';
+    tooltipDiv.innerHTML     = opts.tooltip
+      ? opts.tooltip(xv, pts)
+      : `<b>${xv.toFixed(2)} ${opts.xLabel || 'km'}</b><br/>` +
+        pts.map(p =>
+          `<span style="color:${p.color}">■</span> ${p.name}: <b>${Math.round(p.val)}</b>`
+        ).join('<br/>');
+ 
+    if (typeof opts.onHover === 'function') opts.onHover(xv, idx);
+  }
+ 
+  function hideTooltip() {
+    tooltipDiv.style.display = 'none';
+    cursorLine.attr('visibility', 'hidden');
+    if (typeof opts.onLeave === 'function') opts.onLeave();
+  }
+ 
+  /* ── attacca overlay + interazioni ───────────────────────────────── */
+  function attachInteraction() {
+    // Rimuovi eventuale overlay precedente
+    g.selectAll('.comp-overlay-group').remove();
+ 
+    const interGroup = g.append('g').attr('class', 'comp-overlay-group');
+ 
+    // Rettangolo di selezione (visibile durante il drag)
+    selRect = interGroup.append('rect')
+      .attr('class', 'comp-sel-rect')
+      .attr('y', 0).attr('height', H)
+      .attr('x', 0).attr('width', 0)
+      .attr('fill',         'rgba(148,163,184,.15)')
+      .attr('stroke',       '#94a3b8')
+      .attr('stroke-width', 1)
+      .attr('stroke-dasharray', '3,2')
+      .attr('visibility',   'hidden')
+      .attr('pointer-events', 'none');
+ 
+    // Overlay trasparente: unico target di tutti gli eventi
+    overlay = interGroup.append('rect')
+      .attr('x', 0).attr('y', 0)
+      .attr('width', W).attr('height', H)
+      .attr('fill', 'transparent')
+      .style('cursor', 'crosshair');
+ 
+    /* ── stato drag ────────────────────────────────────────────────── */
+    const DRAG_THRESHOLD = 5; // pixel – sotto questa soglia è hover, non drag
+    let dragStartPx  = null;  // pixel x di inizio drag (null = nessun drag attivo)
+    let isDragging   = false;
+ 
+    /* pointerdown ── inizia potenziale drag ── */
+    overlay.on('pointerdown', function (event) {
+      if (event.button !== 0) return; // solo tasto sinistro
+      const [mx] = d3.pointer(event, this);
+      dragStartPx = mx;
+      isDragging  = false;
+      selRect.attr('x', mx).attr('width', 0).attr('visibility', 'hidden');
+      // Cattura il pointer per ricevere move/up anche fuori dall'elemento
+      this.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    });
+ 
+    /* pointermove ── hover (tooltip) oppure aggiorna selezione zoom ── */
+    overlay.on('pointermove', function (event) {
+      const [mx] = d3.pointer(event, this);
+ 
+      if (dragStartPx !== null) {
+        /* ── in drag ── */
+        const delta = Math.abs(mx - dragStartPx);
+        if (delta > DRAG_THRESHOLD) {
+          isDragging = true;
+          hideTooltip(); // nascondi tooltip mentre si draga
+          const x0 = Math.min(dragStartPx, mx);
+          const x1 = Math.max(dragStartPx, mx);
+          selRect
+            .attr('x', x0)
+            .attr('width', x1 - x0)
+            .attr('visibility', 'visible');
+          overlay.style('cursor', 'ew-resize');
+        }
+      } else {
+        /* ── solo hover: mostra tooltip ── */
+        if (mx >= 0 && mx <= W) {
+          showTooltip(event.clientX, event.clientY, mx);
+        } else {
+          hideTooltip();
+        }
+      }
+    });
+ 
+    /* pointerup ── applica zoom oppure mostra tooltip su click fermo ── */
+    overlay.on('pointerup', function (event) {
+      if (dragStartPx === null) return;
+      const [mx] = d3.pointer(event, this);
+ 
+      selRect.attr('visibility', 'hidden');
+      overlay.style('cursor', 'crosshair');
+ 
+      if (isDragging) {
+        /* ── applica zoom ── */
+        const x0px = Math.min(dragStartPx, mx);
+        const x1px = Math.max(dragStartPx, mx);
+        const newDomain = [
+          currentXScale.invert(x0px),
+          currentXScale.invert(x1px),
+        ];
+        if (newDomain[1] - newDomain[0] > 0.01) {
+          if (typeof compZoomDomainX !== 'undefined') {
+            compZoomDomainX = newDomain;
+          }
+          currentXScale = d3.scaleLinear().domain(newDomain).range([0, W]);
+          redraw();
+          return; // uscita anticipata
+        }
+      } else {
+        /* ── era un click fermo: mostra tooltip ── */
+        if (mx >= 0 && mx <= W) {
+          showTooltip(event.clientX, event.clientY, mx);
+        }
+      }
+ 
+      dragStartPx = null;
+      isDragging  = false;
+    });
+ 
+    /* pointercancel ── cancella tutto (es. scroll mobile) ── */
+    overlay.on('pointercancel', function () {
+      dragStartPx = null;
+      isDragging  = false;
+      selRect.attr('visibility', 'hidden');
+      overlay.style('cursor', 'crosshair');
+      hideTooltip();
+    });
+ 
+    /* mouseleave ── nascondi tooltip (non interrompe il drag) ── */
+    overlay.on('mouseleave', function () {
+      if (!isDragging) hideTooltip();
+    });
+ 
+    /* dblclick ── reset zoom ── */
+    overlay.on('dblclick', function () {
+      if (typeof compZoomDomainX !== 'undefined') {
+        compZoomDomainX = null;
+      }
+      currentXScale = xScaleOrig;
+      redraw();
+    });
+  }
+ 
+  /* ── redraw: ridisegna grafico e ri-attacca interazioni ───────────── */
+  function redraw() {
+    drawChart();
+    attachInteraction();
+  }
+ 
+  /* ── primo render ─────────────────────────────────────────────────── */
+  redraw();
+ 
+  /* ── cleanup tooltip al destroy (opzionale, buona pratica) ─────────── */
+  // Se il container viene rimosso dal DOM, rimuovi anche il tooltip globale
+  const observer = new MutationObserver(() => {
+    if (!document.getElementById('comp-elevation-chart')) {
+      tooltipDiv.remove();
+      observer.disconnect();
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
 }
+
 
 // ────────────────────────────────────────────────────────────────
 // METRICS TABLE
@@ -1774,6 +2460,9 @@ function compExportCSV() {
   URL.revokeObjectURL(url);
 }
 
+// ── BADGE: gestito dall'header globale (unified_app updateHeaderFileInfo) ──
+function compUpdateSharedBadge() { /* no-op */ }
+
 function compReset() {
   compClearAnalysis();
   compSectors=[]; compActiveSectorId=null; _compSectorIdCounter=0;
@@ -1787,5 +2476,8 @@ function compReset() {
   document.getElementById('comp-btn-table').classList.remove('off');
   document.getElementById('comp-status').textContent='';
   if(compSectorPanelOpen) compToggleSectorPanel();
+  // Reset anche dei global bounds
+  compGlobalStartA = 0; compGlobalEndA = compStreamA ? compStreamA.lat.length-1 : 0;
+  compGlobalStartB = 0; compGlobalEndB = compStreamB ? compStreamB.lat.length-1 : 0;
 }
 </script>

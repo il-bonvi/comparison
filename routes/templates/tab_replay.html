@@ -3,16 +3,6 @@
       <div style="font-size:3rem">🏁</div>
       <div class="upload-title" style="color:var(--b)">RACE REPLAY</div>
       <div class="upload-desc">Gap animato frame per frame tra due atleti — visualizza lo svantaggio in mappa e su grafici selezionabili</div>
-
-      <!-- Badge shown when files are already loaded from Comparison tab -->
-      <div id="rp-shared-badge" style="display:none;align-items:center;gap:10px;
-           background:rgba(249,115,22,.12);border:1px solid var(--b);border-radius:8px;
-           padding:10px 18px;font-size:.8rem;">
-        <span>📂 File già caricati nella tab Comparison:</span>
-        <span id="rp-shared-names" style="font-weight:700;color:var(--b);font-family:var(--font-mono)"></span>
-        <button class="btn btn-primary-b" onclick="rpUseShared()">⚡ Usa questi file</button>
-      </div>
-
       <div class="upload-slots">
         <div class="upload-slot" id="rp-slot-a">
           <div class="slot-icon">🔵</div>
@@ -34,13 +24,6 @@
     <div id="replay-app" style="display:none;flex:1;flex-direction:column;overflow:hidden;min-height:0;">
       <div id="replay-topbar" style="display:flex; align-items:center; gap:8px; padding:4px 12px; background:var(--surface); border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:nowrap; overflow-x:auto;">
         
-        <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
-          <span class="badge badge-a" style="padding:2px 6px; font-size:0.72rem;">🔵 <span id="rp-lbl-a">A</span></span>
-          <span class="badge badge-b" style="padding:2px 6px; font-size:0.72rem;">🟠 <span id="rp-lbl-b">B</span></span>
-        </div>
-
-        <span style="width:1px; height:16px; background:var(--border-hi); flex-shrink:0;"></span>
-
         <select id="rp-align" onchange="rpOnAlignChange()" style="display:none"><option value="time" selected>Tempo</option></select>
 
         <div style="display:flex; align-items:center; gap:4px; flex-shrink:0; font-size:0.72rem;">
@@ -97,7 +80,6 @@
         <div style="margin-left:auto; display:flex; align-items:center; gap:8px; flex-shrink:0;">
           <span id="replay-status" style="font-size:.7rem; color:var(--muted2); font-family:var(--font-mono);"></span>
           <div id="replay-gap-big" style="color:var(--gap-pos); font-size:1.1rem; font-weight:700; font-family:var(--font-mono);">+0.0s</div>
-          <button class="btn btn-danger" onclick="replayReset()" style="padding:2px 8px; font-size:0.72rem;">⟲ Reset</button>
         </div>
       </div>
       <div id="rp-smooth-panel">
@@ -161,6 +143,7 @@
 
           <!-- START / END bounds panel -->
           <div id="rp-bounds-panel">
+            <!-- 🔵 Start A -->
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
               <span style="color:var(--a);font-weight:700;font-size:.74rem;min-width:76px;">🔵 Start A</span>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startA',-1000)">◀◀1km</button>
@@ -173,7 +156,10 @@
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startA',100)">100m▶</button>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startA',1000)">1km▶▶</button>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem;margin-left:4px" onclick="rpResetBound('startA')">↺ Inizio</button>
+              <button class="btn btn-primary-b" style="padding:2px 8px;font-size:.68rem;margin-left:6px;" onclick="alignStartAtoB()">🔗 Allinea 🔵 su 🟠</button>
             </div>
+
+            <!-- 🟠 Start B -->
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
               <span style="color:var(--b);font-weight:700;font-size:.74rem;min-width:76px;">🟠 Start B</span>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startB',-1000)">◀◀1km</button>
@@ -186,7 +172,10 @@
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startB',100)">100m▶</button>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('startB',1000)">1km▶▶</button>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem;margin-left:4px" onclick="rpResetBound('startB')">↺ Inizio</button>
+              <button class="btn btn-primary-b" style="padding:2px 8px;font-size:.68rem;margin-left:6px;" onclick="alignStartBtoA()">🔗 Allinea 🟠 su 🔵</button>
             </div>
+
+            <!-- 🔵 End A -->
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
               <span style="color:var(--a);font-weight:700;font-size:.74rem;min-width:76px;">🔵 End A</span>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endA',-1000)">◀◀1km</button>
@@ -199,7 +188,10 @@
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endA',100)">100m▶</button>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endA',1000)">1km▶▶</button>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem;margin-left:4px" onclick="rpResetBound('endA')">↺ Fine</button>
+              <button class="btn btn-primary-b" style="padding:2px 8px;font-size:.68rem;margin-left:6px;" onclick="alignEndAtoB()">🔗 Allinea 🔵 su 🟠</button>
             </div>
+
+            <!-- 🟠 End B -->
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
               <span style="color:var(--b);font-weight:700;font-size:.74rem;min-width:76px;">🟠 End B</span>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endB',-1000)">◀◀1km</button>
@@ -212,9 +204,12 @@
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endB',100)">100m▶</button>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="rpShift('endB',1000)">1km▶▶</button>
               <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem;margin-left:4px" onclick="rpResetBound('endB')">↺ Fine</button>
+              <button class="btn btn-primary-b" style="padding:2px 8px;font-size:.68rem;margin-left:6px;" onclick="alignEndBtoA()">🔗 Allinea 🟠 su 🔵</button>
             </div>
+
             <div style="display:flex;align-items:center;gap:10px;margin-top:2px;">
               <button class="btn btn-primary-b" style="font-size:.72rem;padding:4px 14px" onclick="rpApplyBounds()">✓ Applica e ricalcola</button>
+              <button class="btn btn-danger" style="font-size:.72rem;padding:4px 14px" onclick="rpResetFullActivity()">↺ Ripristina tracce complete</button>
               <span style="font-size:.7rem;color:var(--muted);font-family:var(--font-mono);">Sposta lo start/end di ogni atleta per allineare la partenza o ignorare i dati extra</span>
             </div>
           </div>
@@ -285,98 +280,133 @@ function rpNearestByDist(s, distM) {
   return best;
 }
 
-document.getElementById('rp-file-a').addEventListener('change',e=>{
-  if(e.target.files[0]){document.getElementById('rp-slot-a').classList.add('filled-a');document.getElementById('rp-name-a').textContent=e.target.files[0].name.slice(0,22);rpCheckReady();}
-});
-document.getElementById('rp-file-b').addEventListener('change',e=>{
-  if(e.target.files[0]){document.getElementById('rp-slot-b').classList.add('filled-b');document.getElementById('rp-name-b').textContent=e.target.files[0].name.slice(0,22);rpCheckReady();}
-});
-function rpCheckReady(){
-  document.getElementById('rp-btn-go').disabled=!(document.getElementById('rp-file-a').files[0]&&document.getElementById('rp-file-b').files[0]);
-}
-
-// ── SHARED STREAM (reuse files from Comparison tab) ──
-function rpUpdateSharedBadge() {
-  const badge = document.getElementById('rp-shared-badge');
-  if (!badge) return;
-  if (sharedStreamA && sharedStreamB) {
-    badge.style.display = 'flex';
-    document.getElementById('rp-shared-names').textContent =
-      `${sharedNameA.slice(0,18)} + ${sharedNameB.slice(0,18)}`;
-  } else {
-    badge.style.display = 'none';
+document.getElementById('rp-file-a').addEventListener('change', e => {
+  if (e.target.files[0]) {
+    const slot = document.getElementById('rp-slot-a');
+    slot.classList.add('filled-a');
+    slot._slotReady = null; // nuovo file: non usare la cache
+    document.getElementById('rp-name-a').textContent = e.target.files[0].name.slice(0, 22);
+    rpCheckReady();
   }
+});
+document.getElementById('rp-file-b').addEventListener('change', e => {
+  if (e.target.files[0]) {
+    const slot = document.getElementById('rp-slot-b');
+    slot.classList.add('filled-b');
+    slot._slotReady = null; // nuovo file: non usare la cache
+    document.getElementById('rp-name-b').textContent = e.target.files[0].name.slice(0, 22);
+    rpCheckReady();
+  }
+});
+function rpCheckReady() {
+  const fA = document.getElementById('rp-file-a').files[0];
+  const fB = document.getElementById('rp-file-b').files[0];
+  const cachedA = document.getElementById('rp-slot-a')._slotReady === 'cached';
+  const cachedB = document.getElementById('rp-slot-b')._slotReady === 'cached';
+  document.getElementById('rp-btn-go').disabled = !(( fA || cachedA) && (fB || cachedB));
 }
 
-function rpUseShared() {
-  if (!sharedStreamA || !sharedStreamB) return;
-  showLoading('Caricamento dati condivisi...');
-  rpSA = sharedStreamA; rpSB = sharedStreamB;
-  // Save raw copies for smoothing
-  rpSA._rawPower = rpSA.power ? rpSA.power.slice() : [];
-  rpSB._rawPower = rpSB.power ? rpSB.power.slice() : [];
-  rpSA._rawSpeed = rpSA.speed ? rpSA.speed.slice() : null;
-  rpSB._rawSpeed = rpSB.speed ? rpSB.speed.slice() : null;
-  // Apply default smoothing (5s)
-  rpApplySmoothing();
-  rpNameA = sharedNameA; rpNameB = sharedNameB;
-  ['rp-lbl-a','rp-leg-a'].forEach(id=>document.getElementById(id).textContent=rpNameA.slice(0,16));
-  ['rp-lbl-b','rp-leg-b'].forEach(id=>document.getElementById(id).textContent=rpNameB.slice(0,16));
-  rpBoundStartA=0; rpBoundEndA=rpSA.lat.length-1;
-  rpBoundStartB=0; rpBoundEndB=rpSB.lat.length-1;
-  rpUpdateBoundsPanelUI();
-  document.getElementById('replay-upload').style.display='none';
-  document.getElementById('replay-app').style.display='flex';
-  switchTab('replay');
-  rpBuildAlignment();
-  rpInitChart();
-  rpRenderCharts();
-  rpSetSpeed(1);
-  setTimeout(() => { rpInitMap(); hideLoading(); }, 80);
-}
+// ── SHARED STREAM: badge gestito dall'header globale (unified_app) ──
+function rpUpdateSharedBadge() { /* no-op: badge spostato nell'header globale */ }
 
 async function replayStart() {
-  const fA=document.getElementById('rp-file-a').files[0], fB=document.getElementById('rp-file-b').files[0];
-  if(!fA||!fB) return;
-  showLoading('Parsing FIT...');
-  try {
-    const fd=new FormData(); fd.append('file_a',fA); fd.append('file_b',fB);
-    const r=await fetch('/api/upload',{method:'POST',body:fd});
-    const d=await r.json();
-    if(!d.success) throw new Error(d.detail);
-    rpSA=d.stream_a; rpSB=d.stream_b;
+  const fA = document.getElementById('rp-file-a').files[0];
+  const fB = document.getElementById('rp-file-b').files[0];
+  const slotA = document.getElementById('rp-slot-a');
+  const slotB = document.getElementById('rp-slot-b');
+  const cachedA = slotA._slotReady === 'cached' && !fA;
+  const cachedB = slotB._slotReady === 'cached' && !fB;
+
+  // Se entrambi i file sono in cache e nessuno è stato sostituito, riusa senza fetch
+  if (cachedA && cachedB && sharedStreamA && sharedStreamB) {
+    showLoading('Ricaricamento dati...');
+    rpSA = JSON.parse(JSON.stringify(sharedStreamA));
+    rpSB = JSON.parse(JSON.stringify(sharedStreamB));
     rpSA._rawPower = rpSA.power ? rpSA.power.slice() : [];
     rpSB._rawPower = rpSB.power ? rpSB.power.slice() : [];
     rpSA._rawSpeed = rpSA.speed ? rpSA.speed.slice() : null;
     rpSB._rawSpeed = rpSB.speed ? rpSB.speed.slice() : null;
     rpApplySmoothing();
-    rpNameA=(d.filename_a||'A').replace('.fit','');
-    rpNameB=(d.filename_b||'B').replace('.fit','');
-    sharedStreamA=d.stream_a; sharedStreamB=d.stream_b;
-    sharedNameA=rpNameA; sharedNameB=rpNameB;
-    ['rp-lbl-a','rp-leg-a'].forEach(id=>document.getElementById(id).textContent=rpNameA.slice(0,16));
-    ['rp-lbl-b','rp-leg-b'].forEach(id=>document.getElementById(id).textContent=rpNameB.slice(0,16));
-    // Auto-init Comparison with same files
-    compAutoInitFromShared(d.stream_a, d.stream_b, rpNameA, rpNameB);
-    rpBoundStartA=0; rpBoundEndA=rpSA.lat.length-1;
-    rpBoundStartB=0; rpBoundEndB=rpSB.lat.length-1;
+    rpNameA = sharedNameA; rpNameB = sharedNameB;
+    const _elRpA=document.getElementById('rp-leg-a'); if(_elRpA) _elRpA.textContent=rpNameA.slice(0,16);
+    const _elRpB=document.getElementById('rp-leg-b'); if(_elRpB) _elRpB.textContent=rpNameB.slice(0,16);
+    compAutoInitFromShared(JSON.parse(JSON.stringify(sharedStreamA)), JSON.parse(JSON.stringify(sharedStreamB)), rpNameA, rpNameB);
+    rpBoundStartA = 0; rpBoundEndA = rpSA.lat.length - 1;
+    rpBoundStartB = 0; rpBoundEndB = rpSB.lat.length - 1;
     rpUpdateBoundsPanelUI();
-    document.getElementById('replay-upload').style.display='none';
-    document.getElementById('replay-app').style.display='flex';
-
+    slotA._slotReady = null; slotB._slotReady = null;
+    document.getElementById('replay-upload').style.display = 'none';
+    document.getElementById('replay-app').style.display = 'flex';
     switchTab('replay');
+    rpBuildAlignment(); rpInitChart(); rpRenderCharts(); rpSetSpeed(1);
+    setTimeout(() => { rpInitMap(); hideLoading(); }, 80);
+    return;
+  }
 
-    rpBuildAlignment();
-    rpInitChart();
-    rpRenderCharts();
-    rpSetSpeed(1);
+  // Altrimenti serve almeno un file reale per ogni slot non cached
+  if (!fA && !cachedA) return;
+  if (!fB && !cachedB) return;
+  showLoading('Parsing FIT...');
+  try {
+    let streamA, streamB, nameA, nameB;
 
-    setTimeout(() => {
-      rpInitMap();
-      hideLoading();
-    }, 80);
+    // Caso misto: uno o entrambi i file sono nuovi → upload solo quelli necessari
+    if (fA || fB) {
+      // Se solo uno dei due è nuovo, l'API si aspetta entrambi: per quello cached
+      // passiamo una sentinel o gestiamo i due casi separatamente
+      if (fA && fB) {
+        // Entrambi nuovi
+        const fd = new FormData(); fd.append('file_a', fA); fd.append('file_b', fB);
+        const r = await fetch('/api/upload', { method:'POST', body:fd });
+        const d = await r.json();
+        if (!d.success) throw new Error(d.detail);
+        streamA = d.stream_a; streamB = d.stream_b;
+        nameA = (d.filename_a||'A').replace('.fit','');
+        nameB = (d.filename_b||'B').replace('.fit','');
+      } else if (fA && cachedB) {
+        // Solo A nuovo, B da cache
+        const fd = new FormData(); fd.append('file_a', fA);
+        const r = await fetch('/api/upload_single', { method:'POST', body:fd });
+        const d = await r.json();
+        if (!d.success) throw new Error(d.detail);
+        streamA = d.stream_a; streamB = JSON.parse(JSON.stringify(sharedStreamB));
+        nameA = (d.filename_a||'A').replace('.fit',''); nameB = sharedNameB;
+      } else if (cachedA && fB) {
+        // Solo B nuovo, A da cache
+        const fd = new FormData(); fd.append('file_b', fB);
+        const r = await fetch('/api/upload_single_b', { method:'POST', body:fd });
+        const d = await r.json();
+        if (!d.success) throw new Error(d.detail);
+        streamA = JSON.parse(JSON.stringify(sharedStreamA)); streamB = d.stream_b;
+        nameA = sharedNameA; nameB = (d.filename_b||'B').replace('.fit','');
+      }
+    }
 
-  } catch(e){hideLoading();alert('Errore: '+e.message);}
+    rpSA = streamA; rpSB = streamB;
+    rpSA._rawPower = rpSA.power ? rpSA.power.slice() : [];
+    rpSB._rawPower = rpSB.power ? rpSB.power.slice() : [];
+    rpSA._rawSpeed = rpSA.speed ? rpSA.speed.slice() : null;
+    rpSB._rawSpeed = rpSB.speed ? rpSB.speed.slice() : null;
+    rpApplySmoothing();
+    rpNameA = nameA; rpNameB = nameB;
+    sharedStreamA = streamA; sharedStreamB = streamB;
+    sharedNameA = rpNameA; sharedNameB = rpNameB;
+    const _elRpA=document.getElementById('rp-leg-a'); if(_elRpA) _elRpA.textContent=rpNameA.slice(0,16);
+    const _elRpB=document.getElementById('rp-leg-b'); if(_elRpB) _elRpB.textContent=rpNameB.slice(0,16);
+    compAutoInitFromShared(JSON.parse(JSON.stringify(streamA)), JSON.parse(JSON.stringify(streamB)), rpNameA, rpNameB);
+    if (typeof updateHeaderFileInfo === 'function') updateHeaderFileInfo();
+    document.getElementById('rp-slot-a')._slotReady = null;
+    document.getElementById('rp-slot-b')._slotReady = null;
+    rpBoundStartA = 0; rpBoundEndA = rpSA.lat.length - 1;
+    rpBoundStartB = 0; rpBoundEndB = rpSB.lat.length - 1;
+    rpUpdateBoundsPanelUI();
+    document.getElementById('replay-upload').style.display = 'none';
+    document.getElementById('replay-app').style.display = 'flex';
+    switchTab('replay');
+    rpBuildAlignment(); rpInitChart(); rpRenderCharts(); rpSetSpeed(1);
+    setTimeout(() => { rpInitMap(); hideLoading(); }, 80);
+
+  } catch(e) { hideLoading(); alert('Errore: ' + e.message); }
 }
 
 // Alignment
@@ -385,6 +415,101 @@ function rpNearestByVal(arr,val){
   while(lo<hi){const mid=(lo+hi)>>1;if(arr[mid]<val)lo=mid+1;else hi=mid;}
   if(lo>0&&Math.abs(arr[lo-1]-val)<Math.abs(arr[lo]-val))return lo-1;
   return Math.min(lo,arr.length-1);
+}
+
+// ------------------------------------------------------------------
+// NUOVE FUNZIONI PER ALLINEAMENTO GEOGRAFICO SENZA LIMITE TEMPORALE
+// ------------------------------------------------------------------
+function haversineDistanceSq(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // raggio Terra in metri
+  const toRad = Math.PI / 180;
+  const phi1 = lat1 * toRad;
+  const phi2 = lat2 * toRad;
+  const dPhi = (lat2 - lat1) * toRad;
+  const dLambda = (lon2 - lon1) * toRad;
+  const a = Math.sin(dPhi/2) * Math.sin(dPhi/2) +
+            Math.cos(phi1) * Math.cos(phi2) *
+            Math.sin(dLambda/2) * Math.sin(dLambda/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const dist = R * c;
+  return dist * dist; // ritorna il quadrato per confronti veloci
+}
+
+// Ricerca del punto più vicino in un array di coordinate, partendo da un indice (monotona)
+function nearestGeoMonotone(la, lo, targetLat, targetLon, prevIdx) {
+  let bestI = prevIdx;
+  let bestD2 = haversineDistanceSq(la, lo, targetLat[prevIdx], targetLon[prevIdx]);
+  // avanti
+  for (let i = prevIdx + 1; i < targetLat.length; i++) {
+    const d2 = haversineDistanceSq(la, lo, targetLat[i], targetLon[i]);
+    if (d2 < bestD2) {
+      bestD2 = d2;
+      bestI = i;
+    } else if (d2 > bestD2 * 1.5) break;
+  }
+  // indietro
+  if (bestD2 > 0.0001) {
+    for (let i = prevIdx - 1; i >= 0; i--) {
+      const d2 = haversineDistanceSq(la, lo, targetLat[i], targetLon[i]);
+      if (d2 < bestD2) {
+        bestD2 = d2;
+        bestI = i;
+      } else if (d2 > bestD2 * 1.5) break;
+    }
+  }
+  return bestI;
+}
+
+// (opzionale) wrapper per compatibilità con il vecchio nome, se usato altrove
+const nearestBgeoMonotone = (la, lo, sB_la, sB_lo, prevIdx) =>
+  nearestGeoMonotone(la, lo, sB_la, sB_lo, prevIdx);
+
+// Allinea lo start di B allo start di A (cerca in B il punto più vicino allo startA)
+function alignStartBtoA() {
+  if (!rpSA || !rpSB) return;
+  const latA = rpSA.lat[rpBoundStartA];
+  const lonA = rpSA.lon[rpBoundStartA];
+  const bestIdx = nearestGeoMonotone(latA, lonA, rpSB.lat, rpSB.lon, rpBoundStartB);
+  rpBoundStartB = Math.min(bestIdx, rpBoundEndB - 10);
+  rpUpdateBoundsPanelUI();
+  rpUpdateBoundsMarkersOnMap();
+  rpApplyBounds(); // ricalcola subito l'allineamento
+}
+
+// Allinea lo start di A allo start di B (cerca in A il punto più vicino allo startB)
+function alignStartAtoB() {
+  if (!rpSA || !rpSB) return;
+  const latB = rpSB.lat[rpBoundStartB];
+  const lonB = rpSB.lon[rpBoundStartB];
+  const bestIdx = nearestGeoMonotone(latB, lonB, rpSA.lat, rpSA.lon, rpBoundStartA);
+  rpBoundStartA = Math.min(bestIdx, rpBoundEndA - 10);
+  rpUpdateBoundsPanelUI();
+  rpUpdateBoundsMarkersOnMap();
+  rpApplyBounds();
+}
+
+// Allinea la fine di B alla fine di A
+function alignEndBtoA() {
+  if (!rpSA || !rpSB) return;
+  const latA = rpSA.lat[rpBoundEndA];
+  const lonA = rpSA.lon[rpBoundEndA];
+  const bestIdx = nearestGeoMonotone(latA, lonA, rpSB.lat, rpSB.lon, rpBoundEndB);
+  rpBoundEndB = Math.max(bestIdx, rpBoundStartB + 10);
+  rpUpdateBoundsPanelUI();
+  rpUpdateBoundsMarkersOnMap();
+  rpApplyBounds();
+}
+
+// Allinea la fine di A alla fine di B
+function alignEndAtoB() {
+  if (!rpSA || !rpSB) return;
+  const latB = rpSB.lat[rpBoundEndB];
+  const lonB = rpSB.lon[rpBoundEndB];
+  const bestIdx = nearestGeoMonotone(latB, lonB, rpSA.lat, rpSA.lon, rpBoundEndA);
+  rpBoundEndA = Math.max(bestIdx, rpBoundStartA + 10);
+  rpUpdateBoundsPanelUI();
+  rpUpdateBoundsMarkersOnMap();
+  rpApplyBounds();
 }
 
 function rpBuildAlignment(){
@@ -409,47 +534,8 @@ function rpBuildAlignment(){
   const dA = sA_d.map(d => d - d0A);
   const dB = sB_d.map(d => d - d0B);
 
-  const geoDist2 = (la1,lo1,la2,lo2) => {
-    const dlat = la1 - la2;
-    const dlon = (lo1 - lo2) * Math.cos(la1 * Math.PI / 180);
-    return dlat*dlat + dlon*dlon;
-  };
-
-  const BIN = 0.001;
-  const bBins = {};
-  for (let i = 0; i < sB_la.length; i++) {
-    const key = `${Math.round(sB_la[i]/BIN)},${Math.round(sB_lo[i]/BIN)}`;
-    if (!bBins[key]) bBins[key] = [];
-    bBins[key].push(i);
-  }
-
-  const nearestBgeo = (la, lo, tElapsedA, maxTimeDiff) => {
-    const binLa = Math.round(la/BIN);
-    const binLo = Math.round(lo/BIN);
-    let bestI = -1, bestD2 = Infinity;
-    for (let dbl = -2; dbl <= 2; dbl++) {
-      for (let dbo = -2; dbo <= 2; dbo++) {
-        const key = `${binLa+dbl},${binLo+dbo}`;
-        const cands = bBins[key];
-        if (!cands) continue;
-        for (const i of cands) {
-          if (maxTimeDiff > 0) {
-            const tDiff = Math.abs(tB[i] - tElapsedA);
-            if (tDiff > maxTimeDiff) continue;
-          }
-          const d2 = geoDist2(la, lo, sB_la[i], sB_lo[i]);
-          if (d2 < bestD2) { bestD2 = d2; bestI = i; }
-        }
-      }
-    }
-    if (bestI < 0) {
-      for (let i = 0; i < sB_la.length; i++) {
-        const d2 = geoDist2(la, lo, sB_la[i], sB_lo[i]);
-        if (d2 < bestD2) { bestD2 = d2; bestI = i; }
-      }
-    }
-    return bestI < 0 ? 0 : bestI;
-  };
+  // Per la monotonia della ricerca, teniamo traccia dell'ultimo indice trovato in B
+  let lastIdxB = 0;
 
   if (mode === 'time') {
     rpMaxT = Math.max(tA[tA.length-1], tB[tB.length-1]);
@@ -460,8 +546,9 @@ function rpBuildAlignment(){
       const iB_pos_local = rpNearestByVal(tB, Math.min(t, tB[tB.length-1]));
       const iB_pos = iB_pos_local + rpBoundStartB;
 
-      const iB_gap_local = nearestBgeo(sA_la[iA_local], sA_lo[iA_local], t, 120);
-
+      // NUOVA RICERCA GEOGRAFICA SENZA LIMITE TEMPORALE
+      const iB_gap_local = nearestBgeoMonotone(sA_la[iA_local], sA_lo[iA_local], sB_la, sB_lo, lastIdxB);
+      lastIdxB = iB_gap_local;   // aggiorna per il frame successivo
       const gap = tA[iA_local] - tB[iB_gap_local];
 
       const distA_m = rpSA.distance_m[iA] - d0A;
@@ -505,7 +592,6 @@ function rpBuildAlignment(){
         altA_dB:   rpSA.alt[iA_atDistB]||0,   altB_dB:   rpSB.alt[iB_pos]||0,
       });
     }
-
   } // end time-mode build
 
   rpCurrentT = 0;
@@ -518,119 +604,121 @@ function rpBuildAlignment(){
 // ── BUILD CHART FRAMES ──
 function rpBuildChartFrames(gAlign) {
   if (gAlign === 'time') {
-    return rpAligned;
+    return rpAligned; // già allineato per tempo
   }
 
   if (!rpSA || !rpSB) return [];
 
-  const sA_t  = rpSA.time_sec.slice(rpBoundStartA, rpBoundEndA+1);
-  const sA_d  = rpSA.distance_m.slice(rpBoundStartA, rpBoundEndA+1);
-  const sB_t  = rpSB.time_sec.slice(rpBoundStartB, rpBoundEndB+1);
-  const sB_d  = rpSB.distance_m.slice(rpBoundStartB, rpBoundEndB+1);
+  // Prepara i dati nei bounds attuali (gli stessi usati da rpAligned)
+  const sA = {
+    t:   rpSA.time_sec.slice(rpBoundStartA, rpBoundEndA+1),
+    d:   rpSA.distance_m.slice(rpBoundStartA, rpBoundEndA+1),
+    lat: rpSA.lat.slice(rpBoundStartA, rpBoundEndA+1),
+    lon: rpSA.lon.slice(rpBoundStartA, rpBoundEndA+1),
+    alt: rpSA.alt.slice(rpBoundStartA, rpBoundEndA+1),
+    power: rpSA.power.slice(rpBoundStartA, rpBoundEndA+1),
+    speed: rpSA.speed.slice(rpBoundStartA, rpBoundEndA+1),
+    hr: rpSA.hr.slice(rpBoundStartA, rpBoundEndA+1),
+    rawPower: (rpSA._rawPower || rpSA.power).slice(rpBoundStartA, rpBoundEndA+1),
+    rawSpeed: (rpSA._rawSpeed || rpSA.speed).slice(rpBoundStartA, rpBoundEndA+1),
+  };
+  const sB = {
+    t:   rpSB.time_sec.slice(rpBoundStartB, rpBoundEndB+1),
+    d:   rpSB.distance_m.slice(rpBoundStartB, rpBoundEndB+1),
+    lat: rpSB.lat.slice(rpBoundStartB, rpBoundEndB+1),
+    lon: rpSB.lon.slice(rpBoundStartB, rpBoundEndB+1),
+    alt: rpSB.alt.slice(rpBoundStartB, rpBoundEndB+1),
+    power: rpSB.power.slice(rpBoundStartB, rpBoundEndB+1),
+    speed: rpSB.speed.slice(rpBoundStartB, rpBoundEndB+1),
+    hr: rpSB.hr.slice(rpBoundStartB, rpBoundEndB+1),
+    rawPower: (rpSB._rawPower || rpSB.power).slice(rpBoundStartB, rpBoundEndB+1),
+    rawSpeed: (rpSB._rawSpeed || rpSB.speed).slice(rpBoundStartB, rpBoundEndB+1),
+  };
 
-  if (!sA_t.length || !sB_t.length) return [];
+  if (!sA.t.length || !sB.t.length) return [];
 
-  const t0A = sA_t[0], t0B = sB_t[0];
-  const d0A = sA_d[0], d0B = sB_d[0];
-  const tA = sA_t.map(t => t - t0A);
-  const tB = sB_t.map(t => t - t0B);
-  const dA = sA_d.map(d => d - d0A);
-  const dB = sB_d.map(d => d - d0B);
+  // Normalizziamo i tempi e le distanze
+  const t0A = sA.t[0], t0B = sB.t[0];
+  const d0A = sA.d[0], d0B = sB.d[0];
+  const tNormA = sA.t.map(t => t - t0A);
+  const tNormB = sB.t.map(t => t - t0B);
+  const dNormA = sA.d.map(d => d - d0A);
+  const dNormB = sB.d.map(d => d - d0B);
+
+  // Per allineare per distanza, dobbiamo comunque usare la ricerca geografica
+  // perché la distanza su circuito non è monotona. Quindi:
+  //   - Usiamo nearestBgeoMonotone per trovare la corrispondenza tra i due tracciati
+  //   - Poi proiettiamo i valori sull'asse X richiesto (distA o distB)
 
   const frames = [];
-  const showRawData = rpChartVis.speed || rpChartVis.power;
+  const maxLen = Math.max(sA.lat.length, sB.lat.length);
+  let lastIdxB = 0;
+  let lastIdxA = 0;
 
+  // Decidiamo su quale atleta basare l'ascissa
   if (gAlign === 'distA') {
-    if (showRawData) {
-      for (let iA_local = 0; iA_local < dA.length; iA_local++) {
-        const iA = iA_local + rpBoundStartA;
-        const distA_m = dA[iA_local];
-        const iB_local = rpNearestByVal(dB, Math.min(distA_m, dB[dB.length-1]));
-        const iB = iB_local + rpBoundStartB;
-        frames.push({
-          t: sA_t[iA_local], iA, iB,
-          gap: tA[iA_local] - tB[iB_local],
-          distA: distA_m, distB: dB[iB_local],
-          speedA: rpSA.speed ? rpSA.speed[iA]||0 : 0,
-          speedB: rpSB.speed ? rpSB.speed[iB]||0 : 0,
-          powerA: rpSA.power[iA]||0, powerB: rpSB.power[iB]||0,
-          rawSpeedA: rpSA._rawSpeed ? rpSA._rawSpeed[iA]||0 : (rpSA.speed ? rpSA.speed[iA]||0 : 0),
-          rawSpeedB: rpSB._rawSpeed ? rpSB._rawSpeed[iB]||0 : (rpSB.speed ? rpSB.speed[iB]||0 : 0),
-          rawPowerA: rpSA._rawPower ? rpSA._rawPower[iA]||0 : rpSA.power[iA]||0,
-          rawPowerB: rpSB._rawPower ? rpSB._rawPower[iB]||0 : rpSB.power[iB]||0,
-          hrA: rpSA.hr[iA]||0, hrB: rpSB.hr[iB]||0,
-          altA: rpSA.alt[iA]||0, altB: rpSB.alt[iB]||0,
-        });
-      }
-    } else {
-      const maxDistA = dA[dA.length-1];
-      const interval = Math.max(50, Math.ceil(maxDistA / 200));
-      for (let distM = 0; distM <= maxDistA; distM += interval) {
-        const iA_local = rpNearestByVal(dA, distM);
-        const iA = iA_local + rpBoundStartA;
-        const iB_local = rpNearestByVal(dB, Math.min(distM, dB[dB.length-1]));
-        const iB = iB_local + rpBoundStartB;
-        frames.push({
-          t: sA_t[iA_local], iA, iB,
-          gap: tA[iA_local] - tB[iB_local],
-          distA: dA[iA_local], distB: dB[iB_local],
-          speedA: rpSA.speed ? rpSA.speed[iA]||0 : 0,
-          speedB: rpSB.speed ? rpSB.speed[iB]||0 : 0,
-          powerA: rpSA.power[iA]||0, powerB: rpSB.power[iB]||0,
-          rawSpeedA: rpSA._rawSpeed ? rpSA._rawSpeed[iA]||0 : (rpSA.speed ? rpSA.speed[iA]||0 : 0),
-          rawSpeedB: rpSB._rawSpeed ? rpSB._rawSpeed[iB]||0 : (rpSB.speed ? rpSB.speed[iB]||0 : 0),
-          rawPowerA: rpSA._rawPower ? rpSA._rawPower[iA]||0 : rpSA.power[iA]||0,
-          rawPowerB: rpSB._rawPower ? rpSB._rawPower[iB]||0 : rpSB.power[iB]||0,
-          hrA: rpSA.hr[iA]||0, hrB: rpSB.hr[iB]||0,
-          altA: rpSA.alt[iA]||0, altB: rpSB.alt[iB]||0,
-        });
-      }
+    // Per ogni punto di A (tutti i punti, non solo ogni secondo), troviamo il corrispondente B
+    for (let iA_local = 0; iA_local < sA.lat.length; iA_local++) {
+      const latA = sA.lat[iA_local];
+      const lonA = sA.lon[iA_local];
+      const iB_local = nearestBgeoMonotone(latA, lonA, sB.lat, sB.lon, lastIdxB);
+      lastIdxB = iB_local;
+      const iA = iA_local + rpBoundStartA;
+      const iB = iB_local + rpBoundStartB;
+
+      const gap = tNormA[iA_local] - tNormB[iB_local];
+
+      frames.push({
+        t: sA.t[iA_local],
+        iA, iB,
+        gap: gap,
+        distA: dNormA[iA_local], distB: dNormB[iB_local],
+        speedA: sA.speed[iA_local]||0,
+        speedB: sB.speed[iB_local]||0,
+        rawSpeedA: sA.rawSpeed[iA_local]||0,
+        rawSpeedB: sB.rawSpeed[iB_local]||0,
+        powerA: sA.power[iA_local]||0,
+        powerB: sB.power[iB_local]||0,
+        rawPowerA: sA.rawPower[iA_local]||0,
+        rawPowerB: sB.rawPower[iB_local]||0,
+        hrA: sA.hr[iA_local]||0,
+        hrB: sB.hr[iB_local]||0,
+        altA: sA.alt[iA_local]||0,
+        altB: sB.alt[iB_local]||0,
+      });
     }
   } else if (gAlign === 'distB') {
-    if (showRawData) {
-      for (let iB_local = 0; iB_local < dB.length; iB_local++) {
-        const iB = iB_local + rpBoundStartB;
-        const distB_m = dB[iB_local];
-        const iA_local = rpNearestByVal(dA, Math.min(distB_m, dA[dA.length-1]));
-        const iA = iA_local + rpBoundStartA;
-        frames.push({
-          t: sB_t[iB_local], iA, iB,
-          gap: tA[iA_local] - tB[iB_local],
-          distA: dA[iA_local], distB: distB_m,
-          speedA: rpSA.speed ? rpSA.speed[iA]||0 : 0,
-          speedB: rpSB.speed ? rpSB.speed[iB]||0 : 0,
-          powerA: rpSA.power[iA]||0, powerB: rpSB.power[iB]||0,
-          rawSpeedA: rpSA._rawSpeed ? rpSA._rawSpeed[iA]||0 : (rpSA.speed ? rpSA.speed[iA]||0 : 0),
-          rawSpeedB: rpSB._rawSpeed ? rpSB._rawSpeed[iB]||0 : (rpSB.speed ? rpSB.speed[iB]||0 : 0),
-          rawPowerA: rpSA._rawPower ? rpSA._rawPower[iA]||0 : rpSA.power[iA]||0,
-          rawPowerB: rpSB._rawPower ? rpSB._rawPower[iB]||0 : rpSB.power[iB]||0,
-          hrA: rpSA.hr[iA]||0, hrB: rpSB.hr[iB]||0,
-          altA: rpSA.alt[iA]||0, altB: rpSB.alt[iB]||0,
-        });
-      }
-    } else {
-      const maxDistB = dB[dB.length-1];
-      const interval = Math.max(50, Math.ceil(maxDistB / 200));
-      for (let distM = 0; distM <= maxDistB; distM += interval) {
-        const iB_local = rpNearestByVal(dB, distM);
-        const iB = iB_local + rpBoundStartB;
-        const iA_local = rpNearestByVal(dA, Math.min(distM, dA[dA.length-1]));
-        const iA = iA_local + rpBoundStartA;
-        frames.push({
-          t: sB_t[iB_local], iA, iB,
-          gap: tA[iA_local] - tB[iB_local],
-          distA: dA[iA_local], distB: dB[iB_local],
-          speedA: rpSA.speed ? rpSA.speed[iA]||0 : 0,
-          speedB: rpSB.speed ? rpSB.speed[iB]||0 : 0,
-          powerA: rpSA.power[iA]||0, powerB: rpSB.power[iB]||0,
-          rawSpeedA: rpSA._rawSpeed ? rpSA._rawSpeed[iA]||0 : (rpSA.speed ? rpSA.speed[iA]||0 : 0),
-          rawSpeedB: rpSB._rawSpeed ? rpSB._rawSpeed[iB]||0 : (rpSB.speed ? rpSB.speed[iB]||0 : 0),
-          rawPowerA: rpSA._rawPower ? rpSA._rawPower[iA]||0 : rpSA.power[iA]||0,
-          rawPowerB: rpSB._rawPower ? rpSB._rawPower[iB]||0 : rpSB.power[iB]||0,
-          hrA: rpSA.hr[iA]||0, hrB: rpSB.hr[iB]||0,
-          altA: rpSA.alt[iA]||0, altB: rpSB.alt[iB]||0,
-        });
-      }
+    for (let iB_local = 0; iB_local < sB.lat.length; iB_local++) {
+      const latB = sB.lat[iB_local];
+      const lonB = sB.lon[iB_local];
+      // Cerchiamo il punto di A più vicino a B (invertiamo i ruoli)
+      // Dobbiamo creare una funzione simile nearestAgeoMonotone o usare la stessa con scambio
+      // Per semplicità, uso la stessa funzione passando A come target
+      const iA_local = nearestBgeoMonotone(latB, lonB, sA.lat, sA.lon, lastIdxA);
+      lastIdxA = iA_local;
+      const iA = iA_local + rpBoundStartA;
+      const iB = iB_local + rpBoundStartB;
+
+      const gap = tNormA[iA_local] - tNormB[iB_local];
+
+      frames.push({
+        t: sB.t[iB_local],
+        iA, iB,
+        gap: gap,
+        distA: dNormA[iA_local], distB: dNormB[iB_local],
+        speedA: sA.speed[iA_local]||0,
+        speedB: sB.speed[iB_local]||0,
+        rawSpeedA: sA.rawSpeed[iA_local]||0,
+        rawSpeedB: sB.rawSpeed[iB_local]||0,
+        powerA: sA.power[iA_local]||0,
+        powerB: sB.power[iB_local]||0,
+        rawPowerA: sA.rawPower[iA_local]||0,
+        rawPowerB: sB.rawPower[iB_local]||0,
+        hrA: sA.hr[iA_local]||0,
+        hrB: sB.hr[iB_local]||0,
+        altA: sA.alt[iA_local]||0,
+        altB: sB.alt[iB_local]||0,
+      });
     }
   }
 
@@ -643,26 +731,73 @@ function rpOnGraphAlignChange(){ rpRenderCharts(); rpUpdateFrame(rpCurrentT); }
 // Map
 function rpInitMap(){
   rpMapReady = false;
-  const n=rpSA.lat.length, lat=rpSA.lat.reduce((a,b)=>a+b,0)/n, lon=rpSA.lon.reduce((a,b)=>a+b,0)/n;
+  const i0 = rpBoundStartA || 0;
+  const n = rpBoundEndA - i0 + 1 || rpSA.lat.length;
+  const lat = rpSA.lat.slice(i0, i0+n).reduce((a,b)=>a+b,0)/n;
+  const lon = rpSA.lon.slice(i0, i0+n).reduce((a,b)=>a+b,0)/n;
   rpMap=new maplibregl.Map({container:'replay-map',style:STYLES.streets,center:[lon,lat],zoom:12,pitch:45,bearing:0,antialias:true});
   rpMap.addControl(new maplibregl.NavigationControl(),'top-left');
   rpMap.on('load',()=>{
     rpMapReady = true;
     map_addTerrain_to(rpMap);
-    rpAddTrace('rp-ta',rpSA,'#3b82f6',3,false); rpAddTrace('rp-tb',rpSB,'#f97316',3,false);
-    rpAddTrace('rp-ta-tr',rpSA,'#60a5fa',5,true); rpAddTrace('rp-tb-tr',rpSB,'#fb923c',5,true);
+    rpAddTrace('rp-ta',    rpSA, '#3b82f6', 3, false, rpBoundStartA, rpBoundEndA);
+    rpAddTrace('rp-tb',    rpSB, '#f97316', 3, false, rpBoundStartB, rpBoundEndB);
+    rpAddTrace('rp-ta-tr', rpSA, '#60a5fa', 5, true,  rpBoundStartA, rpBoundEndA);
+    rpAddTrace('rp-tb-tr', rpSB, '#fb923c', 5, true,  rpBoundStartB, rpBoundEndB);
     rpFitAll();
     rpAddGapLine();
     rpSpawnMarkers();
     rpUpdateFrame(0);
   });
 }
-function rpAddTrace(id,s,color,w,trail){
-  const coords=s.lat.map((la,i)=>[s.lon[i],la,s.alt[i]||0]);
-  const geo={type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:coords}}]};
-  if(rpMap.getSource(id))rpMap.getSource(id).setData(geo);
-  else{rpMap.addSource(id,{type:'geojson',data:geo});rpMap.addLayer({id:`${id}-ln`,type:'line',source:id,paint:{'line-color':color,'line-width':w,'line-opacity':trail?0:0.42}});}
+function rpAddTrace(id, s, color, w, trail, i0, i1) {
+  const start = (i0 != null) ? i0 : 0;
+  const end   = (i1 != null) ? i1 : s.lat.length - 1;
+  const coords = [];
+  for (let i = start; i <= end; i++) coords.push([s.lon[i], s.lat[i], s.alt[i]||0]);
+  const geo = {type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:coords}}]};
+  if (rpMap.getSource(id)) rpMap.getSource(id).setData(geo);
+  else {
+    rpMap.addSource(id, {type:'geojson', data:geo});
+    rpMap.addLayer({id:`${id}-ln`, type:'line', source:id, paint:{'line-color':color,'line-width':w,'line-opacity':trail?0:0.42}});
+  }
 }
+
+// Ridisegna le tracce base (sfondo) usando i bounds correnti
+function rpRedrawTracesWithBounds() {
+  if (!rpMap || !rpMapReady) return;
+  _rpTrailLastA = -1; _rpTrailLastB = -1;
+  rpAddTrace('rp-ta',    rpSA, '#3b82f6', 3, false, rpBoundStartA, rpBoundEndA);
+  rpAddTrace('rp-tb',    rpSB, '#f97316', 3, false, rpBoundStartB, rpBoundEndB);
+  rpAddTrace('rp-ta-tr', rpSA, '#60a5fa', 5, true,  rpBoundStartA, rpBoundEndA);
+  rpAddTrace('rp-tb-tr', rpSB, '#fb923c', 5, true,  rpBoundStartB, rpBoundEndB);
+  // Sposta i marcatori di start al nuovo punto iniziale
+  if (rpMarkerA) rpMarkerA.setLngLat([rpSA.lon[rpBoundStartA], rpSA.lat[rpBoundStartA]]);
+  if (rpMarkerB) rpMarkerB.setLngLat([rpSB.lon[rpBoundStartB], rpSB.lat[rpBoundStartB]]);
+  // Fit sulla porzione selezionata
+  const lats = [], lons = [];
+  for (let i = rpBoundStartA; i <= rpBoundEndA; i++) { lats.push(rpSA.lat[i]); lons.push(rpSA.lon[i]); }
+  for (let i = rpBoundStartB; i <= rpBoundEndB; i++) { lats.push(rpSB.lat[i]); lons.push(rpSB.lon[i]); }
+  if (lats.length) rpMap.fitBounds([[Math.min(...lons),Math.min(...lats)],[Math.max(...lons),Math.max(...lats)]],{padding:60,duration:600});
+}
+
+// Ripristina il range completo (entrambe le tracce)
+function rpResetFullActivity() {
+  if (!rpSA || !rpSB) return;
+  rpBoundStartA = 0; rpBoundEndA = rpSA.lat.length - 1;
+  rpBoundStartB = 0; rpBoundEndB = rpSB.lat.length - 1;
+  rpUpdateBoundsPanelUI();
+  rpUpdateBoundsMarkersOnMap();
+  rpBuildAlignment();
+  rpRenderCharts();
+  rpUpdateFrame(0);
+  rpRedrawTracesWithBounds();
+  rpFitAll();
+  document.getElementById('replay-status').textContent = 'Tracce ripristinate';
+  // Sincronizza Comparison al full range
+  if (typeof compResetFullActivity === 'function') compResetFullActivity();
+}
+
 function rpAddGapLine(){
   rpMap.addSource('rp-gap',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
   rpMap.addLayer({id:'rp-gap-ln',type:'line',source:'rp-gap',paint:{'line-color':'#fff','line-width':2,'line-opacity':0.55,'line-dasharray':[3,3]}});
@@ -680,7 +815,8 @@ function rpUpdateTrail(fr, frameIdx) {
       _rpTrailLastA = iA;
       const src = rpMap.getSource('rp-ta-tr');
       if (src) {
-        const coords = rpSA.lat.slice(0, iA + 1).map((la,i) => [rpSA.lon[i], la, rpSA.alt[i]||0]);
+        const coords = [];
+        for (let i = rpBoundStartA; i <= iA; i++) coords.push([rpSA.lon[i], rpSA.lat[i], rpSA.alt[i]||0]);
         if (coords.length >= 2) {
           src.setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:coords}}]});
           rpMap.setPaintProperty('rp-ta-tr-ln','line-opacity', 0.85);
@@ -692,7 +828,8 @@ function rpUpdateTrail(fr, frameIdx) {
       _rpTrailLastB = iB;
       const src = rpMap.getSource('rp-tb-tr');
       if (src) {
-        const coords = rpSB.lat.slice(0, iB + 1).map((la,i) => [rpSB.lon[i], la, rpSB.alt[i]||0]);
+        const coords = [];
+        for (let i = rpBoundStartB; i <= iB; i++) coords.push([rpSB.lon[i], rpSB.lat[i], rpSB.alt[i]||0]);
         if (coords.length >= 2) {
           src.setData({type:'FeatureCollection',features:[{type:'Feature',geometry:{type:'LineString',coordinates:coords}}]});
           rpMap.setPaintProperty('rp-tb-tr-ln','line-opacity', 0.85);
@@ -721,10 +858,10 @@ function replayChangeStyle(k){
     rpMapReady = true;
     _rpTrailLastA = -1; _rpTrailLastB = -1;
     map_addTerrain_to(rpMap);
-    rpAddTrace('rp-ta',rpSA,'#3b82f6',3,false);
-    rpAddTrace('rp-tb',rpSB,'#f97316',3,false);
-    rpAddTrace('rp-ta-tr',rpSA,'#60a5fa',5,true);
-    rpAddTrace('rp-tb-tr',rpSB,'#fb923c',5,true);
+    rpAddTrace('rp-ta',    rpSA, '#3b82f6', 3, false, rpBoundStartA, rpBoundEndA);
+    rpAddTrace('rp-tb',    rpSB, '#f97316', 3, false, rpBoundStartB, rpBoundEndB);
+    rpAddTrace('rp-ta-tr', rpSA, '#60a5fa', 5, true,  rpBoundStartA, rpBoundEndA);
+    rpAddTrace('rp-tb-tr', rpSB, '#fb923c', 5, true,  rpBoundStartB, rpBoundEndB);
     rpAddGapLine();
     rpSpawnMarkers();
     if(rpAligned.length) rpUpdateFrame(rpCurrentT);
@@ -1475,6 +1612,8 @@ function rpShift(which, deltaM) {
 
   rpUpdateBoundsPanelUI();
   rpUpdateBoundsMarkersOnMap();
+  // Aggiorna i marker del settore in Comparison in tempo reale
+  syncBoundsToComparison();
 }
 
 function rpResetBound(which) {
@@ -1484,6 +1623,7 @@ function rpResetBound(which) {
   if (which === 'endB')   rpBoundEndB   = rpSB.lat.length - 1;
   rpUpdateBoundsPanelUI();
   rpUpdateBoundsMarkersOnMap();
+  syncBoundsToComparison();
 }
 
 function rpApplyBounds() {
@@ -1491,8 +1631,34 @@ function rpApplyBounds() {
   rpBuildAlignment();
   rpRenderCharts();
   rpUpdateFrame(0);
+  rpRedrawTracesWithBounds();
   document.getElementById('replay-status').textContent =
     `Bounds applicati · ${rpAligned.length} frame · ${fmtTime(rpMaxT)}`;
+  syncBoundsToComparison();
+}
+
+// Propaga i bounds di Race Replay → settore attivo di Comparison (trim fisico)
+function syncBoundsToComparison() {
+  console.log('[sync→Comp] rpBounds:', rpBoundStartA, rpBoundEndA, rpBoundStartB, rpBoundEndB);
+  if (typeof compGetActiveSector !== 'function') { console.warn('[sync→Comp] compGetActiveSector non disponibile'); return; }
+  const sec = compGetActiveSector();
+  if (!sec) { console.warn('[sync→Comp] nessun settore attivo'); return; }
+  console.log('[sync→Comp] settore trovato:', sec.id, 'compOriginalStreams.A len:', compOriginalStreams?.A?.lat?.length);
+
+  sec.startIdxA = rpBoundStartA;
+  sec.endIdxA   = rpBoundEndA;
+  sec.startIdxB = rpBoundStartB;
+  sec.endIdxB   = rpBoundEndB;
+
+  if (typeof compTrimToCurrentSector === 'function') {
+    compTrimToCurrentSector();
+    console.log('[sync→Comp] dopo trim: compStreamA len:', compStreamA?.lat?.length, 'compMapReady:', compMapReady);
+  } else { console.warn('[sync→Comp] compTrimToCurrentSector non disponibile'); }
+
+  if (typeof compMapReady !== 'undefined' && !compMapReady && typeof compMap !== 'undefined' && compMap) {
+    window._compPendingInit = true;
+    console.log('[sync→Comp] mappa non pronta, _compPendingInit=true');
+  }
 }
 
 let rpBoundMarkersMap = {};
@@ -1552,5 +1718,6 @@ function replayReset(){
     const c=colorMap[k]||k;
     document.getElementById(`rp-tog-${k}`).className=`chart-tog ct-${c}-${rpChartVis[k]?'on':'off'}`;
   });
+  // Il reset globale (cambia file) aggiorna anche l'header — qui non serve fare nulla
 }
 </script>

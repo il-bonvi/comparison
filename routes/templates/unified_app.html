@@ -423,6 +423,15 @@ html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--tex
         <div class="tab-dot" style="background:var(--a)"></div>⚔️ COMPARISON
       </button>
     </div>
+    <!-- File attivi + bottone cambio globale -->
+    <div id="header-file-info" style="display:none; align-items:center; gap:10px; margin-left:auto; padding-right:4px;">
+      <span style="font-size:.68rem; color:var(--muted2); font-family:var(--font-mono);">
+        🔵 <span id="header-name-a" style="color:var(--a);">—</span>
+        &nbsp;vs&nbsp;
+        🟠 <span id="header-name-b" style="color:var(--b);">—</span>
+      </span>
+      <button class="btn btn-ghost" onclick="globalReset()" style="padding:3px 12px; font-size:.72rem; border-color:var(--border-hi);">📂 Cambia file</button>
+    </div>
   </div>
 
   <!-- ════════════════ COMPARISON VIEW ════════════════ -->
@@ -464,6 +473,136 @@ function hideLoading() { document.getElementById('loading').classList.remove('on
 function fmtTime(s) {
   const m = Math.floor(s/60), sec = Math.floor(s%60);
   return `${m}:${sec.toString().padStart(2,'0')}`;
+}
+
+// Mostra/aggiorna il badge file nell'header globale
+function updateHeaderFileInfo() {
+  const info = document.getElementById('header-file-info');
+  if (!sharedStreamA || !sharedStreamB) { info.style.display = 'none'; return; }
+  info.style.display = 'flex';
+  document.getElementById('header-name-a').textContent = (sharedNameA || 'A').slice(0, 20);
+  document.getElementById('header-name-b').textContent = (sharedNameB || 'B').slice(0, 20);
+}
+
+// Reset globale: azzera entrambe le tab e torna agli upload, mantenendo i file pronti al riuso
+function globalReset() {
+  // Salva i dati correnti PRIMA di azzerare (servono per pre-riempire gli slot)
+  const prevStreamA = sharedStreamA;
+  const prevStreamB = sharedStreamB;
+  const prevNameA   = sharedNameA;
+  const prevNameB   = sharedNameB;
+
+  // ── Reset Race Replay ──
+  if (typeof rpStopPlay === 'function') rpStopPlay();
+  if (typeof rpAnimFrame !== 'undefined' && rpAnimFrame) { clearInterval(rpAnimFrame); rpAnimFrame = null; }
+  if (typeof rpRemoveBoundsMarkers === 'function') rpRemoveBoundsMarkers();
+  rpMapReady = false;
+  rpBoundsPanelOpen = false;
+  const rpBoundsPanel = document.getElementById('rp-bounds-panel');
+  if (rpBoundsPanel) rpBoundsPanel.style.display = 'none';
+  const rpBtnBounds = document.getElementById('rp-btn-bounds');
+  if (rpBtnBounds) rpBtnBounds.classList.remove('off');
+  rpSA = rpSB = null; rpAligned = []; rpCurrentT = 0;
+  rpBoundStartA = rpBoundEndA = rpBoundStartB = rpBoundEndB = 0;
+  if (rpMap) { rpMap.remove(); rpMap = null; }
+  rpChart = null;
+  if (typeof _rpD3 !== 'undefined') _rpD3 = { svg:null, g:null, xScale:null, yScales:{}, W:0, H:0, margin:{top:14,right:60,bottom:22,left:52}, cursorLine:null, xData:[], seriesData:{} };
+  const rpChartEl = document.getElementById('replay-multi-chart');
+  if (rpChartEl) rpChartEl.innerHTML = '';
+  rpMarkerA = rpMarkerB = null;
+  if (typeof _rpTrailLastA !== 'undefined') { _rpTrailLastA = -1; _rpTrailLastB = -1; }
+  document.getElementById('replay-app').style.display = 'none';
+  document.getElementById('replay-upload').style.display = 'flex';
+  document.getElementById('rp-file-a').value = '';
+  document.getElementById('rp-file-b').value = '';
+
+  // ── Reset Comparison ──
+  if (typeof compClearAnalysis === 'function') compClearAnalysis();
+  compStreamA = null; compStreamB = null;
+  compNameA = 'A'; compNameB = 'B';
+  compSectors = []; compActiveSectorId = null; _compSectorIdCounter = 0;
+  compElevChart = null;
+  compZoomDomainX = null;
+  compLayerVis = { traceA:true, traceB:true, sections:true };
+  compGlobalStartA = 0; compGlobalEndA = 0;
+  compGlobalStartB = 0; compGlobalEndB = 0;
+  compOriginalStreams = { A: null, B: null };
+  compCurrentChartTab = 'elev';
+  compTableOpen = false;
+  compSectorPanelOpen = false;
+  compSmoothPanelOpen = false;
+  window._compPendingInit = false;
+  if (compMap) { try { compMap.remove(); } catch(e){} compMap = null; }
+  compMapReady = false;
+  compAnalysisLayers = [];
+  compChartHoverMarkers = { a:null, b:null, lineSourceId:'comp-hover-line', lineLayerId:'comp-hover-line-ln' };
+  document.querySelectorAll('.comp-tooltip').forEach(el => el.remove());
+  const compChartEl = document.getElementById('comp-elevation-chart');
+  if (compChartEl) compChartEl.innerHTML = '';
+  const drawer = document.getElementById('comp-table-drawer');
+  if (drawer) drawer.style.transform = 'translateY(100%)';
+  document.getElementById('comp-btn-table').classList.remove('off');
+  const sectorPanel = document.getElementById('comp-sector-panel');
+  if (sectorPanel) sectorPanel.style.display = 'none';
+  const smoothPanel = document.getElementById('comp-smooth-panel');
+  if (smoothPanel) smoothPanel.style.display = 'none';
+  document.getElementById('comp-app').style.display = 'none';
+  document.getElementById('comp-upload').style.display = 'flex';
+  document.getElementById('comp-status').textContent = '';
+  document.getElementById('comp-file-a').value = '';
+  document.getElementById('comp-file-b').value = '';
+
+  // ── Torna alla tab replay ──
+  switchTab('replay');
+
+  // ── Pre-riempie gli slot con i file precedenti (se esistono) ──
+  // I stream originali restano in sharedStreamA/B per il riuso.
+  // Il flag _slotReady = 'cached' segnala che non serve un nuovo upload.
+  if (prevStreamA && prevStreamB) {
+    sharedStreamA = prevStreamA;
+    sharedStreamB = prevStreamB;
+    sharedNameA   = prevNameA;
+    sharedNameB   = prevNameB;
+
+    // Slot Race Replay
+    const rpSlotA = document.getElementById('rp-slot-a');
+    const rpSlotB = document.getElementById('rp-slot-b');
+    rpSlotA.classList.add('filled-a');
+    rpSlotB.classList.add('filled-b');
+    document.getElementById('rp-name-a').textContent = prevNameA.slice(0, 22) + ' ✓';
+    document.getElementById('rp-name-b').textContent = prevNameB.slice(0, 22) + ' ✓';
+    rpSlotA._slotReady = 'cached';
+    rpSlotB._slotReady = 'cached';
+    document.getElementById('rp-btn-go').disabled = false;
+
+    // Slot Comparison
+    const cSlotA = document.getElementById('comp-slot-a');
+    const cSlotB = document.getElementById('comp-slot-b');
+    cSlotA.className = 'upload-slot filled-a';
+    cSlotB.className = 'upload-slot slot-b filled-b';
+    document.getElementById('comp-name-a').textContent = prevNameA.slice(0, 22) + ' ✓';
+    document.getElementById('comp-name-b').textContent = prevNameB.slice(0, 22) + ' ✓';
+    cSlotA._slotReady = 'cached';
+    cSlotB._slotReady = 'cached';
+    document.getElementById('comp-btn-go').disabled = false;
+
+    updateHeaderFileInfo();
+  } else {
+    // Nessun file precedente: slot vuoti normali
+    document.getElementById('rp-slot-a').classList.remove('filled-a');
+    document.getElementById('rp-slot-b').classList.remove('filled-b');
+    document.getElementById('rp-name-a').textContent = 'Seleziona .fit';
+    document.getElementById('rp-name-b').textContent = 'Seleziona .fit';
+    document.getElementById('rp-btn-go').disabled = true;
+    document.getElementById('comp-slot-a').className = 'upload-slot';
+    document.getElementById('comp-slot-b').className = 'upload-slot slot-b';
+    document.getElementById('comp-name-a').textContent = 'Seleziona .fit';
+    document.getElementById('comp-name-b').textContent = 'Seleziona .fit';
+    document.getElementById('comp-btn-go').disabled = true;
+    sharedStreamA = null; sharedStreamB = null;
+    sharedNameA = ''; sharedNameB = '';
+    updateHeaderFileInfo();
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -530,6 +669,7 @@ function rpAutoInitFromShared() {
   rpInitChart();
   rpRenderCharts();
   rpSetSpeed(1);
+  updateHeaderFileInfo();
   setTimeout(() => {
     if (!rpMap) rpInitMap();
     else { rpMap.resize(); rpUpdateFrame(0); }
@@ -540,6 +680,9 @@ function rpAutoInitFromShared() {
 function compAutoInitFromShared(streamA, streamB, nameA, nameB) {
   if (!streamA || !streamB) return;
   compStreamA = streamA; compStreamB = streamB;
+  // Salva copie originali per ripristino (come fa compStart)
+  compOriginalStreams.A = JSON.parse(JSON.stringify(compStreamA));
+  compOriginalStreams.B = JSON.parse(JSON.stringify(compStreamB));
   compStreamA._rawPower = compStreamA.power ? compStreamA.power.slice() : [];
   compStreamB._rawPower = compStreamB.power ? compStreamB.power.slice() : [];
   compStreamA._rawSpeed = compStreamA.speed ? compStreamA.speed.slice() : null;
@@ -548,11 +691,16 @@ function compAutoInitFromShared(streamA, streamB, nameA, nameB) {
   compNameA = nameA || 'A'; compNameB = nameB || 'B';
   ['comp-lbl-a','comp-leg-a'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=compNameA.slice(0,16); });
   ['comp-lbl-b','comp-leg-b'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=compNameB.slice(0,16); });
+  // Inizializza bounds e settore default (come fa compStart)
+  compGlobalStartA = 0; compGlobalEndA = compStreamA.lat.length - 1;
+  compGlobalStartB = 0; compGlobalEndB = compStreamB.lat.length - 1;
+  compSectors = []; _compSectorIdCounter = 0;
+  if (typeof compAddSector === 'function') compAddSector(true);
   document.getElementById('comp-upload').style.display='none';
   document.getElementById('comp-app').style.display='flex';
-  if (!compMap) {
-    window._compPendingInit = true;
-  }
+  // Aggiorna badge header
+  updateHeaderFileInfo();
+  window._compPendingInit = true;
 }
 
 function switchTab(tab) {
@@ -565,8 +713,42 @@ function switchTab(tab) {
     if (tab === 'comp') {
       if (window._compPendingInit && compStreamA && compStreamB) {
         window._compPendingInit = false;
-        compInitMap();
-      } else if (compElevChart) compResizeChart();
+        if (!compMap) {
+          // Prima volta assoluta: inizializza mappa
+          // compInitElevChart viene chiamato nel callback 'load' della mappa
+          compInitMap();
+        } else if (compMapReady) {
+          // Mappa già pronta: ridisegna rispettando il trim già eseguito
+          compDrawTrace('comp-ta', compStreamA, '#3b82f6');
+          compDrawTrace('comp-tb', compStreamB, '#f97316');
+          compFit();
+          compRenderSectorMarkersAll();
+          compInitElevChart();
+        } else {
+          // Mappa esiste ma non ancora pronta: aspetta styledata
+          compMap.once('styledata', () => {
+            compDrawTrace('comp-ta', compStreamA, '#3b82f6');
+            compDrawTrace('comp-tb', compStreamB, '#f97316');
+            compFit();
+            compRenderSectorMarkersAll();
+            compInitElevChart();
+          });
+        }
+      } else if (compStreamA && compMapReady) {
+        // Tab già inizializzata: aggiorna mappa e grafico
+        const dom = document.getElementById('comp-elevation-chart');
+        const svgEl = dom && dom.querySelector('svg');
+        if (!svgEl || parseInt(svgEl.getAttribute('width') || '0') < 10) {
+          compUpdateElevChart();
+        } else {
+          compResizeChart();
+        }
+        // Ridisegna le tracce con lo stream corrente (già trimmato se sync da Replay)
+        compDrawTrace('comp-ta', compStreamA, '#3b82f6');
+        compDrawTrace('comp-tb', compStreamB, '#f97316');
+        compRenderSectorMarkersAll();
+        if (compMap) compMap.resize();
+      }
     }
     if (tab === 'replay') {
       rpUpdateSharedBadge();
@@ -576,7 +758,7 @@ function switchTab(tab) {
         if (rpAligned.length) rpUpdateFrame(rpCurrentT);
       }
     }
-  }, 60);
+  }, 80);
 }
 </script>
 
