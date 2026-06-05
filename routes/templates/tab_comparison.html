@@ -135,6 +135,14 @@
             </div>
           </div>
 
+          <!-- Selezione rapida -->
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.04);">
+            <span style="color:var(--muted2); font-size:.68rem; text-transform:uppercase; letter-spacing:.05em;">⚡ Selezione rapida:</span>
+            <button class="btn btn-ghost" onclick="compSetSectorFromMapZoom()" style="padding:2px 9px; font-size:.7rem; border-color:var(--a);" title="Usa l'area visibile nella mappa come bounds del settore">📐 Usa zoom mappa</button>
+            <button class="btn btn-ghost" id="comp-btn-drag-sector" onclick="compToggleDragSector()" style="padding:2px 9px; font-size:.7rem;" title="Trascina sul grafico per definire start/end del settore attivo">↔ Trascina su grafico</button>
+            <span style="color:var(--muted2); font-size:.65rem;">oppure regola manualmente:</span>
+          </div>
+
           <!-- 🔵 ATLETA A -->
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
             <span style="color:var(--a); font-weight:700; min-width:85px;">🔵 ATL A:</span>
@@ -163,7 +171,6 @@
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endA',1000)">1km▶</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endA',10000)">10km▶</button>
 
-            <!-- Pulsanti allineamento A -->
             <button class="btn btn-primary-b" style="padding:1px 8px; font-size:.68rem; margin-left:8px;" onclick="compAlignStartAtoB()">🔗 Start 🔵 su 🟠</button>
             <button class="btn btn-primary-b" style="padding:1px 8px; font-size:.68rem;" onclick="compAlignEndAtoB()">🔗 End 🔵 su 🟠</button>
           </div>
@@ -196,7 +203,6 @@
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endB',1000)">1km▶</button>
             <button class="btn btn-ghost" style="padding:1px 6px; font-size:.68rem" onclick="compSectorShift('endB',10000)">10km▶</button>
 
-            <!-- Pulsanti allineamento B -->
             <button class="btn btn-primary-b" style="padding:1px 8px; font-size:.68rem; margin-left:8px;" onclick="compAlignStartBtoA()">🔗 Start 🟠 su 🔵</button>
             <button class="btn btn-primary-b" style="padding:1px 8px; font-size:.68rem;" onclick="compAlignEndBtoA()">🔗 End 🟠 su 🔵</button>
           </div>
@@ -204,8 +210,22 @@
         </div>
       </div>
 
-      <!-- MAIN MAP + CHART -->
+      <!-- MAIN MAP + CHART + SECTOR SIDEBAR -->
       <div id="comp-main">
+
+        <!-- Sidebar settori (sinistra) -->
+        <div id="comp-sector-sidebar">
+          <div style="padding:6px 8px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+            <span style="font-size:.64rem; font-weight:700; color:var(--muted2); text-transform:uppercase; letter-spacing:.06em;">Settori</span>
+            <button onclick="compAddSector()" title="Nuovo settore" style="background:none;border:none;color:var(--a);cursor:pointer;font-size:.9rem;padding:0 2px;line-height:1;">＋</button>
+          </div>
+          <div id="comp-sector-list" style="overflow-y:auto; flex:1;"></div>
+          <div style="padding:4px 6px; border-top:1px solid var(--border);">
+            <button onclick="compToggleIsolateSector()" id="comp-btn-isolate" class="btn btn-ghost" style="width:100%;font-size:.64rem;padding:3px 0;" title="Mostra solo il settore selezionato su mappa e grafico">👁 Isola settore</button>
+          </div>
+        </div>
+
+        <div id="comp-map-and-chart">
         <div id="comp-map"></div>
 
         <!-- Map legend -->
@@ -244,13 +264,11 @@
             <button class="chart-tog ct-wkg-off" id="comp-ctog-wkg" onclick="compChartTab('wkg')" title="W/kg (imposta i kg)">W/kg</button>
             <button class="chart-tog ct-wkg-off" id="comp-ctog-wkgavg" onclick="compChartTab('wkgavg')" title="W/kg smoothed">W/kg avg</button>
             <button class="chart-tog ct-hr-off" id="comp-ctog-hr" onclick="compChartTab('hr')">HR</button>
-            <div style="width:1px;height:14px;background:var(--border-hi);margin:0 4px;"></div>
-            <span style="font-size:.64rem;color:var(--muted);font-family:var(--font-mono);">Settori:</span>
-            <div id="comp-sector-chips" style="display:flex;gap:3px;flex-wrap:wrap;"></div>
           </div>
           <div id="comp-elevation-chart"></div>
-        </div>
-      </div>
+        </div><!-- /comp-chart-panel -->
+        </div><!-- /comp-map-and-chart -->
+      </div><!-- /comp-main -->
 
       <!-- ═══ METRICS TABLE DRAWER ═══ -->
       <div id="comp-table-drawer" style="
@@ -289,8 +307,34 @@
 
 <style>
 /* ── Comparison-specific overrides ── */
-#comp-main { flex:1; display:flex; flex-direction:column; overflow:hidden; position:relative; }
+#comp-main { flex:1; display:flex; flex-direction:row; overflow:hidden; position:relative; }
+#comp-map-and-chart { flex:1; display:flex; flex-direction:column; overflow:hidden; position:relative; min-width:0; }
 #comp-map { flex:1; min-height:0; }
+
+/* Sector sidebar */
+#comp-sector-sidebar {
+  width:175px; flex-shrink:0;
+  background:var(--surface2);
+  border-right:1px solid var(--border);
+  display:flex; flex-direction:column;
+  font-family:var(--font-mono); font-size:.68rem;
+  z-index:10;
+}
+#comp-sector-list { overflow-y:auto; flex:1; }
+.comp-sec-item {
+  display:flex; flex-direction:column;
+  padding:5px 8px; cursor:default;
+  border-bottom:1px solid rgba(255,255,255,0.04);
+  transition:background .15s;
+}
+.comp-sec-item:hover { background:rgba(255,255,255,0.05); }
+.comp-sec-item.active { background:rgba(59,130,246,0.12); border-left:2px solid var(--a); }
+.comp-sec-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.comp-sec-label { flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:var(--text); font-size:.72rem; }
+.comp-sec-range { color:var(--muted2); font-size:.62rem; margin-top:1px; }
+.comp-sec-zoom { opacity:0; font-size:.7rem; color:var(--a); cursor:pointer; padding:0 2px; flex-shrink:0; transition:opacity .15s; }
+.comp-sec-item:hover .comp-sec-zoom { opacity:1; }
+#comp-btn-isolate.active { background:rgba(59,130,246,0.2); border-color:var(--a); color:var(--a); }
 #comp-chart-panel {
   height:180px; background:var(--surface); border-top:2px solid var(--border);
   flex-shrink:0; position:relative;
@@ -659,6 +703,25 @@ function compUpdateMapHoverFromChart(xKm) {
   }
 }
 
+function compGetActiveSector() {
+  return compSectors.find(s => s.id === compActiveSectorId);
+}
+
+let _compIsolateSector = false;
+
+function compDeleteSector() {
+  if (compSectors.length <= 1) return;
+  const idx = compSectors.findIndex(s => s.id === compActiveSectorId);
+  compSectors.splice(idx, 1);
+  compActiveSectorId = compSectors[Math.max(0, idx-1)]?.id || compSectors[0]?.id;
+  compRebuildSectorList();
+  compUpdateSectorPanelUI();
+  compClearAnalysis();
+  compRenderSectorMarkersAll();
+  compUpdateSectorLegend();
+  compUpdateElevChart();
+}
+
 function compDrawTrace(id, s, color, startIdx, endIdx) {
   const i0 = (startIdx != null) ? startIdx : 0;
   const i1 = (endIdx   != null) ? endIdx   : s.lat.length - 1;
@@ -675,13 +738,20 @@ function compDrawTrace(id, s, color, startIdx, endIdx) {
 // Ridisegna le tracce usando i bounds del settore attivo (o globali se nessun settore)
 function compRedrawTracesWithBounds() {
   if (!compMap || !compMapReady || !compStreamA) return;
-  const sec = compGetActiveSector();
-  const sA = sec ? sec.startIdxA : compGlobalStartA;
-  const eA = sec ? sec.endIdxA   : compGlobalEndA;
-  const sB = sec ? sec.startIdxB : compGlobalStartB;
-  const eB = sec ? sec.endIdxB   : compGlobalEndB;
-  compDrawTrace('comp-ta', compStreamA, '#3b82f6', sA, eA);
-  if (compStreamB) compDrawTrace('comp-tb', compStreamB, '#f97316', sB, eB);
+  if (_compIsolateSector) {
+    // Modalità isola: disegna solo la porzione del settore attivo
+    const sec = compGetActiveSector();
+    const sA = sec ? sec.startIdxA : compGlobalStartA;
+    const eA = sec ? sec.endIdxA   : compGlobalEndA;
+    const sB = sec ? sec.startIdxB : compGlobalStartB;
+    const eB = sec ? sec.endIdxB   : compGlobalEndB;
+    compDrawTrace('comp-ta', compStreamA, '#3b82f6', sA, eA);
+    if (compStreamB) compDrawTrace('comp-tb', compStreamB, '#f97316', sB, eB);
+  } else {
+    // Modalità normale: traccia completa sempre visibile
+    compDrawTrace('comp-ta', compStreamA, '#3b82f6');
+    if (compStreamB) compDrawTrace('comp-tb', compStreamB, '#f97316');
+  }
 }
 function compFit() {
   if (!compMap||!compStreamA) return;
@@ -741,20 +811,133 @@ function compAddSector(isDefault) {
     analyzed: false, sections: { sA:[], sB:[] }
   };
   compSectors.push(sector);
+  // Il settore default viene selezionato; quelli successivi NO
   if (isDefault) compActiveSectorId = id;
-  compRebuildSectorSelect();
+  compRebuildSectorList();
   compUpdateSectorPanelUI();
   compRenderSectorMarkersAll();
   compUpdateSectorLegend();
   return sector;
 }
 
-function compDeleteSector() {
+function compRebuildSectorList() {
+  const sel = document.getElementById('comp-sector-sel');
+  if (sel) {
+    sel.innerHTML = '';
+    compSectors.forEach(sec => {
+      const opt = document.createElement('option');
+      opt.value = sec.id; opt.textContent = sec.name;
+      if (sec.id === compActiveSectorId) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+  const list = document.getElementById('comp-sector-list');
+  if (!list) return;
+  list.innerHTML = '';
+  compSectors.forEach(sec => {
+    const item = document.createElement('div');
+    item.className = 'comp-sec-item' + (sec.id === compActiveSectorId ? ' active' : '');
+    item.dataset.secId = sec.id;
+
+    // Riga normale
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:4px;width:100%;';
+    row.innerHTML = `
+      <div class="comp-sec-dot" style="background:${sec.color}"></div>
+      <div style="flex:1;min-width:0;cursor:pointer;">
+        <div class="comp-sec-label">${sec.name}</div>
+        <div class="comp-sec-range">${compSectorRangeLabel(sec)}</div>
+      </div>
+      <span class="comp-sec-zoom" title="Zoom" onclick="event.stopPropagation();compZoomToSector(${sec.id})" style="opacity:.6;font-size:.7rem;cursor:pointer;padding:0 1px;">🔍</span>
+      <span class="comp-sec-zoom" title="Modifica settore (start, end, analisi...)" onclick="event.stopPropagation();compEditSector(${sec.id})" style="opacity:.6;font-size:.7rem;cursor:pointer;padding:0 1px;">✏️</span>
+      <span class="comp-sec-zoom" title="Elimina settore" onclick="event.stopPropagation();compConfirmDeleteSector(${sec.id})" style="opacity:.6;font-size:.7rem;cursor:pointer;padding:0 1px;color:#f43f5e;">✕</span>`;
+    row.querySelector('div[style*="flex:1"]').addEventListener('click', () => compSelectSector(sec.id));
+
+    // Form inline edit (nascosto)
+    const editRow = document.createElement('div');
+    editRow.id = `comp-sec-edit-${sec.id}`;
+    editRow.style.cssText = 'display:none;align-items:center;gap:3px;width:100%;padding-top:3px;';
+    editRow.innerHTML = `
+      <input id="comp-sec-input-${sec.id}" type="text" maxlength="20" value="${sec.name}"
+        style="flex:1;min-width:0;padding:2px 5px;background:var(--bg);border:1px solid var(--a);border-radius:3px;color:var(--text);font-family:var(--font-mono);font-size:.68rem;"
+        onkeydown="if(event.key==='Enter')compSaveInlineEdit(${sec.id});if(event.key==='Escape')compCancelInlineEdit(${sec.id});event.stopPropagation();"
+        onclick="event.stopPropagation();" />
+      <button onclick="event.stopPropagation();compSaveInlineEdit(${sec.id})" style="background:var(--a);border:none;border-radius:3px;color:#fff;padding:2px 5px;font-size:.65rem;cursor:pointer;">✓</button>
+      <button onclick="event.stopPropagation();compCancelInlineEdit(${sec.id})" style="background:rgba(255,255,255,0.08);border:none;border-radius:3px;color:var(--muted2);padding:2px 5px;font-size:.65rem;cursor:pointer;">✕</button>`;
+
+    // Conferma delete (nascosto)
+    const delRow = document.createElement('div');
+    delRow.id = `comp-sec-del-${sec.id}`;
+    delRow.style.cssText = 'display:none;align-items:center;gap:4px;width:100%;padding-top:3px;font-size:.65rem;color:var(--muted2);';
+    delRow.innerHTML = `
+      <span style="flex:1;">Eliminare?</span>
+      <button onclick="event.stopPropagation();compConfirmedDeleteSector(${sec.id})" style="background:rgba(244,63,94,.2);border:1px solid #f43f5e;border-radius:3px;color:#f43f5e;padding:2px 7px;font-size:.65rem;cursor:pointer;">Sì</button>
+      <button onclick="event.stopPropagation();compCancelDeleteSector(${sec.id})" style="background:rgba(255,255,255,0.06);border:none;border-radius:3px;color:var(--muted2);padding:2px 7px;font-size:.65rem;cursor:pointer;">No</button>`;
+
+    item.appendChild(row);
+    item.appendChild(editRow);
+    item.appendChild(delRow);
+    list.appendChild(item);
+  });
+}
+
+// ✏️ Apre il pannello settori per modificare start/end/analisi del settore cliccato
+function compEditSector(id) {
+  compActiveSectorId = id;
+  compRebuildSectorList();
+  compUpdateSectorPanelUI();
+  compRenderSectorMarkersAll();
+  compZoomToSector(id);
+  compUpdateElevChart();
+  // Apri il pannello settori se non è già aperto
+  const panel = document.getElementById('comp-sector-panel');
+  if (panel && (panel.style.display === 'none' || panel.style.display === '')) {
+    compToggleSectorPanel();
+  }
+}
+
+function compInlineEditSector(id) {
+  // Chiudi eventuali altri edit/delete aperti
+  compCloseAllInlineActions();
+  const editRow = document.getElementById(`comp-sec-edit-${id}`);
+  if (editRow) { editRow.style.display = 'flex'; editRow.querySelector('input').focus(); editRow.querySelector('input').select(); }
+}
+
+function compSaveInlineEdit(id) {
+  const input = document.getElementById(`comp-sec-input-${id}`);
+  if (!input) return;
+  const sec = compSectors.find(s => s.id === id);
+  if (sec) { sec.name = input.value.trim() || sec.name; }
+  compCancelInlineEdit(id);
+  compRebuildSectorList();
+  compUpdateSectorLegend();
+  if (sec) document.getElementById('comp-sec-name').value = sec.name;
+}
+
+function compCancelInlineEdit(id) {
+  const editRow = document.getElementById(`comp-sec-edit-${id}`);
+  if (editRow) editRow.style.display = 'none';
+}
+
+function compConfirmDeleteSector(id) {
+  if (compSectors.length <= 1) {
+    document.getElementById('comp-status').textContent = 'Non puoi eliminare l\'unico settore.';
+    return;
+  }
+  compCloseAllInlineActions();
+  const delRow = document.getElementById(`comp-sec-del-${id}`);
+  if (delRow) delRow.style.display = 'flex';
+}
+
+function compConfirmedDeleteSector(id) {
   if (compSectors.length <= 1) return;
-  const idx = compSectors.findIndex(s => s.id === compActiveSectorId);
+  const idx = compSectors.findIndex(s => s.id === id);
   compSectors.splice(idx, 1);
-  compActiveSectorId = compSectors[Math.max(0, idx-1)]?.id || compSectors[0]?.id;
-  compRebuildSectorSelect();
+  // Se era quello attivo, seleziona il precedente o il primo
+  if (compActiveSectorId === id) {
+    compActiveSectorId = compSectors[Math.max(0, idx-1)]?.id || compSectors[0]?.id;
+  }
+  compRebuildSectorList();
   compUpdateSectorPanelUI();
   compClearAnalysis();
   compRenderSectorMarkersAll();
@@ -762,29 +945,155 @@ function compDeleteSector() {
   compUpdateElevChart();
 }
 
-function compGetActiveSector() {
-  return compSectors.find(s => s.id === compActiveSectorId);
+function compCancelDeleteSector(id) {
+  const delRow = document.getElementById(`comp-sec-del-${id}`);
+  if (delRow) delRow.style.display = 'none';
 }
 
-function compRebuildSectorSelect() {
-  const sel = document.getElementById('comp-sector-sel');
-  sel.innerHTML = '';
+function compCloseAllInlineActions() {
   compSectors.forEach(sec => {
-    const opt = document.createElement('option');
-    opt.value = sec.id;
-    opt.textContent = sec.name;
-    if (sec.id === compActiveSectorId) opt.selected = true;
-    sel.appendChild(opt);
+    compCancelInlineEdit(sec.id);
+    compCancelDeleteSector(sec.id);
   });
+}
+
+// Etichetta range km del settore
+function compSectorRangeLabel(sec) {
+  if (!compStreamA) return '';
+  const d0 = ((compStreamA.distance_m[sec.startIdxA]||0)/1000).toFixed(1);
+  const d1 = ((compStreamA.distance_m[sec.endIdxA]  ||0)/1000).toFixed(1);
+  return `${d0}→${d1} km`;
+}
+
+// Seleziona settore dalla sidebar (zoom su mappa + aggiorna grafico, NON tocca traccia)
+function compSelectSector(id) {
+  compActiveSectorId = id;
+  compRebuildSectorList();
+  compUpdateSectorPanelUI();
+  compRenderSectorMarkersAll();
+  // Zoom mappa sul settore (senza cambiare traccia disegnata)
+  compZoomToSector(id);
+  // Aggiorna grafico sul range del settore
+  compUpdateElevChart();
+}
+
+// Zoom mappa sulla bbox del settore
+function compZoomToSector(id) {
+  const sec = compSectors.find(s => s.id === id);
+  if (!sec || !compMap || !compStreamA) return;
+  const lats = [], lons = [];
+  for (let i = sec.startIdxA; i <= sec.endIdxA; i++) { lats.push(compStreamA.lat[i]); lons.push(compStreamA.lon[i]); }
+  if (compStreamB) for (let i = sec.startIdxB; i <= sec.endIdxB; i++) { lats.push(compStreamB.lat[i]); lons.push(compStreamB.lon[i]); }
+  if (lats.length) compMap.fitBounds([[Math.min(...lons),Math.min(...lats)],[Math.max(...lons),Math.max(...lats)]],{padding:50,duration:600});
+}
+
+// Toggle "Isola settore": mostra solo la porzione del settore su mappa e grafico
+function compToggleIsolateSector() {
+  _compIsolateSector = !_compIsolateSector;
+  const btn = document.getElementById('comp-btn-isolate');
+  if (btn) btn.classList.toggle('active', _compIsolateSector);
+  if (_compIsolateSector) {
+    compRedrawTracesWithBounds();   // disegna solo porzione settore
+    compZoomToSector(compActiveSectorId);
+  } else {
+    // Ripristina traccia completa
+    if (compMap && compMapReady && compStreamA) {
+      compDrawTrace('comp-ta', compStreamA, '#3b82f6');
+      if (compStreamB) compDrawTrace('comp-tb', compStreamB, '#f97316');
+    }
+    compFit();
+  }
+  compUpdateElevChart();
+}
+
+// Usa il bbox visibile della mappa come bounds del settore attivo
+function compSetSectorFromMapZoom() {
+  if (!compMap || !compStreamA) return;
+  const sec = compGetActiveSector();
+  if (!sec) return;
+  const bounds = compMap.getBounds();
+  const minLng = bounds.getWest(), maxLng = bounds.getEast();
+  const minLat = bounds.getSouth(), maxLat = bounds.getNorth();
+  // Trova primi/ultimi indici di A e B dentro la bbox
+  const findRange = (s) => {
+    let first = -1, last = -1;
+    for (let i = 0; i < s.lat.length; i++) {
+      if (s.lat[i] >= minLat && s.lat[i] <= maxLat && s.lon[i] >= minLng && s.lon[i] <= maxLng) {
+        if (first === -1) first = i;
+        last = i;
+      }
+    }
+    return { first: first === -1 ? 0 : first, last: last === -1 ? s.lat.length-1 : last };
+  };
+  const rA = findRange(compStreamA);
+  const rB = compStreamB ? findRange(compStreamB) : { first: 0, last: 0 };
+  sec.startIdxA = rA.first; sec.endIdxA = rA.last;
+  sec.startIdxB = rB.first; sec.endIdxB = rB.last;
+  compRebuildSectorList();
+  compUpdateSectorPanelUI();
+  compRenderSectorMarkersAll();
+  compUpdateElevChart();
+  syncBoundsToReplay();
+  document.getElementById('comp-status').textContent = `Settore impostato da zoom mappa: 🔵 ${compSectorRangeLabel(sec)}`;
+}
+
+// Toggle drag-su-grafico per definire start/end del settore
+let _compDragSectorMode = false;
+function compToggleDragSector() {
+  _compDragSectorMode = !_compDragSectorMode;
+  const btn = document.getElementById('comp-btn-drag-sector');
+  if (btn) {
+    btn.classList.toggle('active', _compDragSectorMode);
+    btn.style.borderColor = _compDragSectorMode ? 'var(--a)' : '';
+    btn.style.color = _compDragSectorMode ? '#fff' : '';
+  }
+  // Comunica alla funzione _compD3Render lo stato del drag mode
+  // tramite una variabile globale letta dall'overlay
+  window._compD3DragSectorMode = _compDragSectorMode;
+  if (_compDragSectorMode) {
+    document.getElementById('comp-status').textContent = '↔ Trascina sul grafico per definire start/end del settore attivo';
+  } else {
+    document.getElementById('comp-status').textContent = '';
+  }
+}
+
+// Callback chiamata da _compD3Render quando l'utente ha finito un drag in "sector mode"
+function compOnDragSectorSelected(xKmStart, xKmEnd) {
+  const sec = compGetActiveSector();
+  if (!sec || !compStreamA) return;
+  const d0A = compStreamA.distance_m[compGlobalStartA] || 0;
+  const d0B = compStreamB ? (compStreamB.distance_m[compGlobalStartB] || 0) : 0;
+  const targetStartA = d0A + xKmStart * 1000;
+  const targetEndA   = d0A + xKmEnd   * 1000;
+  const targetStartB = d0B + xKmStart * 1000;
+  const targetEndB   = d0B + xKmEnd   * 1000;
+  sec.startIdxA = compNearestByDistRange(compStreamA, targetStartA, compGlobalStartA, compGlobalEndA);
+  sec.endIdxA   = compNearestByDistRange(compStreamA, targetEndA,   compGlobalStartA, compGlobalEndA);
+  if (compStreamB) {
+    sec.startIdxB = compNearestByDistRange(compStreamB, targetStartB, compGlobalStartB, compGlobalEndB);
+    sec.endIdxB   = compNearestByDistRange(compStreamB, targetEndB,   compGlobalStartB, compGlobalEndB);
+  }
+  // Disattiva la modalità drag dopo la selezione
+  _compDragSectorMode = false;
+  window._compD3DragSectorMode = false;
+  const btn = document.getElementById('comp-btn-drag-sector');
+  if (btn) { btn.classList.remove('active'); btn.style.borderColor=''; btn.style.color=''; }
+  compRebuildSectorList();
+  compUpdateSectorPanelUI();
+  compRenderSectorMarkersAll();
+  compUpdateElevChart();
+  syncBoundsToReplay();
+  document.getElementById('comp-status').textContent = `Settore aggiornato: ${compSectorRangeLabel(sec)}`;
 }
 
 function compOnSectorChange() {
   const sel = document.getElementById('comp-sector-sel');
-  compActiveSectorId = parseInt(sel.value);
-  compUpdateSectorPanelUI();
-  compRenderSectorMarkersAll();
-  compUpdateElevChart();
+  if (sel) compActiveSectorId = parseInt(sel.value);
+  compSelectSector(compActiveSectorId);
 }
+
+// Ricostruzione compatibilità (rimpiazza la vecchia compRebuildSectorSelect)
+function compRebuildSectorSelect() { compRebuildSectorList(); }
 
 function compUpdateSectorName(name) {
   const sec = compGetActiveSector();
@@ -1982,7 +2291,7 @@ function _compD3Render(opts) {
             .attr('x', x0)
             .attr('width', x1 - x0)
             .attr('visibility', 'visible');
-          overlay.style('cursor', 'ew-resize');
+          overlay.style('cursor', window._compD3DragSectorMode ? 'col-resize' : 'ew-resize');
         }
       } else {
         /* ── solo hover: mostra tooltip ── */
@@ -2003,20 +2312,25 @@ function _compD3Render(opts) {
       overlay.style('cursor', 'crosshair');
  
       if (isDragging) {
-        /* ── applica zoom ── */
         const x0px = Math.min(dragStartPx, mx);
         const x1px = Math.max(dragStartPx, mx);
-        const newDomain = [
-          currentXScale.invert(x0px),
-          currentXScale.invert(x1px),
-        ];
-        if (newDomain[1] - newDomain[0] > 0.01) {
-          if (typeof compZoomDomainX !== 'undefined') {
-            compZoomDomainX = newDomain;
+        if (window._compD3DragSectorMode && typeof compOnDragSectorSelected === 'function') {
+          /* ── modalità drag-settore: imposta start/end del settore attivo ── */
+          compOnDragSectorSelected(currentXScale.invert(x0px), currentXScale.invert(x1px));
+        } else {
+          /* ── zoom normale ── */
+          const newDomain = [
+            currentXScale.invert(x0px),
+            currentXScale.invert(x1px),
+          ];
+          if (newDomain[1] - newDomain[0] > 0.01) {
+            if (typeof compZoomDomainX !== 'undefined') {
+              compZoomDomainX = newDomain;
+            }
+            currentXScale = d3.scaleLinear().domain(newDomain).range([0, W]);
+            redraw();
+            return; // uscita anticipata
           }
-          currentXScale = d3.scaleLinear().domain(newDomain).range([0, W]);
-          redraw();
-          return; // uscita anticipata
         }
       } else {
         /* ── era un click fermo: mostra tooltip ── */
