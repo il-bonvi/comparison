@@ -81,7 +81,10 @@
         </div>
 
         <button class="btn btn-ghost" id="comp-btn-table" onclick="compToggleTable()" style="margin-left:4px;">📊 Tabella</button>
-        <span id="comp-status" style="font-size:.72rem;color:var(--muted);margin-left:auto;font-family:var(--font-mono);"></span>
+        <div style="width:1px;height:16px;background:var(--border-hi);margin:0 2px;flex-shrink:0;"></div>
+        <button class="btn btn-ghost" onclick="compUndoLastSectorBounds()" title="Annulla ultima modifica (Ctrl+Z)" style="padding:3px 8px;font-size:.72rem;">↩ Undo</button>
+        <button class="btn btn-ghost" onclick="compRedoLastSectorBounds()" title="Ripristina modifica annullata (Ctrl+Y)" style="padding:3px 8px;font-size:.72rem;">↪ Redo</button>
+        <span id="comp-status" style="font-size:.68rem;color:var(--muted);margin-left:12px;font-family:var(--font-mono);flex-shrink:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
       </div>
 
       <!-- Smoothing panel -->
@@ -214,7 +217,37 @@
       <div id="comp-main">
 
         <!-- Sidebar settori (sinistra) -->
-        <div id="comp-sector-sidebar">
+        <div id="comp-sector-sidebar" style="position:relative;">
+
+          <!-- Dialog analisi (overlay sulla sidebar) -->
+          <div id="comp-analysis-dialog" style="display:none;position:absolute;inset:0;z-index:200;
+               flex-direction:column;background:var(--surface2);border-right:1px solid var(--border-hi);">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-bottom:1px solid var(--border-hi);background:rgba(59,130,246,.1);">
+              <span style="font-weight:700;color:var(--a);font-size:.7rem;font-family:var(--font-mono);">📊 Analisi Sezioni</span>
+              <button onclick="compCloseAnalysisDialog()" style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:.85rem;padding:0 2px;">✕</button>
+            </div>
+            <div style="padding:10px;display:flex;flex-direction:column;gap:10px;flex:1;overflow-y:auto;font-family:var(--font-mono);font-size:.7rem;">
+              <div style="display:flex;flex-direction:column;gap:5px;">
+                <label style="color:var(--muted2);font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;">Dividi per</label>
+                <select id="comp-adlg-mode" style="background:var(--bg);border:1px solid var(--border-hi);color:var(--text);padding:3px 6px;border-radius:4px;font-size:.7rem;font-family:var(--font-mono);"
+                  onchange="document.getElementById('comp-adlg-unit').textContent=this.value==='dist'?'m':'s';">
+                  <option value="dist" selected>Distanza</option>
+                  <option value="time">Tempo</option>
+                </select>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:5px;">
+                <label style="color:var(--muted2);font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;">Valore (<span id="comp-adlg-unit">m</span>)</label>
+                <input type="number" id="comp-adlg-val" value="200" min="10" max="50000" step="10"
+                  style="padding:4px 8px;background:var(--bg);border:1px solid var(--border-hi);border-radius:4px;color:var(--text);font-size:.78rem;font-weight:bold;font-family:var(--font-mono);text-align:center;width:100%;box-sizing:border-box;"/>
+              </div>
+              <button onclick="compRunAnalysisFromDialog()" style="width:100%;padding:5px 0;font-size:.72rem;font-weight:bold;background:rgba(251,191,36,.15);border:1px solid #fbbf24;border-radius:4px;color:#fbbf24;cursor:pointer;">🔍 Ricalcola Sezioni</button>
+              <div style="border-top:1px solid var(--border);padding-top:8px;display:flex;flex-direction:column;gap:4px;">
+                <button class="btn btn-ghost" onclick="compTrimToCurrentSector();compCloseAnalysisDialog();" style="width:100%;font-size:.66rem;padding:4px 0;">✂️ Taglia a questo settore</button>
+                <button class="btn btn-ghost" onclick="compResetFullActivity();compCloseAnalysisDialog();" style="width:100%;font-size:.66rem;padding:4px 0;">⟲ Ripristina attività</button>
+              </div>
+            </div>
+          </div>
+
           <div style="padding:6px 8px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
             <span style="font-size:.64rem; font-weight:700; color:var(--muted2); text-transform:uppercase; letter-spacing:.06em;">Settori</span>
             <button onclick="compAddSector()" title="Nuovo settore" style="background:none;border:none;color:var(--a);cursor:pointer;font-size:.9rem;padding:0 2px;line-height:1;">＋</button>
@@ -264,6 +297,14 @@
             <button class="chart-tog ct-wkg-off" id="comp-ctog-wkg" onclick="compChartTab('wkg')" title="W/kg (imposta i kg)">W/kg</button>
             <button class="chart-tog ct-wkg-off" id="comp-ctog-wkgavg" onclick="compChartTab('wkgavg')" title="W/kg smoothed">W/kg avg</button>
             <button class="chart-tog ct-hr-off" id="comp-ctog-hr" onclick="compChartTab('hr')">HR</button>
+          </div>
+          <div id="comp-drag-banner" style="display:none;position:absolute;top:0;left:0;right:0;z-index:50;
+            background:rgba(59,130,246,0.18);border-bottom:2px solid var(--a);
+            padding:7px 14px;display:none;align-items:center;justify-content:center;gap:10px;
+            font-family:var(--font-mono);font-size:.8rem;font-weight:600;color:#93c5fd;letter-spacing:.02em;">
+            <span style="font-size:1rem;">↔</span>
+            <span>Trascina sul grafico per definire i bounds del settore attivo</span>
+            <button onclick="compToggleDragSector()" style="margin-left:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:#94a3b8;padding:2px 10px;font-size:.72rem;cursor:pointer;">✕ Annulla</button>
           </div>
           <div id="comp-elevation-chart"></div>
         </div><!-- /comp-chart-panel -->
@@ -335,6 +376,43 @@
 .comp-sec-zoom { opacity:0; font-size:.7rem; color:var(--a); cursor:pointer; padding:0 2px; flex-shrink:0; transition:opacity .15s; }
 .comp-sec-item:hover .comp-sec-zoom { opacity:1; }
 #comp-btn-isolate.active { background:rgba(59,130,246,0.2); border-color:var(--a); color:var(--a); }
+
+/* Bottoni sidebar settori — stile base condiviso */
+.csb { 
+  flex:1; min-width:0; border-radius:3px; padding:3px 0;
+  font-size:.65rem; cursor:pointer; border:1px solid;
+  display:flex; align-items:center; justify-content:center;
+  transition:filter .15s, opacity .15s;
+}
+.csb:hover { filter:brightness(1.25); }
+.csb-neutral {
+  background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.12); color:var(--muted2);
+}
+.csb-blue {
+  background:rgba(59,130,246,0.18); border-color:var(--a); color:var(--a);
+}
+.csb-green {
+  background:rgba(34,197,94,0.18); border-color:#22c55e; color:#22c55e;
+}
+.csb-red {
+  background:rgba(244,63,94,0.18); border-color:#f43f5e; color:#f43f5e;
+}
+
+/* Mini confirm dialog inline */
+.comp-sec-confirm {
+  display:none; flex-direction:column; gap:4px;
+  padding:6px 8px; margin:4px 0 2px;
+  background:rgba(15,20,40,.97); border:1px solid var(--border-hi);
+  border-radius:5px; font-size:.65rem; color:var(--muted2);
+}
+.comp-sec-confirm.open { display:flex; }
+.comp-sec-confirm-btns { display:flex; gap:4px; }
+.comp-sec-confirm-btns button {
+  flex:1; padding:3px 0; border-radius:3px; cursor:pointer; font-size:.65rem; border:1px solid;
+}
+.csb-confirm-yes { background:rgba(244,63,94,.2); border-color:#f43f5e; color:#f43f5e; }
+.csb-confirm-yes-warn { background:rgba(251,191,36,.15); border-color:#fbbf24; color:#fbbf24; }
+.csb-confirm-no  { background:rgba(255,255,255,.05); border-color:rgba(255,255,255,.1); color:var(--muted2); }
 #comp-chart-panel {
   height:180px; background:var(--surface); border-top:2px solid var(--border);
   flex-shrink:0; position:relative;
@@ -794,24 +872,31 @@ function compUpdateVisBtns() {
 // SECTORS
 // ────────────────────────────────────────────────────────────────
 
-function compMakeSectorId() { return ++_compSectorIdCounter; }
+// Ritorna il numero più basso non ancora usato da nessun settore
+function compMakeSectorId() {
+  let n = 1;
+  const used = new Set(compSectors.map(s => s.id));
+  while (used.has(n)) n++;
+  _compSectorIdCounter = Math.max(_compSectorIdCounter, n);
+  return n;
+}
 
 function compAddSector(isDefault) {
   const id = compMakeSectorId();
   const color = COMP_SECTOR_COLORS[(compSectors.length) % COMP_SECTOR_COLORS.length];
   const startA = (compGlobalStartA !== undefined) ? compGlobalStartA : 0;
-  const endA = (compGlobalEndA !== undefined) ? compGlobalEndA : (compStreamA ? compStreamA.lat.length-1 : 0);
+  const endA   = (compGlobalEndA   !== undefined) ? compGlobalEndA   : (compStreamA ? compStreamA.lat.length-1 : 0);
   const startB = (compGlobalStartB !== undefined) ? compGlobalStartB : 0;
-  const endB = (compGlobalEndB !== undefined) ? compGlobalEndB : (compStreamB ? compStreamB.lat.length-1 : 0);
+  const endB   = (compGlobalEndB   !== undefined) ? compGlobalEndB   : (compStreamB ? compStreamB.lat.length-1 : 0);
   const sector = {
     id, color,
-    name: isDefault ? 'Settore 1' : `Settore ${id}`,
+    name: `Settore ${id}`,
     startIdxA: startA, endIdxA: endA,
     startIdxB: startB, endIdxB: endB,
     analyzed: false, sections: { sA:[], sB:[] }
   };
   compSectors.push(sector);
-  // Il settore default viene selezionato; quelli successivi NO
+  // Il settore default viene selezionato; i successivi NO (non fa zoom automatico)
   if (isDefault) compActiveSectorId = id;
   compRebuildSectorList();
   compUpdateSectorPanelUI();
@@ -839,44 +924,71 @@ function compRebuildSectorList() {
     item.className = 'comp-sec-item' + (sec.id === compActiveSectorId ? ' active' : '');
     item.dataset.secId = sec.id;
 
-    // Riga normale
+    // Riga header: dot (color picker) + nome + range
     const row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;gap:4px;width:100%;';
+    row.style.cssText = 'display:flex;align-items:center;gap:5px;width:100%;';
     row.innerHTML = `
-      <div class="comp-sec-dot" style="background:${sec.color}"></div>
-      <div style="flex:1;min-width:0;cursor:pointer;">
+      <div class="comp-sec-dot" style="background:${sec.color};margin-top:1px;flex-shrink:0;cursor:pointer;border:1px solid rgba(255,255,255,0.2);" title="Cambia colore"
+           onclick="event.stopPropagation();document.getElementById('comp-color-pick-${sec.id}').click()"></div>
+      <input type="color" id="comp-color-pick-${sec.id}" value="${sec.color}"
+             style="position:absolute;width:0;height:0;opacity:0;pointer-events:none;"
+             onchange="event.stopPropagation();compChangeSectorColor(${sec.id},this.value)"/>
+      <div style="flex:1;min-width:0;cursor:pointer;" onclick="compSelectSector(${sec.id})">
         <div class="comp-sec-label">${sec.name}</div>
         <div class="comp-sec-range">${compSectorRangeLabel(sec)}</div>
-      </div>
-      <span class="comp-sec-zoom" title="Zoom" onclick="event.stopPropagation();compZoomToSector(${sec.id})" style="opacity:.6;font-size:.7rem;cursor:pointer;padding:0 1px;">🔍</span>
-      <span class="comp-sec-zoom" title="Modifica settore (start, end, analisi...)" onclick="event.stopPropagation();compEditSector(${sec.id})" style="opacity:.6;font-size:.7rem;cursor:pointer;padding:0 1px;">✏️</span>
-      <span class="comp-sec-zoom" title="Elimina settore" onclick="event.stopPropagation();compConfirmDeleteSector(${sec.id})" style="opacity:.6;font-size:.7rem;cursor:pointer;padding:0 1px;color:#f43f5e;">✕</span>`;
-    row.querySelector('div[style*="flex:1"]').addEventListener('click', () => compSelectSector(sec.id));
+      </div>`;
 
-    // Form inline edit (nascosto)
+    // Bottoni azioni
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:2px;width:100%;margin-top:4px;';
+    btnRow.innerHTML = `
+      <button class="csb csb-green"   onclick="event.stopPropagation();compZoomToSector(${sec.id})"                                        title="Zoom su settore">🔍</button>
+      <button class="csb csb-neutral" onclick="event.stopPropagation();compInlineEditSector(${sec.id})"                                     title="Rinomina">✏️</button>
+      <button class="csb csb-neutral" onclick="event.stopPropagation();compOpenConfirmMapZoom(${sec.id})"                                   title="Usa zoom grafico come bounds">📐</button>
+      <button class="csb csb-neutral" onclick="event.stopPropagation();compActiveSectorId=${sec.id};compToggleDragSector();"                title="Trascina su grafico per definire bounds">↔</button>
+      <button class="csb csb-neutral" onclick="event.stopPropagation();compActiveSectorId=${sec.id};compOpenAnalysisDialog(${sec.id})"     title="Analisi sezioni">📊</button>
+      <button class="csb csb-blue"    onclick="event.stopPropagation();compEditSector(${sec.id})"                                          title="Modifica start/end/analisi">⚙️</button>
+      <button class="csb csb-red"     onclick="event.stopPropagation();compOpenConfirmDelete(${sec.id})"                                   title="Elimina settore">✕</button>`;
+
+    // Form rename inline
     const editRow = document.createElement('div');
     editRow.id = `comp-sec-edit-${sec.id}`;
-    editRow.style.cssText = 'display:none;align-items:center;gap:3px;width:100%;padding-top:3px;';
+    editRow.style.cssText = 'display:none;align-items:center;gap:3px;width:100%;padding-top:4px;';
     editRow.innerHTML = `
       <input id="comp-sec-input-${sec.id}" type="text" maxlength="20" value="${sec.name}"
         style="flex:1;min-width:0;padding:2px 5px;background:var(--bg);border:1px solid var(--a);border-radius:3px;color:var(--text);font-family:var(--font-mono);font-size:.68rem;"
         onkeydown="if(event.key==='Enter')compSaveInlineEdit(${sec.id});if(event.key==='Escape')compCancelInlineEdit(${sec.id});event.stopPropagation();"
-        onclick="event.stopPropagation();" />
-      <button onclick="event.stopPropagation();compSaveInlineEdit(${sec.id})" style="background:var(--a);border:none;border-radius:3px;color:#fff;padding:2px 5px;font-size:.65rem;cursor:pointer;">✓</button>
-      <button onclick="event.stopPropagation();compCancelInlineEdit(${sec.id})" style="background:rgba(255,255,255,0.08);border:none;border-radius:3px;color:var(--muted2);padding:2px 5px;font-size:.65rem;cursor:pointer;">✕</button>`;
+        onclick="event.stopPropagation();"/>
+      <button onclick="event.stopPropagation();compSaveInlineEdit(${sec.id})" style="background:var(--a);border:none;border-radius:3px;color:#fff;padding:2px 6px;font-size:.65rem;cursor:pointer;">✓</button>
+      <button onclick="event.stopPropagation();compCancelInlineEdit(${sec.id})" style="background:rgba(255,255,255,0.08);border:none;border-radius:3px;color:var(--muted2);padding:2px 6px;font-size:.65rem;cursor:pointer;">✕</button>`;
 
-    // Conferma delete (nascosto)
-    const delRow = document.createElement('div');
-    delRow.id = `comp-sec-del-${sec.id}`;
-    delRow.style.cssText = 'display:none;align-items:center;gap:4px;width:100%;padding-top:3px;font-size:.65rem;color:var(--muted2);';
-    delRow.innerHTML = `
-      <span style="flex:1;">Eliminare?</span>
-      <button onclick="event.stopPropagation();compConfirmedDeleteSector(${sec.id})" style="background:rgba(244,63,94,.2);border:1px solid #f43f5e;border-radius:3px;color:#f43f5e;padding:2px 7px;font-size:.65rem;cursor:pointer;">Sì</button>
-      <button onclick="event.stopPropagation();compCancelDeleteSector(${sec.id})" style="background:rgba(255,255,255,0.06);border:none;border-radius:3px;color:var(--muted2);padding:2px 7px;font-size:.65rem;cursor:pointer;">No</button>`;
+    // Dialog conferma zoom mappa
+    const confirmZoom = document.createElement('div');
+    confirmZoom.id = `comp-sec-czoom-${sec.id}`;
+    confirmZoom.className = 'comp-sec-confirm';
+    confirmZoom.innerHTML = `
+      <span>Sovrascrivere i bounds con lo zoom attuale del grafico?</span>
+      <div class="comp-sec-confirm-btns">
+        <button class="csb-confirm-yes-warn" onclick="event.stopPropagation();compActiveSectorId=${sec.id};compSetSectorFromMapZoom();compCloseConfirm(${sec.id});">✓ Sì</button>
+        <button class="csb-confirm-no"       onclick="event.stopPropagation();compCloseConfirm(${sec.id});">✕ No</button>
+      </div>`;
+
+    // Dialog conferma elimina
+    const confirmDel = document.createElement('div');
+    confirmDel.id = `comp-sec-cdel-${sec.id}`;
+    confirmDel.className = 'comp-sec-confirm';
+    confirmDel.innerHTML = `
+      <span>Eliminare «${sec.name}»?</span>
+      <div class="comp-sec-confirm-btns">
+        <button class="csb-confirm-yes" onclick="event.stopPropagation();compConfirmedDeleteSector(${sec.id});">✓ Elimina</button>
+        <button class="csb-confirm-no"  onclick="event.stopPropagation();compCloseConfirm(${sec.id});">✕ No</button>
+      </div>`;
 
     item.appendChild(row);
+    item.appendChild(btnRow);
     item.appendChild(editRow);
-    item.appendChild(delRow);
+    item.appendChild(confirmZoom);
+    item.appendChild(confirmDel);
     list.appendChild(item);
   });
 }
@@ -889,11 +1001,8 @@ function compEditSector(id) {
   compRenderSectorMarkersAll();
   compZoomToSector(id);
   compUpdateElevChart();
-  // Apri il pannello settori se non è già aperto
-  const panel = document.getElementById('comp-sector-panel');
-  if (panel && (panel.style.display === 'none' || panel.style.display === '')) {
-    compToggleSectorPanel();
-  }
+  // Toggle: se già aperto e stesso settore → chiudi, altrimenti apri
+  compToggleSectorPanel();
 }
 
 function compInlineEditSector(id) {
@@ -931,6 +1040,8 @@ function compConfirmDeleteSector(id) {
 
 function compConfirmedDeleteSector(id) {
   if (compSectors.length <= 1) return;
+  const sec = compSectors.find(s => s.id === id);
+  if (sec) compPushUndoDelete(sec);
   const idx = compSectors.findIndex(s => s.id === id);
   compSectors.splice(idx, 1);
   // Se era quello attivo, seleziona il precedente o il primo
@@ -950,12 +1061,109 @@ function compCancelDeleteSector(id) {
   if (delRow) delRow.style.display = 'none';
 }
 
+// ── Undo / Redo stack globale ─────────────────────────────────────────────
+const _compUndoStack = [];
+const _compRedoStack = [];
+
+function compPushUndo(sec) {
+  _compUndoStack.push({
+    type: 'bounds',
+    id: sec.id,
+    snapshot: { startIdxA:sec.startIdxA, endIdxA:sec.endIdxA, startIdxB:sec.startIdxB, endIdxB:sec.endIdxB }
+  });
+  _compRedoStack.length = 0; // qualsiasi nuova azione cancella il redo
+  if (_compUndoStack.length > 30) _compUndoStack.shift();
+}
+
+function compPushUndoDelete(sec) {
+  _compUndoStack.push({ type:'delete', sec: JSON.parse(JSON.stringify(sec)) });
+  _compRedoStack.length = 0;
+  if (_compUndoStack.length > 30) _compUndoStack.shift();
+}
+
+function _compApplyEntry(entry) {
+  if (entry.type === 'bounds') {
+    const sec = compSectors.find(s => s.id === entry.id);
+    if (!sec) return null;
+    // Salva stato corrente prima di applicare (serve per undo↔redo)
+    const current = { startIdxA:sec.startIdxA, endIdxA:sec.endIdxA, startIdxB:sec.startIdxB, endIdxB:sec.endIdxB };
+    Object.assign(sec, entry.snapshot);
+    compRebuildSectorList();
+    compUpdateSectorPanelUI();
+    compRenderSectorMarkersAll();
+    compUpdateElevChart();
+    syncBoundsToReplay();
+    document.getElementById('comp-status').textContent = `Bounds di «${sec.name}» ripristinati.`;
+    return { type:'bounds', id:entry.id, snapshot:current };
+  } else if (entry.type === 'delete') {
+    // Ripristina settore eliminato
+    compSectors.push(entry.sec);
+    compActiveSectorId = entry.sec.id;
+    compRebuildSectorList();
+    compUpdateSectorPanelUI();
+    compRenderSectorMarkersAll();
+    compUpdateElevChart();
+    document.getElementById('comp-status').textContent = `Settore «${entry.sec.name}» ripristinato.`;
+    // L'inverso è una delete
+    return { type:'delete', sec: JSON.parse(JSON.stringify(entry.sec)) };
+  }
+  return null;
+}
+
+function compUndoLastSectorBounds() {
+  if (!_compUndoStack.length) { document.getElementById('comp-status').textContent = 'Niente da annullare.'; return; }
+  const entry = _compUndoStack.pop();
+  const inverse = _compApplyEntry(entry);
+  if (inverse) _compRedoStack.push(inverse);
+}
+
+function compRedoLastSectorBounds() {
+  if (!_compRedoStack.length) { document.getElementById('comp-status').textContent = 'Niente da ripristinare.'; return; }
+  const entry = _compRedoStack.pop();
+  const inverse = _compApplyEntry(entry);
+  if (inverse) _compUndoStack.push(inverse);
+}
+
+// ── Confirm dialogs ──────────────────────────────────────────────────────
+function compOpenConfirmMapZoom(id) {
+  compCloseAllInlineActions();
+  const el = document.getElementById(`comp-sec-czoom-${id}`);
+  if (el) el.classList.add('open');
+}
+
+function compOpenConfirmDelete(id) {
+  if (compSectors.length <= 1) { document.getElementById('comp-status').textContent = 'Non puoi eliminare l\'unico settore.'; return; }
+  compCloseAllInlineActions();
+  const el = document.getElementById(`comp-sec-cdel-${id}`);
+  if (el) el.classList.add('open');
+}
+
+function compCloseConfirm(id) {
+  const z = document.getElementById(`comp-sec-czoom-${id}`);
+  const d = document.getElementById(`comp-sec-cdel-${id}`);
+  if (z) z.classList.remove('open');
+  if (d) d.classList.remove('open');
+}
+
 function compCloseAllInlineActions() {
   compSectors.forEach(sec => {
     compCancelInlineEdit(sec.id);
-    compCancelDeleteSector(sec.id);
+    compCloseConfirm(sec.id);
   });
 }
+
+// ── Shortcut tastiera Ctrl+Z / Ctrl+Y ────────────────────────────────────
+document.addEventListener('keydown', e => {
+  // Solo se non si sta scrivendo in un input
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.ctrlKey && !e.shiftKey && e.key === 'z') { e.preventDefault(); compUndoLastSectorBounds(); }
+  if (e.ctrlKey && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) { e.preventDefault(); compRedoLastSectorBounds(); }
+});
+compSectorShift = function(which, delta) {
+  const sec = compGetActiveSector();
+  if (sec) compPushUndo(sec);
+  _origCompSectorShift(which, delta);
+};
 
 // Etichetta range km del settore
 function compSectorRangeLabel(sec) {
@@ -965,16 +1173,14 @@ function compSectorRangeLabel(sec) {
   return `${d0}→${d1} km`;
 }
 
-// Seleziona settore dalla sidebar (zoom su mappa + aggiorna grafico, NON tocca traccia)
 function compSelectSector(id) {
   compActiveSectorId = id;
   compRebuildSectorList();
   compUpdateSectorPanelUI();
   compRenderSectorMarkersAll();
-  // Zoom mappa sul settore (senza cambiare traccia disegnata)
-  compZoomToSector(id);
-  // Aggiorna grafico sul range del settore
   compUpdateElevChart();
+  // Lampeggio marker invece di zoom automatico
+  compFlashSectorMarkers(id);
 }
 
 // Zoom mappa sulla bbox del settore
@@ -1006,36 +1212,35 @@ function compToggleIsolateSector() {
   compUpdateElevChart();
 }
 
-// Usa il bbox visibile della mappa come bounds del settore attivo
-function compSetSectorFromMapZoom() {
-  if (!compMap || !compStreamA) return;
+// Usa lo zoom attuale del GRAFICO come bounds del settore attivo
+function compSetSectorFromChartZoom() {
   const sec = compGetActiveSector();
   if (!sec) return;
-  const bounds = compMap.getBounds();
-  const minLng = bounds.getWest(), maxLng = bounds.getEast();
-  const minLat = bounds.getSouth(), maxLat = bounds.getNorth();
-  // Trova primi/ultimi indici di A e B dentro la bbox
-  const findRange = (s) => {
-    let first = -1, last = -1;
-    for (let i = 0; i < s.lat.length; i++) {
-      if (s.lat[i] >= minLat && s.lat[i] <= maxLat && s.lon[i] >= minLng && s.lon[i] <= maxLng) {
-        if (first === -1) first = i;
-        last = i;
-      }
-    }
-    return { first: first === -1 ? 0 : first, last: last === -1 ? s.lat.length-1 : last };
-  };
-  const rA = findRange(compStreamA);
-  const rB = compStreamB ? findRange(compStreamB) : { first: 0, last: 0 };
-  sec.startIdxA = rA.first; sec.endIdxA = rA.last;
-  sec.startIdxB = rB.first; sec.endIdxB = rB.last;
+  if (!compZoomDomainX || compZoomDomainX[0] >= compZoomDomainX[1]) {
+    document.getElementById('comp-status').textContent = 'Zooma prima il grafico per definire il range.';
+    return;
+  }
+  compPushUndo(sec);
+  _compRedoStack.length = 0;
+  const [xKmStart, xKmEnd] = compZoomDomainX;
+  const d0A = (compStreamA.distance_m[compGlobalStartA] || 0);
+  const d0B = compStreamB ? (compStreamB.distance_m[compGlobalStartB] || 0) : 0;
+  sec.startIdxA = compNearestByDistRange(compStreamA, d0A + xKmStart * 1000, compGlobalStartA, compGlobalEndA);
+  sec.endIdxA   = compNearestByDistRange(compStreamA, d0A + xKmEnd   * 1000, compGlobalStartA, compGlobalEndA);
+  if (compStreamB) {
+    sec.startIdxB = compNearestByDistRange(compStreamB, d0B + xKmStart * 1000, compGlobalStartB, compGlobalEndB);
+    sec.endIdxB   = compNearestByDistRange(compStreamB, d0B + xKmEnd   * 1000, compGlobalStartB, compGlobalEndB);
+  }
   compRebuildSectorList();
   compUpdateSectorPanelUI();
   compRenderSectorMarkersAll();
   compUpdateElevChart();
   syncBoundsToReplay();
-  document.getElementById('comp-status').textContent = `Settore impostato da zoom mappa: 🔵 ${compSectorRangeLabel(sec)}`;
+  document.getElementById('comp-status').textContent = `Settore aggiornato da zoom grafico: ${compSectorRangeLabel(sec)}`;
 }
+
+// Alias per retrocompatibilità (bottone sidebar e pannello)
+function compSetSectorFromMapZoom() { compSetSectorFromChartZoom(); }
 
 // Toggle drag-su-grafico per definire start/end del settore
 let _compDragSectorMode = false;
@@ -1047,20 +1252,18 @@ function compToggleDragSector() {
     btn.style.borderColor = _compDragSectorMode ? 'var(--a)' : '';
     btn.style.color = _compDragSectorMode ? '#fff' : '';
   }
-  // Comunica alla funzione _compD3Render lo stato del drag mode
-  // tramite una variabile globale letta dall'overlay
   window._compD3DragSectorMode = _compDragSectorMode;
-  if (_compDragSectorMode) {
-    document.getElementById('comp-status').textContent = '↔ Trascina sul grafico per definire start/end del settore attivo';
-  } else {
-    document.getElementById('comp-status').textContent = '';
-  }
+  // Mostra/nascondi il banner nel grafico
+  const banner = document.getElementById('comp-drag-banner');
+  if (banner) banner.style.display = _compDragSectorMode ? 'flex' : 'none';
+  if (!_compDragSectorMode) document.getElementById('comp-status').textContent = '';
 }
 
 // Callback chiamata da _compD3Render quando l'utente ha finito un drag in "sector mode"
 function compOnDragSectorSelected(xKmStart, xKmEnd) {
   const sec = compGetActiveSector();
   if (!sec || !compStreamA) return;
+  compPushUndo(sec);
   const d0A = compStreamA.distance_m[compGlobalStartA] || 0;
   const d0B = compStreamB ? (compStreamB.distance_m[compGlobalStartB] || 0) : 0;
   const targetStartA = d0A + xKmStart * 1000;
@@ -1073,11 +1276,12 @@ function compOnDragSectorSelected(xKmStart, xKmEnd) {
     sec.startIdxB = compNearestByDistRange(compStreamB, targetStartB, compGlobalStartB, compGlobalEndB);
     sec.endIdxB   = compNearestByDistRange(compStreamB, targetEndB,   compGlobalStartB, compGlobalEndB);
   }
-  // Disattiva la modalità drag dopo la selezione
   _compDragSectorMode = false;
   window._compD3DragSectorMode = false;
   const btn = document.getElementById('comp-btn-drag-sector');
   if (btn) { btn.classList.remove('active'); btn.style.borderColor=''; btn.style.color=''; }
+  const banner = document.getElementById('comp-drag-banner');
+  if (banner) banner.style.display = 'none';
   compRebuildSectorList();
   compUpdateSectorPanelUI();
   compRenderSectorMarkersAll();
@@ -1191,20 +1395,37 @@ function compRenderSectorMarkersAll() {
   if (!compMap || !compMapReady || !compStreamA) return;
 
   compSectors.forEach(sec => {
+    const col = sec.color || '#3b82f6';
+    // Start: cerchio pieno con colore settore; End: stesso colore con X
+    const makeEl = (isStart, isActive) => {
+      const el = document.createElement('div');
+      el.style.cssText = `
+        width:14px; height:14px; border-radius:50%;
+        background:${isStart ? col : 'transparent'};
+        border:2.5px solid ${col};
+        display:flex; align-items:center; justify-content:center;
+        font-size:7px; font-weight:900; color:${col};
+        opacity:${isActive ? 1 : 0.45};
+        box-shadow:${isActive ? `0 0 6px ${col}88` : 'none'};
+        transition:opacity .2s, box-shadow .2s;
+        cursor:pointer;`;
+      if (!isStart) el.textContent = '✕';
+      return el;
+    };
+
     const items = [
-      { key:`${sec.id}-sA`, s:compStreamA, idx:sec.startIdxA, emoji:'🟢', title:`${sec.name} Start A` },
-      { key:`${sec.id}-eA`, s:compStreamA, idx:sec.endIdxA,   emoji:'🔴', title:`${sec.name} End A`   },
+      { key:`${sec.id}-sA`, s:compStreamA, idx:sec.startIdxA, isStart:true  },
+      { key:`${sec.id}-eA`, s:compStreamA, idx:sec.endIdxA,   isStart:false },
     ];
     if (compStreamB) {
-      items.push({ key:`${sec.id}-sB`, s:compStreamB, idx:sec.startIdxB, emoji:'🟢', title:`${sec.name} Start B` });
-      items.push({ key:`${sec.id}-eB`, s:compStreamB, idx:sec.endIdxB,   emoji:'🔴', title:`${sec.name} End B`   });
+      items.push({ key:`${sec.id}-sB`, s:compStreamB, idx:sec.startIdxB, isStart:true  });
+      items.push({ key:`${sec.id}-eB`, s:compStreamB, idx:sec.endIdxB,   isStart:false });
     }
-    items.forEach(({key,s,idx,emoji,title}) => {
+    const isActive = sec.id === compActiveSectorId;
+    items.forEach(({key, s, idx, isStart}) => {
       const lon = s.lon[idx], lat = s.lat[idx];
       if (!Number.isFinite(lon) || !Number.isFinite(lat)) return;
-      const el = document.createElement('div');
-      el.textContent = emoji; el.title = title;
-      el.style.cssText = `font-size:14px;opacity:${sec.id===compActiveSectorId?1:.55};`;
+      const el = makeEl(isStart, isActive);
       try {
         _compSectorMarkers[key] = new maplibregl.Marker({element:el})
           .setLngLat([lon, lat])
@@ -1212,6 +1433,23 @@ function compRenderSectorMarkersAll() {
       } catch(e) {}
     });
   });
+}
+
+// Fa lampeggiare i marker start/end del settore senza fare zoom
+function compFlashSectorMarkers(id) {
+  const keys = [`${id}-sA`, `${id}-eA`, `${id}-sB`, `${id}-eB`];
+  let count = 0;
+  const interval = setInterval(() => {
+    keys.forEach(k => {
+      const m = _compSectorMarkers[k];
+      if (m) m.getElement().style.opacity = (count % 2 === 0) ? '0.15' : '1';
+    });
+    count++;
+    if (count >= 6) {
+      clearInterval(interval);
+      keys.forEach(k => { const m = _compSectorMarkers[k]; if (m) m.getElement().style.opacity = '1'; });
+    }
+  }, 160);
 }
 
 function compUpdateSectorLegend() {
@@ -1249,8 +1487,49 @@ function compUpdateSectorChips() {
   });
 }
 
-// ────────────────────────────────────────────────────────────────
-// FUNZIONI PER ALLINEAMENTO GEOGRAFICO
+// Cambia colore settore e ridisegna tutto
+function compChangeSectorColor(id, color) {
+  const sec = compSectors.find(s => s.id === id);
+  if (!sec) return;
+  sec.color = color;
+  compRebuildSectorList();
+  compRenderSectorMarkersAll();
+  compUpdateSectorLegend();
+  compUpdateElevChart();
+}
+
+// Dialog analisi sezioni (piccolo popup inline sopra la sidebar)
+function compOpenAnalysisDialog(id) {
+  compActiveSectorId = id;
+  compRebuildSectorList();
+  // Sincronizza valori dal pannello principale al dialog
+  const mainMode = document.getElementById('comp-sec-mode');
+  const mainVal  = document.getElementById('comp-sec-val');
+  const dlgMode  = document.getElementById('comp-adlg-mode');
+  const dlgVal   = document.getElementById('comp-adlg-val');
+  const dlgUnit  = document.getElementById('comp-adlg-unit');
+  if (mainMode && dlgMode) dlgMode.value = mainMode.value;
+  if (mainVal  && dlgVal)  dlgVal.value  = mainVal.value;
+  if (dlgUnit) dlgUnit.textContent = (dlgMode && dlgMode.value === 'time') ? 's' : 'm';
+  const dlg = document.getElementById('comp-analysis-dialog');
+  if (dlg) dlg.style.display = 'flex';
+}
+
+function compRunAnalysisFromDialog() {
+  // Copia i valori dal dialog al pannello principale e lancia l'analisi
+  const dlgMode = document.getElementById('comp-adlg-mode');
+  const dlgVal  = document.getElementById('comp-adlg-val');
+  const mainMode = document.getElementById('comp-sec-mode');
+  const mainVal  = document.getElementById('comp-sec-val');
+  if (dlgMode && mainMode) mainMode.value = dlgMode.value;
+  if (dlgVal  && mainVal)  mainVal.value  = dlgVal.value;
+  compRunAnalysis();
+}
+
+function compCloseAnalysisDialog() {
+  const dlg = document.getElementById('comp-analysis-dialog');
+  if (dlg) dlg.style.display = 'none';
+}
 // ────────────────────────────────────────────────────────────────
 function haversineDistanceSq(lat1, lon1, lat2, lon2) {
   const R = 6371000;
