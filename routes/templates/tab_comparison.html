@@ -699,7 +699,7 @@ function compInitMap() {
       compAddSector(true);
     }
     compInitElevChart();
-    compRenderSectorMarkersAll();
+    compRenderSectorMarkersNow();
     compUpdateSectorPanelUI();
   });
   compMap.on('mousemove', compHandleHover);
@@ -851,12 +851,15 @@ function compChangeStyle(k) {
   compMap.setStyle(STYLES[k]);
   compMap.once('styledata', () => {
     compMapReady = true;
+    // Dopo setStyle tutti i marker sono stati rimossi dalla mappa internamente —
+    // svuotiamo la cache così _compRenderMarkersDOM li ricrea tutti
+    _compSectorMarkers = {};
     map_addTerrain_to(compMap);
     compDrawTrace('comp-ta',compStreamA,'#3b82f6');
     compDrawTrace('comp-tb',compStreamB,'#f97316');
     compAnalysisLayers=[];
     compInitChartHoverOnMap();
-    compRenderSectorMarkersAll();
+    compRenderSectorMarkersNow();
   });
 }
 function compToggle3D() { compIs3D=!compIs3D; compMap.easeTo({pitch:compIs3D?45:0,duration:600}); }
@@ -1472,18 +1475,23 @@ function compApplySector() {
 }
 
 // ── Sector boundary markers on map ──
-let _compSectorMarkers = {};
+var _compSectorMarkers = {};
 function compRenderSectorMarkersAll() {
   compScheduleRender({ markers: true });
 }
 
+// Versione immediata senza RAF — usata da init mappa e style change
+function compRenderSectorMarkersNow() {
+  _compSectorMarkers = _compSectorMarkers || {};
+  _compRenderMarkersDOM();
+}
+
 function _compRenderMarkersDOM() {
   if (!compMap || !compMapReady || !compStreamA) return;
-  const col = sec => sec.color || '#3b82f6';
 
   compSectors.forEach(sec => {
     const isActive = sec.id === compActiveSectorId;
-    const c = col(sec);
+    const c = sec.color || '#3b82f6';
     const items = [
       { key:`${sec.id}-sA`, s:compStreamA, idx:sec.startIdxA, isStart:true  },
       { key:`${sec.id}-eA`, s:compStreamA, idx:sec.endIdxA,   isStart:false },
@@ -1493,28 +1501,33 @@ function _compRenderMarkersDOM() {
       items.push({ key:`${sec.id}-eB`, s:compStreamB, idx:sec.endIdxB,   isStart:false });
     }
     items.forEach(({ key, s, idx, isStart }) => {
+      if (idx < 0 || idx >= s.lat.length) return;
       const lon = s.lon[idx], lat = s.lat[idx];
       if (!Number.isFinite(lon) || !Number.isFinite(lat)) return;
+
       if (_compSectorMarkers[key]) {
-        // Aggiorna posizione e stile senza ricreare
-        _compSectorMarkers[key].setLngLat([lon, lat]);
-        const el = _compSectorMarkers[key].getElement();
-        el.style.background = isStart ? c : 'transparent';
-        el.style.borderColor = c;
-        el.style.color = c;
-        el.style.opacity = isActive ? '1' : '0.45';
-        el.style.boxShadow = isActive ? `0 0 6px ${c}88` : 'none';
-      } else {
-        // Crea nuovo marker solo se non esiste
-        const el = document.createElement('div');
-        el.style.cssText = `width:14px;height:14px;border-radius:50%;background:${isStart?c:'transparent'};border:2.5px solid ${c};display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:900;color:${c};opacity:${isActive?1:0.45};box-shadow:${isActive?`0 0 6px ${c}88`:'none'};cursor:pointer;transition:opacity .2s,box-shadow .2s;`;
-        if (!isStart) el.textContent = '✕';
         try {
-          _compSectorMarkers[key] = new maplibregl.Marker({ element: el })
-            .setLngLat([lon, lat])
-            .addTo(compMap);
-        } catch(e) {}
+          _compSectorMarkers[key].setLngLat([lon, lat]);
+          const el = _compSectorMarkers[key].getElement();
+          el.style.background = isStart ? c : 'transparent';
+          el.style.borderColor = c;
+          el.style.color = c;
+          el.style.opacity = isActive ? '1' : '0.45';
+          el.style.boxShadow = isActive ? `0 0 6px ${c}88` : 'none';
+          return;
+        } catch(e) {
+          try { _compSectorMarkers[key].remove(); } catch(e2){}
+          delete _compSectorMarkers[key];
+        }
       }
+      const el = document.createElement('div');
+      el.style.cssText = `width:14px;height:14px;border-radius:50%;background:${isStart?c:'transparent'};border:2.5px solid ${c};display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:900;color:${c};opacity:${isActive?1:0.45};box-shadow:${isActive?`0 0 6px ${c}88`:'none'};cursor:pointer;transition:opacity .2s,box-shadow .2s;`;
+      if (!isStart) el.textContent = '✕';
+      try {
+        _compSectorMarkers[key] = new maplibregl.Marker({ element: el, anchor: 'center' })
+          .setLngLat([lon, lat])
+          .addTo(compMap);
+      } catch(e) { delete _compSectorMarkers[key]; }
     });
   });
 
@@ -1523,7 +1536,10 @@ function _compRenderMarkersDOM() {
     [`${sec.id}-sA`, `${sec.id}-eA`, `${sec.id}-sB`, `${sec.id}-eB`]
   ));
   Object.keys(_compSectorMarkers).forEach(k => {
-    if (!validKeys.has(k)) { _compSectorMarkers[k].remove(); delete _compSectorMarkers[k]; }
+    if (!validKeys.has(k)) {
+      try { _compSectorMarkers[k].remove(); } catch(e){}
+      delete _compSectorMarkers[k];
+    }
   });
 }
 
