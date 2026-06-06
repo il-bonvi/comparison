@@ -527,6 +527,16 @@ let compOriginalStreams = { A: null, B: null };
 
 const COMP_SECTOR_COLORS = ['#3b82f6','#f97316','#22c55e','#a855f7','#22d3ee','#f59e0b','#ef4444','#84cc16'];
 
+// ── Table state (var to avoid TDZ if script is evaluated multiple times) ──
+var compTableColVis = compTableColVis || {};
+var compTableColsCache = (typeof compTableColsCache !== 'undefined') ? compTableColsCache : null;
+var compCustomPresets = compCustomPresets || [];
+var compTablePresets = compTablePresets || [
+  { id:'flat', label:'Flat', cols:['num','distA_c','timeA','timeB','dTime','timeA_c','timeB_c','dTime_c','pwrA','pwrB','dPwr','pwrA_c','pwrB_c','dPwr_c','wkgA','wkgB','dWkg','wkgA_c','wkgB_c','dWkg_c','spdA','spdB','dSpd','spdA_c','spdB_c','dSpd_c','hrA','hrB','dHr','hrA_c','hrB_c','dHr_c','grade','grade_c'] },
+  { id:'all', label:'Tutto', cols:'*' },
+  { id:'base', label:'Base', cols:['num','distA','distB','timeA','timeB','dTime','timeA_c','timeB_c','dTime_c'] }
+];
+
 // ── File inputs ──
 document.getElementById('comp-file-a').addEventListener('change', e => {
   if (e.target.files[0]) {
@@ -904,7 +914,58 @@ function compAddSector(isDefault) {
   return sector;
 }
 
+// ── Render batch: aggrega chiamate multiple in un unico rAF ───────────────
+let _compRenderPending = false;
+let _compRenderFlags = { list:false, markers:false, chart:false, legend:false, panel:false };
+
+function compScheduleRender(flags) {
+  Object.assign(_compRenderFlags, flags);
+  if (_compRenderPending) return;
+  _compRenderPending = true;
+  requestAnimationFrame(() => {
+    _compRenderPending = false;
+    const f = _compRenderFlags;
+    _compRenderFlags = { list:false, markers:false, chart:false, legend:false, panel:false };
+    if (f.list)    _compRebuildSectorListDOM();
+    if (f.markers) _compRenderMarkersDOM();
+    if (f.panel)   compUpdateSectorPanelUI();
+    if (f.legend)  compUpdateSectorLegend();
+    if (f.chart)   compUpdateElevChart();
+  });
+}
+
+// Rebuild completo (struttura settori cambiata: aggiunto/eliminato)
 function compRebuildSectorList() {
+  compScheduleRender({ list:true, markers:true, legend:true, panel:true });
+}
+
+// Aggiornamento leggero (solo active class + range label, nessun rebuild DOM)
+function compSyncSectorList() {
+  const list = document.getElementById('comp-sector-list');
+  if (!list) { compScheduleRender({ list:true }); return; }
+  // Verifica che gli id presenti nel DOM corrispondano ancora ai settori
+  const domIds = Array.from(list.querySelectorAll('[data-sec-id]')).map(el => parseInt(el.dataset.secId));
+  const secIds = compSectors.map(s => s.id);
+  const sameStructure = domIds.length === secIds.length && domIds.every((id,i) => id === secIds[i]);
+  if (!sameStructure) { compScheduleRender({ list:true, markers:true }); return; }
+  // Aggiorna solo active class e range label
+  compSectors.forEach(sec => {
+    const item = list.querySelector(`[data-sec-id="${sec.id}"]`);
+    if (!item) return;
+    item.className = 'comp-sec-item' + (sec.id === compActiveSectorId ? ' active' : '');
+    const rangeEl = item.querySelector('.comp-sec-range');
+    if (rangeEl) rangeEl.textContent = compSectorRangeLabel(sec);
+    const labelEl = item.querySelector('.comp-sec-label');
+    if (labelEl && labelEl.textContent !== sec.name) labelEl.textContent = sec.name;
+    const dot = item.querySelector('.comp-sec-dot');
+    if (dot && dot.style.background !== sec.color) dot.style.background = sec.color;
+    const picker = item.querySelector('input[type=color]');
+    if (picker && picker.value !== sec.color) picker.value = sec.color;
+  });
+}
+
+// DOM rebuild effettivo (chiamato solo via rAF)
+function _compRebuildSectorListDOM() {
   const sel = document.getElementById('comp-sector-sel');
   if (sel) {
     sel.innerHTML = '';
@@ -918,12 +979,12 @@ function compRebuildSectorList() {
   const list = document.getElementById('comp-sector-list');
   if (!list) return;
   list.innerHTML = '';
+  const frag = document.createDocumentFragment();
   compSectors.forEach(sec => {
     const item = document.createElement('div');
     item.className = 'comp-sec-item' + (sec.id === compActiveSectorId ? ' active' : '');
     item.dataset.secId = sec.id;
 
-    // Riquadro settore: header con nome+range e ⚙️✕ top-right, poi bottoni compatti
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:flex-start;gap:5px;width:100%;';
     row.innerHTML = `
@@ -941,7 +1002,6 @@ function compRebuildSectorList() {
         <button class="csb csb-red"     style="padding:2px 4px;font-size:.62rem;" onclick="event.stopPropagation();compOpenConfirmDelete(${sec.id})" title="Elimina settore">✕</button>
       </div>`;
 
-    // Bottoni azioni (riga sotto)
     const btnRow = document.createElement('div');
     btnRow.style.cssText = 'display:flex;gap:2px;width:100%;margin-top:4px;';
     btnRow.innerHTML = `
@@ -951,7 +1011,6 @@ function compRebuildSectorList() {
       <button class="csb csb-yellow"  onclick="event.stopPropagation();compActiveSectorId=${sec.id};compOpenAnalysisDialog(${sec.id})"  title="Analisi sezioni">📊</button>
       <button class="csb csb-blue"    onclick="event.stopPropagation();compEditSector(${sec.id})"                                       title="Modifica start/end">⚙️</button>`;
 
-    // Form rename inline
     const editRow = document.createElement('div');
     editRow.id = `comp-sec-edit-${sec.id}`;
     editRow.style.cssText = 'display:none;align-items:center;gap:3px;width:100%;padding-top:4px;';
@@ -963,7 +1022,6 @@ function compRebuildSectorList() {
       <button onclick="event.stopPropagation();compSaveInlineEdit(${sec.id})" style="background:var(--a);border:none;border-radius:3px;color:#fff;padding:2px 6px;font-size:.65rem;cursor:pointer;">✓</button>
       <button onclick="event.stopPropagation();compCancelInlineEdit(${sec.id})" style="background:rgba(255,255,255,0.08);border:none;border-radius:3px;color:var(--muted2);padding:2px 6px;font-size:.65rem;cursor:pointer;">✕</button>`;
 
-    // Dialog conferma zoom mappa
     const confirmZoom = document.createElement('div');
     confirmZoom.id = `comp-sec-czoom-${sec.id}`;
     confirmZoom.className = 'comp-sec-confirm';
@@ -974,7 +1032,6 @@ function compRebuildSectorList() {
         <button class="csb-confirm-no"       onclick="event.stopPropagation();compCloseConfirm(${sec.id});">✕ No</button>
       </div>`;
 
-    // Dialog conferma elimina
     const confirmDel = document.createElement('div');
     confirmDel.id = `comp-sec-cdel-${sec.id}`;
     confirmDel.className = 'comp-sec-confirm';
@@ -990,8 +1047,9 @@ function compRebuildSectorList() {
     item.appendChild(editRow);
     item.appendChild(confirmZoom);
     item.appendChild(confirmDel);
-    list.appendChild(item);
+    frag.appendChild(item);
   });
+  list.appendChild(frag);
 }
 
 // ✏️ Apre il pannello settori per modificare start/end/analisi del settore cliccato
@@ -1153,7 +1211,35 @@ function compCloseAllInlineActions() {
   });
 }
 
-// ── Shortcut tastiera Ctrl+Z / Ctrl+Y ────────────────────────────────────
+// ── Throttle / debounce per le funzioni pesanti ───────────────────────────
+
+// Debounce per compSectorShift: evita di ricalcolare grafico ad ogni click tenuto
+let _compShiftTimer = null;
+const _origCompSectorShift = compSectorShift;
+compSectorShift = function(which, delta) {
+  const sec = compGetActiveSector();
+  if (sec) compPushUndo(sec);
+  _origCompSectorShift.call(this, which, delta);
+  // Sincronizza lista e markers subito (leggero)
+  compSyncSectorList();
+  compScheduleRender({ markers: true });
+  // Grafico e Replay con debounce (pesante)
+  clearTimeout(_compShiftTimer);
+  _compShiftTimer = setTimeout(() => {
+    compUpdateElevChart();
+    syncBoundsToReplay();
+  }, 120);
+};
+
+// Wrap compChangeSectorColor: aggiorna solo ciò che serve
+const _origChangeSectorColor = compChangeSectorColor;
+compChangeSectorColor = function(id, color) {
+  const sec = compSectors.find(s => s.id === id);
+  if (!sec) return;
+  sec.color = color;
+  compSyncSectorList();
+  compScheduleRender({ markers: true, legend: true, chart: true });
+};
 document.addEventListener('keydown', e => {
   // Solo se non si sta scrivendo in un input
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
@@ -1176,11 +1262,8 @@ function compSectorRangeLabel(sec) {
 
 function compSelectSector(id) {
   compActiveSectorId = id;
-  compRebuildSectorList();
-  compUpdateSectorPanelUI();
-  compRenderSectorMarkersAll();
-  compUpdateElevChart();
-  // Lampeggio marker invece di zoom automatico
+  compSyncSectorList();
+  compScheduleRender({ markers: true, chart: true, panel: true });
   compFlashSectorMarkers(id);
 }
 
@@ -1298,7 +1381,7 @@ function compOnSectorChange() {
 }
 
 // Ricostruzione compatibilità (rimpiazza la vecchia compRebuildSectorSelect)
-function compRebuildSectorSelect() { compRebuildSectorList(); }
+function compRebuildSectorSelect() { compSyncSectorList(); }
 
 function compUpdateSectorName(name) {
   const sec = compGetActiveSector();
@@ -1391,29 +1474,16 @@ function compApplySector() {
 // ── Sector boundary markers on map ──
 let _compSectorMarkers = {};
 function compRenderSectorMarkersAll() {
-  Object.values(_compSectorMarkers).forEach(m => m.remove());
-  _compSectorMarkers = {};
+  compScheduleRender({ markers: true });
+}
+
+function _compRenderMarkersDOM() {
   if (!compMap || !compMapReady || !compStreamA) return;
+  const col = sec => sec.color || '#3b82f6';
 
   compSectors.forEach(sec => {
-    const col = sec.color || '#3b82f6';
-    // Start: cerchio pieno con colore settore; End: stesso colore con X
-    const makeEl = (isStart, isActive) => {
-      const el = document.createElement('div');
-      el.style.cssText = `
-        width:14px; height:14px; border-radius:50%;
-        background:${isStart ? col : 'transparent'};
-        border:2.5px solid ${col};
-        display:flex; align-items:center; justify-content:center;
-        font-size:7px; font-weight:900; color:${col};
-        opacity:${isActive ? 1 : 0.45};
-        box-shadow:${isActive ? `0 0 6px ${col}88` : 'none'};
-        transition:opacity .2s, box-shadow .2s;
-        cursor:pointer;`;
-      if (!isStart) el.textContent = '✕';
-      return el;
-    };
-
+    const isActive = sec.id === compActiveSectorId;
+    const c = col(sec);
     const items = [
       { key:`${sec.id}-sA`, s:compStreamA, idx:sec.startIdxA, isStart:true  },
       { key:`${sec.id}-eA`, s:compStreamA, idx:sec.endIdxA,   isStart:false },
@@ -1422,17 +1492,38 @@ function compRenderSectorMarkersAll() {
       items.push({ key:`${sec.id}-sB`, s:compStreamB, idx:sec.startIdxB, isStart:true  });
       items.push({ key:`${sec.id}-eB`, s:compStreamB, idx:sec.endIdxB,   isStart:false });
     }
-    const isActive = sec.id === compActiveSectorId;
-    items.forEach(({key, s, idx, isStart}) => {
+    items.forEach(({ key, s, idx, isStart }) => {
       const lon = s.lon[idx], lat = s.lat[idx];
       if (!Number.isFinite(lon) || !Number.isFinite(lat)) return;
-      const el = makeEl(isStart, isActive);
-      try {
-        _compSectorMarkers[key] = new maplibregl.Marker({element:el})
-          .setLngLat([lon, lat])
-          .addTo(compMap);
-      } catch(e) {}
+      if (_compSectorMarkers[key]) {
+        // Aggiorna posizione e stile senza ricreare
+        _compSectorMarkers[key].setLngLat([lon, lat]);
+        const el = _compSectorMarkers[key].getElement();
+        el.style.background = isStart ? c : 'transparent';
+        el.style.borderColor = c;
+        el.style.color = c;
+        el.style.opacity = isActive ? '1' : '0.45';
+        el.style.boxShadow = isActive ? `0 0 6px ${c}88` : 'none';
+      } else {
+        // Crea nuovo marker solo se non esiste
+        const el = document.createElement('div');
+        el.style.cssText = `width:14px;height:14px;border-radius:50%;background:${isStart?c:'transparent'};border:2.5px solid ${c};display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:900;color:${c};opacity:${isActive?1:0.45};box-shadow:${isActive?`0 0 6px ${c}88`:'none'};cursor:pointer;transition:opacity .2s,box-shadow .2s;`;
+        if (!isStart) el.textContent = '✕';
+        try {
+          _compSectorMarkers[key] = new maplibregl.Marker({ element: el })
+            .setLngLat([lon, lat])
+            .addTo(compMap);
+        } catch(e) {}
+      }
     });
+  });
+
+  // Rimuovi marker di settori eliminati
+  const validKeys = new Set(compSectors.flatMap(sec =>
+    [`${sec.id}-sA`, `${sec.id}-eA`, `${sec.id}-sB`, `${sec.id}-eB`]
+  ));
+  Object.keys(_compSectorMarkers).forEach(k => {
+    if (!validKeys.has(k)) { _compSectorMarkers[k].remove(); delete _compSectorMarkers[k]; }
   });
 }
 
@@ -1488,16 +1579,7 @@ function compUpdateSectorChips() {
   });
 }
 
-// Cambia colore settore e ridisegna tutto
-function compChangeSectorColor(id, color) {
-  const sec = compSectors.find(s => s.id === id);
-  if (!sec) return;
-  sec.color = color;
-  compRebuildSectorList();
-  compRenderSectorMarkersAll();
-  compUpdateSectorLegend();
-  compUpdateElevChart();
-}
+// compChangeSectorColor è definita più avanti come wrapper ottimizzato
 
 // Dialog analisi sezioni (piccolo popup inline sopra la sidebar)
 function compOpenAnalysisDialog(id) {
@@ -1580,52 +1662,40 @@ function nearestGeoMonotone(la, lo, targetLat, targetLon, prevIdx) {
 function compAlignStartBtoA() {
   const sec = compGetActiveSector();
   if (!sec || !compStreamA || !compStreamB) return;
-  const latA = compStreamA.lat[sec.startIdxA];
-  const lonA = compStreamA.lon[sec.startIdxA];
-  const bestIdx = nearestGeoMonotone(latA, lonA, compStreamB.lat, compStreamB.lon, sec.startIdxB);
+  const bestIdx = nearestGeoMonotone(compStreamA.lat[sec.startIdxA], compStreamA.lon[sec.startIdxA], compStreamB.lat, compStreamB.lon, sec.startIdxB);
   sec.startIdxB = Math.min(bestIdx, sec.endIdxB - 5);
-  compUpdateSectorPanelUI();
-  compRenderSectorMarkersAll();
-  compUpdateElevChart();
+  compSyncSectorList();
+  compScheduleRender({ markers:true, chart:true, panel:true });
   syncBoundsToReplay();
 }
 
 function compAlignStartAtoB() {
   const sec = compGetActiveSector();
   if (!sec || !compStreamA || !compStreamB) return;
-  const latB = compStreamB.lat[sec.startIdxB];
-  const lonB = compStreamB.lon[sec.startIdxB];
-  const bestIdx = nearestGeoMonotone(latB, lonB, compStreamA.lat, compStreamA.lon, sec.startIdxA);
+  const bestIdx = nearestGeoMonotone(compStreamB.lat[sec.startIdxB], compStreamB.lon[sec.startIdxB], compStreamA.lat, compStreamA.lon, sec.startIdxA);
   sec.startIdxA = Math.min(bestIdx, sec.endIdxA - 5);
-  compUpdateSectorPanelUI();
-  compRenderSectorMarkersAll();
-  compUpdateElevChart();
+  compSyncSectorList();
+  compScheduleRender({ markers:true, chart:true, panel:true });
   syncBoundsToReplay();
 }
 
 function compAlignEndBtoA() {
   const sec = compGetActiveSector();
   if (!sec || !compStreamA || !compStreamB) return;
-  const latA = compStreamA.lat[sec.endIdxA];
-  const lonA = compStreamA.lon[sec.endIdxA];
-  const bestIdx = nearestGeoMonotone(latA, lonA, compStreamB.lat, compStreamB.lon, sec.endIdxB);
+  const bestIdx = nearestGeoMonotone(compStreamA.lat[sec.endIdxA], compStreamA.lon[sec.endIdxA], compStreamB.lat, compStreamB.lon, sec.endIdxB);
   sec.endIdxB = Math.max(bestIdx, sec.startIdxB + 5);
-  compUpdateSectorPanelUI();
-  compRenderSectorMarkersAll();
-  compUpdateElevChart();
+  compSyncSectorList();
+  compScheduleRender({ markers:true, chart:true, panel:true });
   syncBoundsToReplay();
 }
 
 function compAlignEndAtoB() {
   const sec = compGetActiveSector();
   if (!sec || !compStreamA || !compStreamB) return;
-  const latB = compStreamB.lat[sec.endIdxB];
-  const lonB = compStreamB.lon[sec.endIdxB];
-  const bestIdx = nearestGeoMonotone(latB, lonB, compStreamA.lat, compStreamA.lon, sec.endIdxA);
+  const bestIdx = nearestGeoMonotone(compStreamB.lat[sec.endIdxB], compStreamB.lon[sec.endIdxB], compStreamA.lat, compStreamA.lon, sec.endIdxA);
   sec.endIdxA = Math.max(bestIdx, sec.startIdxA + 5);
-  compUpdateSectorPanelUI();
-  compRenderSectorMarkersAll();
-  compUpdateElevChart();
+  compSyncSectorList();
+  compScheduleRender({ markers:true, chart:true, panel:true });
   syncBoundsToReplay();
 }
 
@@ -2922,14 +2992,7 @@ function compClearSectionPreview() {
   compApplySectionHighlight();
 }
 
-let compTableColVis = {};
-let compTableColsCache = null;
-const compTablePresets = [
-  { id:'flat', label:'Flat', cols:['num','distA_c','timeA','timeB','dTime','timeA_c','timeB_c','dTime_c','pwrA','pwrB','dPwr','pwrA_c','pwrB_c','dPwr_c','wkgA','wkgB','dWkg','wkgA_c','wkgB_c','dWkg_c','spdA','spdB','dSpd','spdA_c','spdB_c','dSpd_c','hrA','hrB','dHr','hrA_c','hrB_c','dHr_c','grade','grade_c'] },
-  { id:'all', label:'Tutto', cols:'*' },
-  { id:'base', label:'Base', cols:['num','distA','distB','timeA','timeB','dTime','timeA_c','timeB_c','dTime_c'] }
-];
-let compCustomPresets = [];
+// (compTableColVis, compTableColsCache, compTablePresets, compCustomPresets dichiarate in cima)
 
 function compRenderTablePresets() {
   const wrap = document.getElementById('comp-table-presets');
