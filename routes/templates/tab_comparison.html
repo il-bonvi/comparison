@@ -222,15 +222,15 @@
           <!-- Dialog analisi (overlay sulla sidebar) -->
           <div id="comp-analysis-dialog" style="display:none;position:absolute;inset:0;z-index:200;
                flex-direction:column;background:var(--surface2);border-right:1px solid var(--border-hi);">
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-bottom:1px solid var(--border-hi);background:rgba(59,130,246,.1);">
-              <span style="font-weight:700;color:var(--a);font-size:.7rem;font-family:var(--font-mono);">📊 Analisi Sezioni</span>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-bottom:1px solid var(--border-hi);background:rgba(251,191,36,.08);">
+              <span style="font-weight:700;color:#fbbf24;font-size:.7rem;font-family:var(--font-mono);">📊 Analisi Sezioni</span>
               <button onclick="compCloseAnalysisDialog()" style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:.85rem;padding:0 2px;">✕</button>
             </div>
             <div style="padding:10px;display:flex;flex-direction:column;gap:10px;flex:1;overflow-y:auto;font-family:var(--font-mono);font-size:.7rem;">
               <div style="display:flex;flex-direction:column;gap:5px;">
                 <label style="color:var(--muted2);font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;">Dividi per</label>
                 <select id="comp-adlg-mode" style="background:var(--bg);border:1px solid var(--border-hi);color:var(--text);padding:3px 6px;border-radius:4px;font-size:.7rem;font-family:var(--font-mono);"
-                  onchange="document.getElementById('comp-adlg-unit').textContent=this.value==='dist'?'m':'s';">
+                  onchange="const u=this.value==='dist'?'m':'s';document.getElementById('comp-adlg-unit').textContent=u;localStorage.setItem('comp_saved_mode',this.value);">
                   <option value="dist" selected>Distanza</option>
                   <option value="time">Tempo</option>
                 </select>
@@ -238,13 +238,10 @@
               <div style="display:flex;flex-direction:column;gap:5px;">
                 <label style="color:var(--muted2);font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;">Valore (<span id="comp-adlg-unit">m</span>)</label>
                 <input type="number" id="comp-adlg-val" value="200" min="10" max="50000" step="10"
-                  style="padding:4px 8px;background:var(--bg);border:1px solid var(--border-hi);border-radius:4px;color:var(--text);font-size:.78rem;font-weight:bold;font-family:var(--font-mono);text-align:center;width:100%;box-sizing:border-box;"/>
+                  style="padding:4px 8px;background:var(--bg);border:1px solid var(--border-hi);border-radius:4px;color:var(--text);font-size:.78rem;font-weight:bold;font-family:var(--font-mono);text-align:center;width:100%;box-sizing:border-box;"
+                  oninput="localStorage.setItem('comp_saved_val_'+document.getElementById('comp-adlg-mode').value,this.value);"/>
               </div>
-              <button onclick="compRunAnalysisFromDialog()" style="width:100%;padding:5px 0;font-size:.72rem;font-weight:bold;background:rgba(251,191,36,.15);border:1px solid #fbbf24;border-radius:4px;color:#fbbf24;cursor:pointer;">🔍 Ricalcola Sezioni</button>
-              <div style="border-top:1px solid var(--border);padding-top:8px;display:flex;flex-direction:column;gap:4px;">
-                <button class="btn btn-ghost" onclick="compTrimToCurrentSector();compCloseAnalysisDialog();" style="width:100%;font-size:.66rem;padding:4px 0;">✂️ Taglia a questo settore</button>
-                <button class="btn btn-ghost" onclick="compResetFullActivity();compCloseAnalysisDialog();" style="width:100%;font-size:.66rem;padding:4px 0;">⟲ Ripristina attività</button>
-              </div>
+              <button onclick="compRunAnalysisFromDialog()" style="width:100%;padding:6px 0;font-size:.74rem;font-weight:bold;background:rgba(251,191,36,.15);border:1px solid #fbbf24;border-radius:4px;color:#fbbf24;cursor:pointer;">🔍 Ricalcola Sezioni</button>
             </div>
           </div>
 
@@ -375,7 +372,9 @@
 .comp-sec-range { color:var(--muted2); font-size:.62rem; margin-top:1px; }
 .comp-sec-zoom { opacity:0; font-size:.7rem; color:var(--a); cursor:pointer; padding:0 2px; flex-shrink:0; transition:opacity .15s; }
 .comp-sec-item:hover .comp-sec-zoom { opacity:1; }
-#comp-btn-isolate.active { background:rgba(59,130,246,0.2); border-color:var(--a); color:var(--a); }
+.csb-yellow {
+  background:rgba(251,191,36,0.18); border-color:#fbbf24; color:#fbbf24;
+}
 
 /* Bottoni sidebar settori — stile base condiviso */
 .csb { 
@@ -924,11 +923,11 @@ function compRebuildSectorList() {
     item.className = 'comp-sec-item' + (sec.id === compActiveSectorId ? ' active' : '');
     item.dataset.secId = sec.id;
 
-    // Riga header: dot (color picker) + nome + range
+    // Riquadro settore: header con nome+range e ⚙️✕ top-right, poi bottoni compatti
     const row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;gap:5px;width:100%;';
+    row.style.cssText = 'display:flex;align-items:flex-start;gap:5px;width:100%;';
     row.innerHTML = `
-      <div class="comp-sec-dot" style="background:${sec.color};margin-top:1px;flex-shrink:0;cursor:pointer;border:1px solid rgba(255,255,255,0.2);" title="Cambia colore"
+      <div class="comp-sec-dot" style="background:${sec.color};margin-top:3px;flex-shrink:0;cursor:pointer;border:1px solid rgba(255,255,255,0.2);" title="Cambia colore"
            onclick="event.stopPropagation();document.getElementById('comp-color-pick-${sec.id}').click()"></div>
       <input type="color" id="comp-color-pick-${sec.id}" value="${sec.color}"
              style="position:absolute;width:0;height:0;opacity:0;pointer-events:none;"
@@ -936,19 +935,21 @@ function compRebuildSectorList() {
       <div style="flex:1;min-width:0;cursor:pointer;" onclick="compSelectSector(${sec.id})">
         <div class="comp-sec-label">${sec.name}</div>
         <div class="comp-sec-range">${compSectorRangeLabel(sec)}</div>
+      </div>
+      <div style="display:flex;gap:2px;flex-shrink:0;margin-top:1px;">
+        <button class="csb csb-neutral" style="padding:2px 4px;font-size:.62rem;" onclick="event.stopPropagation();compInlineEditSector(${sec.id})" title="Rinomina">✏️</button>
+        <button class="csb csb-red"     style="padding:2px 4px;font-size:.62rem;" onclick="event.stopPropagation();compOpenConfirmDelete(${sec.id})" title="Elimina settore">✕</button>
       </div>`;
 
-    // Bottoni azioni
+    // Bottoni azioni (riga sotto)
     const btnRow = document.createElement('div');
     btnRow.style.cssText = 'display:flex;gap:2px;width:100%;margin-top:4px;';
     btnRow.innerHTML = `
-      <button class="csb csb-green"   onclick="event.stopPropagation();compZoomToSector(${sec.id})"                                        title="Zoom su settore">🔍</button>
-      <button class="csb csb-neutral" onclick="event.stopPropagation();compInlineEditSector(${sec.id})"                                     title="Rinomina">✏️</button>
-      <button class="csb csb-neutral" onclick="event.stopPropagation();compOpenConfirmMapZoom(${sec.id})"                                   title="Usa zoom grafico come bounds">📐</button>
-      <button class="csb csb-neutral" onclick="event.stopPropagation();compActiveSectorId=${sec.id};compToggleDragSector();"                title="Trascina su grafico per definire bounds">↔</button>
-      <button class="csb csb-neutral" onclick="event.stopPropagation();compActiveSectorId=${sec.id};compOpenAnalysisDialog(${sec.id})"     title="Analisi sezioni">📊</button>
-      <button class="csb csb-blue"    onclick="event.stopPropagation();compEditSector(${sec.id})"                                          title="Modifica start/end/analisi">⚙️</button>
-      <button class="csb csb-red"     onclick="event.stopPropagation();compOpenConfirmDelete(${sec.id})"                                   title="Elimina settore">✕</button>`;
+      <button class="csb csb-green"   onclick="event.stopPropagation();compZoomToSector(${sec.id})"                                    title="Zoom su settore">🔍</button>
+      <button class="csb csb-neutral" onclick="event.stopPropagation();compOpenConfirmMapZoom(${sec.id})"                               title="Usa zoom grafico come bounds">📐</button>
+      <button class="csb csb-neutral" onclick="event.stopPropagation();compActiveSectorId=${sec.id};compToggleDragSector();"             title="Trascina su grafico">↔</button>
+      <button class="csb csb-yellow"  onclick="event.stopPropagation();compActiveSectorId=${sec.id};compOpenAnalysisDialog(${sec.id})"  title="Analisi sezioni">📊</button>
+      <button class="csb csb-blue"    onclick="event.stopPropagation();compEditSector(${sec.id})"                                       title="Modifica start/end">⚙️</button>`;
 
     // Form rename inline
     const editRow = document.createElement('div');
@@ -1502,27 +1503,32 @@ function compChangeSectorColor(id, color) {
 function compOpenAnalysisDialog(id) {
   compActiveSectorId = id;
   compRebuildSectorList();
-  // Sincronizza valori dal pannello principale al dialog
-  const mainMode = document.getElementById('comp-sec-mode');
-  const mainVal  = document.getElementById('comp-sec-val');
-  const dlgMode  = document.getElementById('comp-adlg-mode');
-  const dlgVal   = document.getElementById('comp-adlg-val');
-  const dlgUnit  = document.getElementById('comp-adlg-unit');
-  if (mainMode && dlgMode) dlgMode.value = mainMode.value;
-  if (mainVal  && dlgVal)  dlgVal.value  = mainVal.value;
-  if (dlgUnit) dlgUnit.textContent = (dlgMode && dlgMode.value === 'time') ? 's' : 'm';
+  const dlgMode = document.getElementById('comp-adlg-mode');
+  const dlgVal  = document.getElementById('comp-adlg-val');
+  const dlgUnit = document.getElementById('comp-adlg-unit');
+  // Carica da localStorage (stesso storage usato dal pannello principale)
+  const savedMode = localStorage.getItem('comp_saved_mode') || 'dist';
+  dlgMode.value = savedMode;
+  dlgUnit.textContent = savedMode === 'time' ? 's' : 'm';
+  const savedVal = localStorage.getItem('comp_saved_val_' + savedMode) || '200';
+  dlgVal.value = savedVal;
   const dlg = document.getElementById('comp-analysis-dialog');
   if (dlg) dlg.style.display = 'flex';
 }
 
 function compRunAnalysisFromDialog() {
-  // Copia i valori dal dialog al pannello principale e lancia l'analisi
   const dlgMode = document.getElementById('comp-adlg-mode');
   const dlgVal  = document.getElementById('comp-adlg-val');
+  const mode = dlgMode ? dlgMode.value : 'dist';
+  const val  = dlgVal  ? dlgVal.value  : '200';
+  // Salva in localStorage (condiviso con il pannello principale)
+  localStorage.setItem('comp_saved_mode', mode);
+  localStorage.setItem('comp_saved_val_' + mode, val);
+  // Sincronizza al pannello principale
   const mainMode = document.getElementById('comp-sec-mode');
   const mainVal  = document.getElementById('comp-sec-val');
-  if (dlgMode && mainMode) mainMode.value = dlgMode.value;
-  if (dlgVal  && mainVal)  mainVal.value  = dlgVal.value;
+  if (mainMode) mainMode.value = mode;
+  if (mainVal)  mainVal.value  = val;
   compRunAnalysis();
 }
 
