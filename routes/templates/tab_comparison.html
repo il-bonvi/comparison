@@ -679,6 +679,37 @@ function compCenter(s) {
   const n = s.lat.length;
   return { lat:s.lat.reduce((a,b)=>a+b)/n, lon:s.lon.reduce((a,b)=>a+b)/n };
 }
+var _compTraceEndMarkers = {};
+
+function compSpawnTraceMarkers() {
+  Object.values(_compTraceEndMarkers).forEach(m => { try { m.remove(); } catch(e){} });
+  _compTraceEndMarkers = {};
+  if (!compMap || !compMapReady || !compStreamA) return;
+  const mkEl = (symbol, color, isStart) => {
+    const el = document.createElement('div');
+    el.style.cssText = `width:6px;height:6px;border-radius:50%;
+      background:${color};opacity:${isStart?1:0.6};
+      box-shadow:0 0 4px ${color};`;
+    el.title = isStart ? 'Start' : 'End';
+    return el;
+  };
+  const add = (key, s, idx, symbol, color, isStart) => {
+    if (!s || idx < 0 || idx >= s.lat.length) return;
+    const lon = s.lon[idx], lat = s.lat[idx];
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return;
+    try {
+      _compTraceEndMarkers[key] = new maplibregl.Marker({ element: mkEl(symbol, color, isStart), anchor: isStart ? 'bottom-left' : 'bottom-right' })
+        .setLngLat([lon, lat]).addTo(compMap);
+    } catch(e) {}
+  };
+  add('sA', compStreamA, 0,                        'S', '#3b82f6', true);
+  add('eA', compStreamA, compStreamA.lat.length-1,  'E', '#3b82f6', false);
+  if (compStreamB) {
+    add('sB', compStreamB, 0,                       'S', '#f97316', true);
+    add('eB', compStreamB, compStreamB.lat.length-1,'E', '#f97316', false);
+  }
+}
+
 function compInitMap() {
   const c = compCenter(compStreamA);
   compMapReady = false;
@@ -700,6 +731,7 @@ function compInitMap() {
     }
     compInitElevChart();
     compRenderSectorMarkersNow();
+    compSpawnTraceMarkers();
     compUpdateSectorPanelUI();
   });
   compMap.on('mousemove', compHandleHover);
@@ -854,12 +886,14 @@ function compChangeStyle(k) {
     // Dopo setStyle tutti i marker sono stati rimossi dalla mappa internamente —
     // svuotiamo la cache così _compRenderMarkersDOM li ricrea tutti
     _compSectorMarkers = {};
+    _compTraceEndMarkers = {};
     map_addTerrain_to(compMap);
     compDrawTrace('comp-ta',compStreamA,'#3b82f6');
     compDrawTrace('comp-tb',compStreamB,'#f97316');
     compAnalysisLayers=[];
     compInitChartHoverOnMap();
     compRenderSectorMarkersNow();
+    compSpawnTraceMarkers();
   });
 }
 function compToggle3D() { compIs3D=!compIs3D; compMap.easeTo({pitch:compIs3D?45:0,duration:600}); }

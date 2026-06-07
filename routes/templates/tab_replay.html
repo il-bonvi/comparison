@@ -838,11 +838,40 @@ function rpUpdateTrail(fr, frameIdx) {
     }
   } catch(e) { /* sorgenti non ancora pronte */ }
 }
+// Marker statici start/end traccia (rimangono fissi, distinti dagli atleti animati)
+var rpTraceEndMarkers = {};
+
+function rpSpawnTraceMarkers() {
+  Object.values(rpTraceEndMarkers).forEach(m => { try { m.remove(); } catch(e){} });
+  rpTraceEndMarkers = {};
+  const mkEl = (symbol, color, isStart) => {
+    const el = document.createElement('div');
+    el.style.cssText = `width:6px;height:6px;border-radius:50%;
+      background:${color};opacity:${isStart?1:0.6};
+      box-shadow:0 0 4px ${color};`;
+    el.title = isStart ? 'Start' : 'End';
+    return el;
+  };
+  const add = (key, s, idx, symbol, color, isStart) => {
+    const lon = s.lon[idx], lat = s.lat[idx];
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return;
+    try {
+      rpTraceEndMarkers[key] = new maplibregl.Marker({ element: mkEl(symbol, color, isStart), anchor: isStart ? 'bottom-left' : 'bottom-right' })
+        .setLngLat([lon, lat]).addTo(rpMap);
+    } catch(e) {}
+  };
+  add('sA', rpSA, rpBoundStartA, 'S', '#3b82f6', true);
+  add('eA', rpSA, rpBoundEndA,   'E', '#3b82f6', false);
+  add('sB', rpSB, rpBoundStartB, 'S', '#f97316', true);
+  add('eB', rpSB, rpBoundEndB,   'E', '#f97316', false);
+}
+
 function rpSpawnMarkers(){
   const eA=document.createElement('div');eA.innerHTML='🔵';eA.style.cssText='font-size:20px;filter:drop-shadow(0 0 5px #3b82f6)';
-  rpMarkerA=new maplibregl.Marker({element:eA}).setLngLat([rpSA.lon[0],rpSA.lat[0]]).addTo(rpMap);
+  rpMarkerA=new maplibregl.Marker({element:eA}).setLngLat([rpSA.lon[rpBoundStartA]||rpSA.lon[0],rpSA.lat[rpBoundStartA]||rpSA.lat[0]]).addTo(rpMap);
   const eB=document.createElement('div');eB.innerHTML='🟠';eB.style.cssText='font-size:20px;filter:drop-shadow(0 0 5px #f97316)';
-  rpMarkerB=new maplibregl.Marker({element:eB}).setLngLat([rpSB.lon[0],rpSB.lat[0]]).addTo(rpMap);
+  rpMarkerB=new maplibregl.Marker({element:eB}).setLngLat([rpSB.lon[rpBoundStartB]||rpSB.lon[0],rpSB.lat[rpBoundStartB]||rpSB.lat[0]]).addTo(rpMap);
+  rpSpawnTraceMarkers();
 }
 function rpFitAll(){
   if(!rpMap||!rpSA||!rpSB)return;
@@ -857,6 +886,7 @@ function replayChangeStyle(k){
   rpMap.once('styledata',()=>{
     rpMapReady = true;
     _rpTrailLastA = -1; _rpTrailLastB = -1;
+    rpTraceEndMarkers = {};
     map_addTerrain_to(rpMap);
     rpAddTrace('rp-ta',    rpSA, '#3b82f6', 3, false, rpBoundStartA, rpBoundEndA);
     rpAddTrace('rp-tb',    rpSB, '#f97316', 3, false, rpBoundStartB, rpBoundEndB);
@@ -1632,6 +1662,7 @@ function rpApplyBounds() {
   rpRenderCharts();
   rpUpdateFrame(0);
   rpRedrawTracesWithBounds();
+  rpSpawnTraceMarkers();
   document.getElementById('replay-status').textContent =
     `Bounds applicati · ${rpAligned.length} frame · ${fmtTime(rpMaxT)}`;
   syncBoundsToComparison();
