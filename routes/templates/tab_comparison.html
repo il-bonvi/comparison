@@ -2914,23 +2914,27 @@ function compBuildMetricsTable() {
       const cumGradeA = cumDistA > 0 ? (cumAltA/cumDistA)*100 : 0;
       const cumGradeB = cumDistB > 0 ? (cumAltB/cumDistB)*100 : 0;
 
+      // Celle in ordine identico all'array cols del thead:
+      // distA, distB, distA_c, distB_c
       if (sA) { c((sA.dDist/1000).toFixed(2)+'km','','distA'); } else c('—','td-neutral','distA');
       if (sB) { c((sB.dDist/1000).toFixed(2)+'km','','distB'); } else c('—','td-neutral','distB');
       if (sA&&cumDistA>0) { c((cumDistA/1000).toFixed(2)+'km','','distA_c'); } else c('—','td-neutral','distA_c');
       if (sB&&cumDistB>0) { c((cumDistB/1000).toFixed(2)+'km','','distB_c'); } else c('—','td-neutral','distB_c');
+      // timeA, timeB, dTime, timeA_c, timeB_c, dTime_c
       if (sA) { c(fmtTime(sA.dTime),'','timeA'); } else c('—','td-neutral','timeA');
       if (sB) { c(fmtTime(sB.dTime),'','timeB'); } else c('—','td-neutral','timeB');
+      if (sA&&sB) { const dt=sA.dTime-sB.dTime; c((dt>=0?'+':'')+dt.toFixed(1)+'s',dSign(dt,true),'dTime'); } else c('—','td-neutral','dTime');
       if (sA&&cumTimeA>0) { c(fmtTime(cumTimeA),'','timeA_c'); } else c('—','td-neutral','timeA_c');
       if (sB&&cumTimeB>0) { c(fmtTime(cumTimeB),'','timeB_c'); } else c('—','td-neutral','timeB_c');
-      if (sA&&sB) { const dt=sA.dTime-sB.dTime; c((dt>=0?'+':'')+dt.toFixed(1)+'s',dSign(dt,true),'dTime'); } else c('—','td-neutral','dTime');
       if (sA&&sB&&cumTimeA>0&&cumTimeB>0) { const dtc=cumTimeA-cumTimeB; c((dtc>=0?'+':'')+dtc.toFixed(1)+'s',dSign(dtc,true),'dTime_c'); } else c('—','td-neutral','dTime_c');
+      // pwrA, pwrB, dPwr, pwrA_c, pwrB_c, dPwr_c
       if (sA) { c(Math.round(sA.avgPower)+'W',sA.avgPower>0?'':'td-neutral','pwrA'); } else c('—','td-neutral','pwrA');
       if (sB) { c(Math.round(sB.avgPower)+'W',sB.avgPower>0?'':'td-neutral','pwrB'); } else c('—','td-neutral','pwrB');
+      if (sA&&sB&&sA.avgPower>0&&sB.avgPower>0) { const dp=sB.avgPower-sA.avgPower; c((dp>=0?'+':'')+dp.toFixed(0)+'W',dSign(dp,false),'dPwr'); } else c('—','td-neutral','dPwr');
       if (sA&&cumTimeA>0) { c(Math.round(cumPwrA)+'W',cumPwrA>0?'':'td-neutral','pwrA_c'); } else c('—','td-neutral','pwrA_c');
       if (sB&&cumTimeB>0) { c(Math.round(cumPwrB)+'W',cumPwrB>0?'':'td-neutral','pwrB_c'); } else c('—','td-neutral','pwrB_c');
-      if (sA&&sB&&sA.avgPower>0&&sB.avgPower>0) { const dp=sB.avgPower-sA.avgPower; c((dp>=0?'+':'')+dp.toFixed(0)+'W',dSign(dp,false),'dPwr'); } else c('—','td-neutral','dPwr');
       if (sA&&sB&&cumTimeA>0&&cumTimeB>0) { const dpC=cumPwrB-cumPwrA; c((dpC>=0?'+':'')+dpC.toFixed(0)+'W',dSign(dpC,false),'dPwr_c'); } else c('—','td-neutral','dPwr_c');
-
+      // wkgA, wkgB, dWkg, wkgA_c, wkgB_c, dWkg_c
       const _wA=athleteWeights.a, _wB=athleteWeights.b;
       const wkgA=_wA>0&&sA?(sA.avgPower/_wA):null;
       const wkgB=_wB>0&&sB?(sB.avgPower/_wB):null;
@@ -2942,25 +2946,28 @@ function compBuildMetricsTable() {
       if (wkgAcum!=null) { c(wkgAcum.toFixed(3),'td-neutral','wkgA_c'); } else c(_wA>0?'—':'n/a','td-neutral','wkgA_c');
       if (wkgBcum!=null) { c(wkgBcum.toFixed(3),'td-neutral','wkgB_c'); } else c(_wB>0?'—':'n/a','td-neutral','wkgB_c');
       if (wkgAcum!=null&&wkgBcum!=null) { const dwC=wkgAcum-wkgBcum; c((dwC>=0?'+':'')+dwC.toFixed(3),dSign(dwC,true),'dWkg_c'); } else c('—','td-neutral','dWkg_c');
-
+      // spdA, spdB, dSpd, spdA_c, spdB_c, dSpd_c
       if (sA) { c(sA.avgSpeed.toFixed(1)+'km/h',sA.avgSpeed>0?'':'td-neutral','spdA'); } else c('—','td-neutral','spdA');
       if (sB) { c(sB.avgSpeed.toFixed(1)+'km/h',sB.avgSpeed>0?'':'td-neutral','spdB'); } else c('—','td-neutral','spdB');
+      if (sA&&sB&&sA.avgSpeed>0&&sB.avgSpeed>0) { const ds=sB.avgSpeed-sA.avgSpeed; c((ds>=0?'+':'')+ds.toFixed(1)+'km/h',dSign(ds,false),'dSpd'); } else c('—','td-neutral','dSpd');
       if (sA&&cumTimeA>0) { c(cumSpdA.toFixed(1)+'km/h',cumSpdA>0?'':'td-neutral','spdA_c'); } else c('—','td-neutral','spdA_c');
       if (sB&&cumTimeB>0) { c(cumSpdB.toFixed(1)+'km/h',cumSpdB>0?'':'td-neutral','spdB_c'); } else c('—','td-neutral','spdB_c');
-      if (sA&&sB&&sA.avgSpeed>0&&sB.avgSpeed>0) { const ds=sB.avgSpeed-sA.avgSpeed; c((ds>=0?'+':'')+ds.toFixed(1)+'km/h',dSign(ds,false),'dSpd'); } else c('—','td-neutral','dSpd');
       if (sA&&sB&&cumTimeA>0&&cumTimeB>0) { const dsC=cumSpdB-cumSpdA; c((dsC>=0?'+':'')+dsC.toFixed(1)+'km/h',dSign(dsC,false),'dSpd_c'); } else c('—','td-neutral','dSpd_c');
+      // hrA, hrB, dHr, hrA_c, hrB_c, dHr_c
       if (sA) { c(Math.round(sA.avgHr)>0?Math.round(sA.avgHr)+'bpm':'—','td-neutral','hrA'); } else c('—','td-neutral','hrA');
       if (sB) { c(Math.round(sB.avgHr)>0?Math.round(sB.avgHr)+'bpm':'—','td-neutral','hrB'); } else c('—','td-neutral','hrB');
+      if (sA&&sB&&sA.avgHr>0&&sB.avgHr>0) { const dh=sB.avgHr-sA.avgHr; c((dh>=0?'+':'')+dh.toFixed(0)+'bpm',dSign(dh,false),'dHr'); } else c('—','td-neutral','dHr');
       if (sA&&cumTimeA>0) { c(cumHrA>0?Math.round(cumHrA)+'bpm':'—','td-neutral','hrA_c'); } else c('—','td-neutral','hrA_c');
       if (sB&&cumTimeB>0) { c(cumHrB>0?Math.round(cumHrB)+'bpm':'—','td-neutral','hrB_c'); } else c('—','td-neutral','hrB_c');
-      if (sA&&sB&&sA.avgHr>0&&sB.avgHr>0) { const dh=sB.avgHr-sA.avgHr; c((dh>=0?'+':'')+dh.toFixed(0)+'bpm',dSign(dh,false),'dHr'); } else c('—','td-neutral','dHr');
-      if (sA&&sB&&cumTimeA>0&&cumTimeB>0) { const dhC=cumHrB-cumHrA; c((dhC>=0?'+':'')+dhC.toFixed(0)+'bpm',dSign(dhC,false),'dHr_c'); } else c('—','td-neutral','dHr_c');
+      if (sA&&sB&&sA.avgHr>0&&sB.avgHr>0&&cumTimeA>0&&cumTimeB>0) { const dhC=cumHrB-cumHrA; c((dhC>=0?'+':'')+dhC.toFixed(0)+'bpm',dSign(dhC,false),'dHr_c'); } else c('—','td-neutral','dHr_c');
+      // vamA, vamB, dVam, vamA_c, vamB_c, dVam_c
       if (sA) { c(sA.vam>0?Math.round(sA.vam)+'m/h':'—','td-neutral','vamA'); } else c('—','td-neutral','vamA');
       if (sB) { c(sB.vam>0?Math.round(sB.vam)+'m/h':'—','td-neutral','vamB'); } else c('—','td-neutral','vamB');
+      if (sA&&sB&&sA.vam>0&&sB.vam>0) { const dv=sB.vam-sA.vam; c((dv>=0?'+':'')+Math.round(dv)+'m/h',dSign(dv,false),'dVam'); } else c('—','td-neutral','dVam');
       if (sA&&cumTimeA>0) { c(cumVamA>0?Math.round(cumVamA)+'m/h':'—','td-neutral','vamA_c'); } else c('—','td-neutral','vamA_c');
       if (sB&&cumTimeB>0) { c(cumVamB>0?Math.round(cumVamB)+'m/h':'—','td-neutral','vamB_c'); } else c('—','td-neutral','vamB_c');
-      if (sA&&sB&&sA.vam>0&&sB.vam>0) { const dv=sB.vam-sA.vam; c((dv>=0?'+':'')+Math.round(dv)+'m/h',dSign(dv,false),'dVam'); } else c('—','td-neutral','dVam');
       if (sA&&sB&&cumTimeA>0&&cumTimeB>0) { const dvC=cumVamB-cumVamA; c((dvC>=0?'+':'')+Math.round(dvC)+'m/h',dSign(dvC,false),'dVam_c'); } else c('—','td-neutral','dVam_c');
+      // altDiff, altDiff_c, grade, grade_c
       if (sA) { c((sA.dAlt>=0?'+':'')+sA.dAlt.toFixed(1)+'m','td-neutral','altDiff'); } else c('—','td-neutral','altDiff');
       if (sA&&cumAltA) { c((cumAltA>=0?'+':'')+cumAltA.toFixed(1)+'m','td-neutral','altDiff_c'); } else c('—','td-neutral','altDiff_c');
       if (sA) { c(sA.avgGrade.toFixed(1)+'%','td-neutral','grade'); } else c('—','td-neutral','grade');
