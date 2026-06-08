@@ -1,5 +1,10 @@
 race replay traslazione (continua prompt)
 comparison: traslazione di traccia in diversi punti, per uniformare i settori
+!!!!NON SHIFTA
+Uncaught ReferenceError: _compShiftTimer is not defined
+    compSectorShift http://localhost:8002/:1896
+    onclick http://localhost:8002/:1
+
 
 caricamento file: cambiando file il file vecchio da errore
 comparison: aggiusta la distanza....
