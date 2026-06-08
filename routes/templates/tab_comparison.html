@@ -518,7 +518,7 @@ let compZoomDomainX = null;   // null = vista intera, altrimenti [minX, maxX] in
 // ── Sectors store ──
 let compSectors = [];
 let compActiveSectorId = null;
-let _compSectorIdCounter = 0;
+var _compSectorIdCounter = 0;
 
 // ── Global bounds for activity trimming ──
 let compGlobalStartA = 0, compGlobalEndA = 0;
@@ -687,9 +687,10 @@ function compSpawnTraceMarkers() {
   if (!compMap || !compMapReady || !compStreamA) return;
   const mkEl = (symbol, color, isStart) => {
     const el = document.createElement('div');
-    el.style.cssText = `width:6px;height:6px;border-radius:50%;
-      background:${color};opacity:${isStart?1:0.6};
-      box-shadow:0 0 4px ${color};`;
+    el.style.cssText = `width:10px;height:10px;border-radius:50%;
+      background:${color};border:2px solid #fff;
+      box-shadow:0 0 6px ${color}, 0 1px 4px rgba(0,0,0,.6);
+      opacity:${isStart?1:0.85};`;
     el.title = isStart ? 'Start' : 'End';
     return el;
   };
@@ -795,17 +796,14 @@ function compHideChartHoverMarkers() {
 
 function compUpdateMapHoverFromChart(xKm) {
   if (!compMap || !compMapReady || !compStreamA || !compStreamB) { compClearMapHoverFromChart(); return; }
-  const sec = compGetActiveSector();
-  const s0A = sec ? sec.startIdxA : compGlobalStartA;
-  const e0A = sec ? sec.endIdxA : compGlobalEndA;
-  const s0B = sec ? sec.startIdxB : compGlobalStartB;
-  const e0B = sec ? sec.endIdxB : compGlobalEndB;
-  const d0A = compStreamA.distance_m[s0A] || 0;
-  const d0B = compStreamB.distance_m[s0B] || 0;
+  // Il grafico usa compGlobalStartA/B come base (distanza relativa all'inizio attività)
+  // — stessa logica usata da compUpdateElevChart per costruire l'asse X
+  const d0A = compStreamA.distance_m[compGlobalStartA] || 0;
+  const d0B = compStreamB.distance_m[compGlobalStartB] || 0;
   const dA = d0A + (xKm * 1000);
   const dB = d0B + (xKm * 1000);
-  const iA = compNearestByDistRange(compStreamA, dA, s0A, e0A);
-  const iB = compNearestByDistRange(compStreamB, dB, s0B, e0B);
+  const iA = compNearestByDistRange(compStreamA, dA, compGlobalStartA, compGlobalEndA);
+  const iB = compNearestByDistRange(compStreamB, dB, compGlobalStartB, compGlobalEndB);
   if (iA == null || iB == null) { compClearMapHoverFromChart(); return; }
   const lonA = compStreamA.lon[iA], latA = compStreamA.lat[iA];
   const lonB = compStreamB.lon[iB], latB = compStreamB.lat[iB];
@@ -826,7 +824,7 @@ function compGetActiveSector() {
   return compSectors.find(s => s.id === compActiveSectorId);
 }
 
-let _compIsolateSector = false;
+var _compIsolateSector = false;
 
 function compDeleteSector() {
   if (compSectors.length <= 1) return;
@@ -952,8 +950,8 @@ function compAddSector(isDefault) {
 }
 
 // ── Render batch: aggrega chiamate multiple in un unico rAF ───────────────
-let _compRenderPending = false;
-let _compRenderFlags = { list:false, markers:false, chart:false, legend:false, panel:false };
+var _compRenderPending = false;
+var _compRenderFlags = { list:false, markers:false, chart:false, legend:false, panel:false };
 
 function compScheduleRender(flags) {
   Object.assign(_compRenderFlags, flags);
@@ -1158,8 +1156,8 @@ function compCancelDeleteSector(id) {
 }
 
 // ── Undo / Redo stack globale ─────────────────────────────────────────────
-const _compUndoStack = [];
-const _compRedoStack = [];
+var _compUndoStack = [];
+var _compRedoStack = [];
 
 function compPushUndo(sec) {
   _compUndoStack.push({
@@ -1248,46 +1246,13 @@ function compCloseAllInlineActions() {
   });
 }
 
-// ── Throttle / debounce per le funzioni pesanti ───────────────────────────
-
-// Debounce per compSectorShift: evita di ricalcolare grafico ad ogni click tenuto
-let _compShiftTimer = null;
-const _origCompSectorShift = compSectorShift;
-compSectorShift = function(which, delta) {
-  const sec = compGetActiveSector();
-  if (sec) compPushUndo(sec);
-  _origCompSectorShift.call(this, which, delta);
-  // Sincronizza lista e markers subito (leggero)
-  compSyncSectorList();
-  compScheduleRender({ markers: true });
-  // Grafico e Replay con debounce (pesante)
-  clearTimeout(_compShiftTimer);
-  _compShiftTimer = setTimeout(() => {
-    compUpdateElevChart();
-    syncBoundsToReplay();
-  }, 120);
-};
-
-// Wrap compChangeSectorColor: aggiorna solo ciò che serve
-const _origChangeSectorColor = compChangeSectorColor;
-compChangeSectorColor = function(id, color) {
-  const sec = compSectors.find(s => s.id === id);
-  if (!sec) return;
-  sec.color = color;
-  compSyncSectorList();
-  compScheduleRender({ markers: true, legend: true, chart: true });
-};
+// ── Shortcut tastiera Ctrl+Z / Ctrl+Y ────────────────────────────────────
 document.addEventListener('keydown', e => {
   // Solo se non si sta scrivendo in un input
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   if (e.ctrlKey && !e.shiftKey && e.key === 'z') { e.preventDefault(); compUndoLastSectorBounds(); }
   if (e.ctrlKey && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) { e.preventDefault(); compRedoLastSectorBounds(); }
 });
-compSectorShift = function(which, delta) {
-  const sec = compGetActiveSector();
-  if (sec) compPushUndo(sec);
-  _origCompSectorShift(which, delta);
-};
 
 // Etichetta range km del settore
 function compSectorRangeLabel(sec) {
@@ -1364,7 +1329,7 @@ function compSetSectorFromChartZoom() {
 function compSetSectorFromMapZoom() { compSetSectorFromChartZoom(); }
 
 // Toggle drag-su-grafico per definire start/end del settore
-let _compDragSectorMode = false;
+var _compDragSectorMode = false;
 function compToggleDragSector() {
   _compDragSectorMode = !_compDragSectorMode;
   const btn = document.getElementById('comp-btn-drag-sector');
@@ -1473,6 +1438,7 @@ function compNearestByDist(s, d) {
 
 function compSectorShift(which, deltaM) {
   const sec = compGetActiveSector(); if (!sec) return;
+  compPushUndo(sec);
   const isA = which.endsWith('A');
   const s = isA ? compStreamA : compStreamB;
   let idx = which==='startA' ? sec.startIdxA : which==='endA' ? sec.endIdxA : which==='startB' ? sec.startIdxB : sec.endIdxB;
@@ -1487,10 +1453,14 @@ function compSectorShift(which, deltaM) {
   if (which==='endA')   sec.endIdxA   = Math.max(idx, sec.startIdxA+5);
   if (which==='startB') sec.startIdxB = Math.min(idx, sec.endIdxB-5);
   if (which==='endB')   sec.endIdxB   = Math.max(idx, sec.startIdxB+5);
-  compUpdateSectorPanelUI();
-  compRenderSectorMarkersAll();
-  compUpdateElevChart();
-  syncBoundsToReplay();
+  compSyncSectorList();
+  compScheduleRender({ markers: true });
+  clearTimeout(_compShiftTimer);
+  _compShiftTimer = setTimeout(() => {
+    compUpdateSectorPanelUI();
+    compUpdateElevChart();
+    syncBoundsToReplay();
+  }, 120);
 }
 
 function compSectorResetEnd(who) {
@@ -1629,7 +1599,13 @@ function compUpdateSectorChips() {
   });
 }
 
-// compChangeSectorColor è definita più avanti come wrapper ottimizzato
+function compChangeSectorColor(id, color) {
+  const sec = compSectors.find(s => s.id === id);
+  if (!sec) return;
+  sec.color = color;
+  compSyncSectorList();
+  compScheduleRender({ markers: true, legend: true, chart: true });
+}
 
 // Dialog analisi sezioni (piccolo popup inline sopra la sidebar)
 function compOpenAnalysisDialog(id) {
