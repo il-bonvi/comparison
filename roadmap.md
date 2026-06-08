@@ -7,6 +7,7 @@ comparison: evidenziazione un po' buggato (settori)
 aggiustare gli hover
 
 tabella: aggiustamenti vari, manca pendenza A-b, invertire W/kg
+colori settori buggati in grafico comparison
 
 comparison ottimizzazione
 
