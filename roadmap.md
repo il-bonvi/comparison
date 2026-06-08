@@ -1,4 +1,6 @@
 race replay traslazione (continua prompt)
+comparison: traslazione di traccia in diversi punti, per uniformare i settori
+
 caricamento file: cambiando file il file vecchio da errore
 comparison: aggiusta la distanza....
 comparison barr laterale: button tabella
