@@ -1,3 +1,6 @@
+race replay traslazione (continua prompt)
+caricamento file: cambiando file il file vecchio da errore
+
 comparison ottimizzazione
 
 vari bug fix comparison dei settori
