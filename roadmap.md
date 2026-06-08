@@ -5,7 +5,6 @@ Uncaught ReferenceError: _compShiftTimer is not defined
     compSectorShift http://localhost:8002/:1896
     onclick http://localhost:8002/:1
 
-
 caricamento file: cambiando file il file vecchio da errore
 comparison: aggiusta la distanza....
 comparison barr laterale: button tabella
@@ -13,7 +12,7 @@ dividi comparison per sezioni
 comparison: evidenziazione un po' buggato (settori)
 aggiustare gli hover
 
-tabella: aggiustamenti vari, manca pendenza A-b, invertire W/kg
+tabella: manca pendenza A-b
 colori settori buggati in grafico comparison
 
 comparison ottimizzazione
