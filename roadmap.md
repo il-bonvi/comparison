@@ -1,5 +1,6 @@
 race replay traslazione (continua prompt)
 caricamento file: cambiando file il file vecchio da errore
+comparison: aggiusta la distanza....
 
 comparison ottimizzazione
 
