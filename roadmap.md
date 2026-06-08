@@ -6,6 +6,8 @@ dividi comparison per sezioni
 comparison: evidenziazione un po' buggato (settori)
 aggiustare gli hover
 
+tabella: aggiustamenti vari, manca pendenza A-b, invertire W/kg
+
 comparison ottimizzazione
 
 vari bug fix comparison dei settori
