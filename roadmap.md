@@ -1,4 +1,5 @@
 comparison: geolocalizzazione on ma completamente buggati i settori... danno gap fuori di testa
+per verificare, aggiungere funzione race replay per settore...
 
 caricamento file: cambiando file il file vecchio da errore
 comparison barr laterale: button tabella
