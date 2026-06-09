@@ -144,6 +144,7 @@
             <button class="btn btn-ghost" onclick="compSetSectorFromMapZoom()" style="padding:2px 9px; font-size:.7rem; border-color:var(--a);" title="Usa l'area visibile nella mappa come bounds del settore">📐 Usa zoom mappa</button>
             <button class="btn btn-ghost" id="comp-btn-drag-sector" onclick="compToggleDragSector()" style="padding:2px 9px; font-size:.7rem;" title="Trascina sul grafico per definire start/end del settore attivo">↔ Trascina su grafico</button>
             <span style="color:var(--muted2); font-size:.65rem;">oppure regola manualmente:</span>
+
           </div>
 
           <!-- 🔵 ATLETA A -->
@@ -799,11 +800,12 @@ function compUpdateMapHoverFromChart(xKm) {
   // Il grafico usa compGlobalStartA/B come base (distanza relativa all'inizio attività)
   // — stessa logica usata da compUpdateElevChart per costruire l'asse X
   const d0A = compStreamA.distance_m[compGlobalStartA] || 0;
-  const d0B = compStreamB.distance_m[compGlobalStartB] || 0;
   const dA = d0A + (xKm * 1000);
-  const dB = d0B + (xKm * 1000);
   const iA = compNearestByDistRange(compStreamA, dA, compGlobalStartA, compGlobalEndA);
-  const iB = compNearestByDistRange(compStreamB, dB, compGlobalStartB, compGlobalEndB);
+  // iB trovato geograficamente (coerente con il grafico geo-allineato)
+  const iB = nearestGeoMonotone(compStreamA.lat[iA], compStreamA.lon[iA],
+    compStreamB.lat, compStreamB.lon,
+    Math.max(0, Math.min(compGlobalStartB + Math.round((iA - compGlobalStartA) * (compGlobalEndB - compGlobalStartB) / Math.max(1, compGlobalEndA - compGlobalStartA)), compGlobalEndB)));
   if (iA == null || iB == null) { compClearMapHoverFromChart(); return; }
   const lonA = compStreamA.lon[iA], latA = compStreamA.lat[iA];
   const lonB = compStreamB.lon[iB], latB = compStreamB.lat[iB];
@@ -825,6 +827,7 @@ function compGetActiveSector() {
 }
 
 var _compIsolateSector = false;
+let _compShiftTimer = null;  // fix: era usato ma non dichiarato
 
 function compDeleteSector() {
   if (compSectors.length <= 1) return;
@@ -939,6 +942,7 @@ function compAddSector(isDefault) {
     startIdxB: startB, endIdxB: endB,
     analyzed: false, sections: { sA:[], sB:[] }
   };
+  compGeoAlignBtoA(sector);
   compSectors.push(sector);
   // Il settore default viene selezionato; i successivi NO (non fa zoom automatico)
   if (isDefault) compActiveSectorId = id;
@@ -1313,10 +1317,7 @@ function compSetSectorFromChartZoom() {
   const d0B = compStreamB ? (compStreamB.distance_m[compGlobalStartB] || 0) : 0;
   sec.startIdxA = compNearestByDistRange(compStreamA, d0A + xKmStart * 1000, compGlobalStartA, compGlobalEndA);
   sec.endIdxA   = compNearestByDistRange(compStreamA, d0A + xKmEnd   * 1000, compGlobalStartA, compGlobalEndA);
-  if (compStreamB) {
-    sec.startIdxB = compNearestByDistRange(compStreamB, d0B + xKmStart * 1000, compGlobalStartB, compGlobalEndB);
-    sec.endIdxB   = compNearestByDistRange(compStreamB, d0B + xKmEnd   * 1000, compGlobalStartB, compGlobalEndB);
-  }
+  compGeoAlignBtoA(sec);
   compRebuildSectorList();
   compUpdateSectorPanelUI();
   compRenderSectorMarkersAll();
@@ -1358,10 +1359,7 @@ function compOnDragSectorSelected(xKmStart, xKmEnd) {
   const targetEndB   = d0B + xKmEnd   * 1000;
   sec.startIdxA = compNearestByDistRange(compStreamA, targetStartA, compGlobalStartA, compGlobalEndA);
   sec.endIdxA   = compNearestByDistRange(compStreamA, targetEndA,   compGlobalStartA, compGlobalEndA);
-  if (compStreamB) {
-    sec.startIdxB = compNearestByDistRange(compStreamB, targetStartB, compGlobalStartB, compGlobalEndB);
-    sec.endIdxB   = compNearestByDistRange(compStreamB, targetEndB,   compGlobalStartB, compGlobalEndB);
-  }
+  compGeoAlignBtoA(sec);
   _compDragSectorMode = false;
   window._compD3DragSectorMode = false;
   const btn = document.getElementById('comp-btn-drag-sector');
@@ -1436,6 +1434,22 @@ function compNearestByDist(s, d) {
   return best;
 }
 
+// Allinea geograficamente startIdxB e endIdxB del settore rispetto ad A
+function compGeoAlignBtoA(sec) {
+  if (!sec || !compStreamA || !compStreamB) return;
+  sec.startIdxB = nearestGeoMonotone(
+    compStreamA.lat[sec.startIdxA], compStreamA.lon[sec.startIdxA],
+    compStreamB.lat, compStreamB.lon,
+    Math.max(0, sec.startIdxB)
+  );
+  sec.endIdxB = nearestGeoMonotone(
+    compStreamA.lat[sec.endIdxA], compStreamA.lon[sec.endIdxA],
+    compStreamB.lat, compStreamB.lon,
+    sec.startIdxB
+  );
+  sec.endIdxB = Math.max(sec.endIdxB, sec.startIdxB + 5);
+}
+
 function compSectorShift(which, deltaM) {
   const sec = compGetActiveSector(); if (!sec) return;
   compPushUndo(sec);
@@ -1453,6 +1467,24 @@ function compSectorShift(which, deltaM) {
   if (which==='endA')   sec.endIdxA   = Math.max(idx, sec.startIdxA+5);
   if (which==='startB') sec.startIdxB = Math.min(idx, sec.endIdxB-5);
   if (which==='endB')   sec.endIdxB   = Math.max(idx, sec.startIdxB+5);
+
+  // Geo-sync sempre attivo: allinea automaticamente l'altro atleta geograficamente
+  if (compStreamA && compStreamB) {
+    if (which === 'startA') {
+      const best = nearestGeoMonotone(compStreamA.lat[sec.startIdxA], compStreamA.lon[sec.startIdxA], compStreamB.lat, compStreamB.lon, sec.startIdxB);
+      sec.startIdxB = Math.min(best, sec.endIdxB - 5);
+    } else if (which === 'endA') {
+      const best = nearestGeoMonotone(compStreamA.lat[sec.endIdxA], compStreamA.lon[sec.endIdxA], compStreamB.lat, compStreamB.lon, sec.endIdxB);
+      sec.endIdxB = Math.max(best, sec.startIdxB + 5);
+    } else if (which === 'startB') {
+      const best = nearestGeoMonotone(compStreamB.lat[sec.startIdxB], compStreamB.lon[sec.startIdxB], compStreamA.lat, compStreamA.lon, sec.startIdxA);
+      sec.startIdxA = Math.min(best, sec.endIdxA - 5);
+    } else if (which === 'endB') {
+      const best = nearestGeoMonotone(compStreamB.lat[sec.endIdxB], compStreamB.lon[sec.endIdxB], compStreamA.lat, compStreamA.lon, sec.endIdxA);
+      sec.endIdxA = Math.max(best, sec.startIdxA + 5);
+    }
+  }
+
   compSyncSectorList();
   compScheduleRender({ markers: true });
   clearTimeout(_compShiftTimer);
@@ -2266,8 +2298,22 @@ function compUpdateElevChart() {
     yLabel='bpm'; yLabelColor='#ef4444';
   }
 
+  // Costruisce dataB con asse X = distanza di A (corrispondenza geografica).
+  // Questo elimina la deriva di distanza tra device diversi: B viene proiettato
+  // sul punto geograficamente più vicino ad A, non sul suo km-progressivo interno.
+  const nA = distA.length;
+  const latA_g  = compStreamA.lat.slice(globalS0A, globalE0A+1);
+  const lonA_g  = compStreamA.lon.slice(globalS0A, globalE0A+1);
+  const latB_g  = compStreamB.lat.slice(globalS0B, globalE0B+1);
+  const lonB_g  = compStreamB.lon.slice(globalS0B, globalE0B+1);
+  const geoMapAtoB = new Int32Array(nA); // geoMapAtoB[iA_local] = iB_local
+  let lastGeoB = 0;
+  for (let i = 0; i < nA; i++) {
+    lastGeoB = nearestGeoMonotone(latA_g[i], lonA_g[i], latB_g, lonB_g, lastGeoB);
+    geoMapAtoB[i] = lastGeoB;
+  }
   const dataA = distA.map((d,i) => [(d-d0A)/1000, seriesA[i]||0]);
-  const dataB = distB.map((d,i) => [(d-d0B)/1000, seriesB[i]||0]);
+  const dataB = distA.map((d,i) => [(d-d0A)/1000, seriesB[geoMapAtoB[i]]||0]);
 
   // Aree delle sezioni già analizzate (rimangono uguali)
   const markAreas = [];
@@ -2607,10 +2653,10 @@ function _compD3Render(opts) {
     if (typeof opts.onHover === 'function') opts.onHover(xv, idx);
   }
  
-  function hideTooltip() {
+  function hideTooltip(skipLeave) {
     tooltipDiv.style.display = 'none';
     cursorLine.attr('visibility', 'hidden');
-    if (typeof opts.onLeave === 'function') opts.onLeave();
+    if (!skipLeave && typeof opts.onLeave === 'function') opts.onLeave();
   }
  
   /* ── attacca overlay + interazioni ───────────────────────────────── */
@@ -2665,7 +2711,7 @@ function _compD3Render(opts) {
         const delta = Math.abs(mx - dragStartPx);
         if (delta > DRAG_THRESHOLD) {
           isDragging = true;
-          hideTooltip(); // nascondi tooltip mentre si draga
+          hideTooltip(true); // nascondi tooltip ma mantieni marker mappa
           const x0 = Math.min(dragStartPx, mx);
           const x1 = Math.max(dragStartPx, mx);
           selRect
