@@ -133,7 +133,7 @@
             <div style="margin-left:auto; display:flex; align-items:center; gap:6px;">
               <button class="btn btn-ghost" onclick="compAddSector()" title="Crea un nuovo settore personalizzato" style="padding:2px 8px; font-size:.7rem; background:rgba(59,130,246,0.1); border:1px solid var(--a); color:#fff; border-radius:4px;">＋ Nuovo Settore</button>
               <button class="btn btn-ghost" onclick="compDeleteSector()" title="Elimina il settore selezionato" style="padding:2px 8px; font-size:.7rem; background:rgba(244,63,94,0.1); border:1px solid #f43f5e; color:#f43f5e; border-radius:4px;">✕ Elimina</button>
-              <button class="btn btn-success" onclick="compTrimToCurrentSector()" style="padding:2px 8px; font-size:.7rem; background:rgba(34,197,94,0.15); border:1px solid #22c55e; color:#22c55e; border-radius:4px;">✂️ Taglia attività a questo settore</button>
+
               <button class="btn btn-ghost" onclick="compResetFullActivity()" style="padding:2px 8px; font-size:.7rem;">⟲ Ripristina attività completa</button>
             </div>
           </div>
@@ -942,7 +942,10 @@ function compAddSector(isDefault) {
     startIdxB: startB, endIdxB: endB,
     analyzed: false, sections: { sA:[], sB:[] }
   };
-  compGeoAlignBtoA(sector);
+  // Il settore default copre l intera traccia B: non fare geo-align
+  // (altrimenti startIdxB/endIdxB vengono spostati in posizione errata).
+  // Per i settori non-default (sub-range), allinea geograficamente B su A.
+  if (!isDefault) compGeoAlignBtoA(sector);
   compSectors.push(sector);
   // Il settore default viene selezionato; i successivi NO (non fa zoom automatico)
   if (isDefault) compActiveSectorId = id;
@@ -1434,13 +1437,25 @@ function compNearestByDist(s, d) {
   return best;
 }
 
-// Allinea geograficamente startIdxB e endIdxB del settore rispetto ad A
+// Ricerca globale (nessun hint prevIdx): scansiona tutta la traccia target
+function nearestGeoGlobal(la, lo, targetLat, targetLon) {
+  let bestI = 0;
+  let bestD2 = Infinity;
+  for (let i = 0; i < targetLat.length; i++) {
+    const d2 = haversineDistanceSq(la, lo, targetLat[i], targetLon[i]);
+    if (d2 < bestD2) { bestD2 = d2; bestI = i; }
+  }
+  return bestI;
+}
+
+// Allinea geograficamente startIdxB e endIdxB del settore rispetto ad A.
+// Usa sempre ricerca globale per startIdxB: evita match errati su tracce
+// a loop/anello dove la traccia B passa piu volte vicino allo stesso punto.
 function compGeoAlignBtoA(sec) {
   if (!sec || !compStreamA || !compStreamB) return;
-  sec.startIdxB = nearestGeoMonotone(
+  sec.startIdxB = nearestGeoGlobal(
     compStreamA.lat[sec.startIdxA], compStreamA.lon[sec.startIdxA],
-    compStreamB.lat, compStreamB.lon,
-    Math.max(0, sec.startIdxB)
+    compStreamB.lat, compStreamB.lon
   );
   sec.endIdxB = nearestGeoMonotone(
     compStreamA.lat[sec.endIdxA], compStreamA.lon[sec.endIdxA],
@@ -1693,24 +1708,52 @@ function haversineDistanceSq(lat1, lon1, lat2, lon2) {
 }
 
 function nearestGeoMonotone(la, lo, targetLat, targetLon, prevIdx) {
-  let bestI = prevIdx;
-  let bestD2 = haversineDistanceSq(la, lo, targetLat[prevIdx], targetLon[prevIdx]);
-  for (let i = prevIdx + 1; i < targetLat.length; i++) {
+  const n = targetLat.length;
+  if (n === 0) return 0;
+  const safeStart = Math.max(0, Math.min(prevIdx, n - 1));
+
+  // Soglia: se il best forward è già entro 200m, non cercare indietro
+  // (evita che un tratto di traccia B che passa casualmente vicino faccia
+  //  scattare la ricerca backward portando il marker in posizione errata)
+  const CLOSE_ENOUGH_M2 = 200 * 200; // 200m²
+
+  // ── Forward search ───────────────────────────────────────────────
+  let bestI = safeStart;
+  let bestD2 = haversineDistanceSq(la, lo, targetLat[safeStart], targetLon[safeStart]);
+  let streak = 0; // contatore di peggioramenti consecutivi
+  for (let i = safeStart + 1; i < n; i++) {
     const d2 = haversineDistanceSq(la, lo, targetLat[i], targetLon[i]);
     if (d2 < bestD2) {
       bestD2 = d2;
       bestI = i;
-    } else if (d2 > bestD2 * 1.5) break;
+      streak = 0;
+    } else {
+      streak++;
+      // Esci solo dopo ≥10 peggioramenti consecutivi E con gap significativo
+      // (evita uscita prematura su tratti con piccole oscillazioni GPS)
+      if (streak >= 10 && d2 > bestD2 * 4) break;
+    }
   }
-  if (bestD2 > 0.0001) {
-    for (let i = prevIdx - 1; i >= 0; i--) {
+
+  // ── Backward search: solo se il punto trovato è lontano > 200m ───
+  // In caso di geo-match già buono, NON cercare all'indietro, altrimenti
+  // su tracce che si auto-incrociano (tipo lollipop o anello) il settore B
+  // salta in posizione completamente sbagliata.
+  if (bestD2 > CLOSE_ENOUGH_M2) {
+    let streak2 = 0;
+    for (let i = safeStart - 1; i >= 0; i--) {
       const d2 = haversineDistanceSq(la, lo, targetLat[i], targetLon[i]);
       if (d2 < bestD2) {
         bestD2 = d2;
         bestI = i;
-      } else if (d2 > bestD2 * 1.5) break;
+        streak2 = 0;
+      } else {
+        streak2++;
+        if (streak2 >= 10 && d2 > bestD2 * 4) break;
+      }
     }
   }
+
   return bestI;
 }
 
@@ -1759,101 +1802,11 @@ function compAlignEndAtoB() {
 
 // Propaga il settore attivo di Comparison → bounds di Race Replay
 function syncBoundsToReplay() {
-  if (typeof rpBoundStartA === 'undefined') return;
-
-  // Usa gli indici assoluti sull'originale se disponibili (post-trim),
-  // altrimenti usa gli indici del settore direttamente
-  if (window._compAbsoluteBoundsA && window._compAbsoluteBoundsB) {
-    rpBoundStartA = window._compAbsoluteBoundsA.start;
-    rpBoundEndA   = window._compAbsoluteBoundsA.end;
-    rpBoundStartB = window._compAbsoluteBoundsB.start;
-    rpBoundEndB   = window._compAbsoluteBoundsB.end;
-  } else {
-    const sec = compGetActiveSector();
-    if (!sec) return;
-    rpBoundStartA = sec.startIdxA;
-    rpBoundEndA   = sec.endIdxA;
-    rpBoundStartB = sec.startIdxB;
-    rpBoundEndB   = sec.endIdxB;
-  }
-
-  if (typeof rpUpdateBoundsPanelUI === 'function') rpUpdateBoundsPanelUI();
-  if (typeof rpUpdateBoundsMarkersOnMap === 'function') rpUpdateBoundsMarkersOnMap();
-  if (typeof rpBuildAlignment === 'function') {
-    rpBuildAlignment();
-    if (typeof rpRenderCharts === 'function') rpRenderCharts();
-    if (typeof rpUpdateFrame === 'function') rpUpdateFrame(0);
-  }
+  // No-op: i bounds del Race Replay non vengono più sincronizzati
+  // automaticamente dalla tab Comparison. Il Race Replay gestisce
+  // autonomamente i propri bounds.
 }
 
-function compTrimToCurrentSector() {
-  const sec = compGetActiveSector();
-  if (!sec) return;
-
-  const newStartA = sec.startIdxA;
-  const newEndA = sec.endIdxA;
-  const newStartB = sec.startIdxB;
-  const newEndB = sec.endIdxB;
-
-  // Salva gli indici assoluti sull'originale per la sincronizzazione con Replay
-  window._compAbsoluteBoundsA = { start: newStartA, end: newEndA };
-  window._compAbsoluteBoundsB = { start: newStartB, end: newEndB };
-
-  const rebuildStream = (orig, start, end) => {
-    const sliced = {};
-    for (let k in orig) {
-      if (Array.isArray(orig[k])) {
-        sliced[k] = orig[k].slice(start, end+1);
-      } else {
-        sliced[k] = orig[k];
-      }
-    }
-    const baseDist = sliced.distance_m[0] || 0;
-    const baseTime = sliced.time_sec[0] || 0;
-    if (sliced.distance_m) sliced.distance_m = sliced.distance_m.map(d => d - baseDist);
-    if (sliced.time_sec) sliced.time_sec = sliced.time_sec.map(t => t - baseTime);
-    if (sliced._rawPower) sliced._rawPower = sliced._rawPower.slice(start, end+1);
-    if (sliced._rawSpeed) sliced._rawSpeed = sliced._rawSpeed.slice(start, end+1);
-    return sliced;
-  };
-
-  compStreamA = rebuildStream(compOriginalStreams.A, newStartA, newEndA);
-  compStreamB = rebuildStream(compOriginalStreams.B, newStartB, newEndB);
-
-  // Aggiorna i global bounds
-  compGlobalStartA = 0;
-  compGlobalEndA = compStreamA.lat.length - 1;
-  compGlobalStartB = 0;
-  compGlobalEndB = compStreamB.lat.length - 1;
-
-  // Riapplica smoothing
-  compStreamA._rawPower = compStreamA.power ? compStreamA.power.slice() : [];
-  compStreamB._rawPower = compStreamB.power ? compStreamB.power.slice() : [];
-  compStreamA._rawSpeed = compStreamA.speed ? compStreamA.speed.slice() : null;
-  compStreamB._rawSpeed = compStreamB.speed ? compStreamB.speed.slice() : null;
-  compApplySmoothing();
-
-  // Reset settori e crea un nuovo settore default che copre tutta l'attività tagliata
-  compSectors = [];
-  _compSectorIdCounter = 0;
-  compAddSector(true); // il nuovo settore avrà start=0 e end=compGlobalEndA / compGlobalEndB
-
-  compActiveSectorId = compSectors[0]?.id;
-  compRebuildSectorSelect();
-  compUpdateSectorPanelUI();
-
-  if (compMap && compMapReady) {
-    compDrawTrace('comp-ta', compStreamA, '#3b82f6');
-    compDrawTrace('comp-tb', compStreamB, '#f97316');
-    compFit();
-  }
-  compUpdateElevChart();
-  compRenderSectorMarkersAll();
-  compUpdateSectorLegend();
-  document.getElementById('comp-status').textContent = `Attività tagliata: A [${(compStreamA.distance_m[compStreamA.distance_m.length-1]/1000).toFixed(1)}km] B [${(compStreamB.distance_m[compStreamB.distance_m.length-1]/1000).toFixed(1)}km]`;
-  // Propaga i bounds a Race Replay
-  syncBoundsToReplay();
-}
 
 function compResetFullActivity() {
   if (!compOriginalStreams.A || !compOriginalStreams.B) return;
