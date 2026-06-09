@@ -504,6 +504,7 @@ function globalReset() {
   if (rpBtnBounds) rpBtnBounds.classList.remove('off');
   rpSA = rpSB = null; rpAligned = []; rpCurrentT = 0;
   rpBoundStartA = rpBoundEndA = rpBoundStartB = rpBoundEndB = 0;
+  if (typeof rpTimeOffsetB !== 'undefined') rpTimeOffsetB = 0;
   if (rpMap) { rpMap.remove(); rpMap = null; }
   rpChart = null;
   if (typeof _rpD3 !== 'undefined') _rpD3 = { svg:null, g:null, xScale:null, yScales:{}, W:0, H:0, margin:{top:14,right:60,bottom:22,left:52}, cursorLine:null, xData:[], seriesData:{} };
