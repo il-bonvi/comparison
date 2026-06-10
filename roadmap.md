@@ -1,3 +1,6 @@
+comparison: continuare prompt per fare regola start e end
+comparison: selezione settore su giri multipli non funziona (a volte salva settori di giri diversi)
+
 race replay: visualizzare e creare settori anche qua...
 
 caricamento file: cambiando file il file vecchio da errore
