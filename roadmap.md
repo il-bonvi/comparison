@@ -1,5 +1,5 @@
-comparison: continuare prompt per fare regola start e end
-comparison: selezione settore su giri multipli non funziona (a volte salva settori di giri diversi)
+comparison: continuare prompt per fare regola start e end (finito ma ci sono errori)
+comp: succede che non si salva bene la fine. Lo start è sempre giusto. La fine no... strano
 
 race replay: visualizzare e creare settori anche qua...
 
