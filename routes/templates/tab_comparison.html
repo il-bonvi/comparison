@@ -2230,7 +2230,22 @@ function compRunAnalysis() {
   setTimeout(() => {
     try {
       const sA = compBuildSections(compStreamA, sec.startIdxA, sec.endIdxA, mode, val);
-      const sB = compBuildSections(compStreamB, sec.startIdxB, sec.endIdxB, mode, val);
+
+      // Le sezioni di B vengono costruite usando i confini geo-mappati da A,
+      // così le sezioni sono sempre allineate geograficamente indipendentemente
+      // dalla differenza di distanza registrata tra i due device.
+      let sB;
+      if (compGeoMapAtoB && sA.length > 0) {
+        sB = sA.map((secA, i) => {
+          const idx0B = compGeoMapAtoB[secA.idx0] ?? sec.startIdxB;
+          const idx1B = compGeoMapAtoB[secA.idx1] ?? sec.endIdxB;
+          const safeIdx0 = Math.max(sec.startIdxB, Math.min(idx0B, sec.endIdxB));
+          const safeIdx1 = Math.max(safeIdx0 + 1, Math.min(idx1B, sec.endIdxB));
+          return compBuildSectionStats(compStreamB, safeIdx0, safeIdx1, i);
+        });
+      } else {
+        sB = compBuildSections(compStreamB, sec.startIdxB, sec.endIdxB, mode, val);
+      }
       sec.sections = { sA, sB };
       sec.analyzed = true;
       compClearAnalysis();
