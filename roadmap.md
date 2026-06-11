@@ -1,7 +1,6 @@
-comparison: continuare prompt per fare regola start e end (finito ma ci sono errori)
-comp: succede che non si salva bene la fine. Lo start è sempre giusto. La fine no... strano
 
 race replay: visualizzare e creare settori anche qua...
+Settore aggiornato: 60.0→62.9 km rimuovi...
 
 caricamento file: cambiando file il file vecchio da errore
 comparison barr laterale: button tabella
