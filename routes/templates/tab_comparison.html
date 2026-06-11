@@ -80,6 +80,7 @@
           </div>
         </div>
 
+        <button class="btn btn-ghost" id="comp-btn-bounds" onclick="compSetupBoundsContext();compToggleBoundsPanel()" style="padding:2px 6px;font-size:.72rem;flex-shrink:0;margin-left:4px;">🎯 Regola Start/End</button>
         <button class="btn btn-ghost" id="comp-btn-table" onclick="compToggleTable()" style="margin-left:4px;">📊 Tabella</button>
         <div style="width:1px;height:16px;background:var(--border-hi);margin:0 2px;flex-shrink:0;"></div>
         <button class="btn btn-ghost" onclick="compUndoLastSectorBounds()" title="Annulla ultima modifica (Ctrl+Z)" style="padding:3px 8px;font-size:.72rem;">↩ Undo</button>
@@ -99,6 +100,78 @@
           <input type="number" id="comp-smooth-spd" min="1" max="300" value="5" style="width:52px;" oninput="compApplySmoothing()">
           <span style="color:var(--muted2);font-size:.68rem;">s</span>
         </div>
+      </div>
+
+
+      <!-- BOUNDS PANEL (Regola Start/End) — riusa le funzioni rpShift/rpApplyBounds del Race Replay -->
+      <div id="comp-bounds-panel" style="display:none; background:var(--surface2); border-bottom:1px solid var(--border); padding:8px 14px; flex-direction:column; gap:7px; flex-shrink:0; font-family:var(--font-mono); font-size:.72rem;">
+
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span style="color:var(--a);font-weight:700;font-size:.74rem;min-width:76px;">🔵 Start A</span>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('startA',-1000)">◀◀1km</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('startA',-100)">◀100m</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('startA',-10)">◀10m</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('startA',-1)">◀1m</button>
+          <span id="rp-pos-startA" style="color:var(--a);font-family:var(--font-mono);font-size:.78rem;min-width:72px;text-align:center">—</span>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('startA',1)">1m▶</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('startA',10)">10m▶</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('startA',100)">100m▶</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('startA',1000)">1km▶▶</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem;margin-left:4px" onclick="compSetupBoundsContext();rpResetBound('startA')">↺ Inizio</button>
+          <button class="btn btn-primary-b" style="padding:2px 8px;font-size:.68rem;margin-left:6px;" onclick="compSetupBoundsContext();alignStartAtoB()">🔗 Allinea 🔵 su 🟠</button>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span style="color:var(--b);font-weight:700;font-size:.74rem;min-width:76px;">🟠 Start B</span>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('startB',-1000)">◀◀1km</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('startB',-100)">◀100m</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('startB',-10)">◀10m</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('startB',-1)">◀1m</button>
+          <span id="rp-pos-startB" style="color:var(--b);font-family:var(--font-mono);font-size:.78rem;min-width:72px;text-align:center">—</span>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('startB',1)">1m▶</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('startB',10)">10m▶</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('startB',100)">100m▶</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('startB',1000)">1km▶▶</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem;margin-left:4px" onclick="compSetupBoundsContext();rpResetBound('startB')">↺ Inizio</button>
+          <button class="btn btn-primary-b" style="padding:2px 8px;font-size:.68rem;margin-left:6px;" onclick="compSetupBoundsContext();alignStartBtoA()">🔗 Allinea 🟠 su 🔵</button>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span style="color:var(--a);font-weight:700;font-size:.74rem;min-width:76px;">🔵 End A</span>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('endA',-1000)">◀◀1km</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('endA',-100)">◀100m</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('endA',-10)">◀10m</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('endA',-1)">◀1m</button>
+          <span id="rp-pos-endA" style="color:var(--a);font-family:var(--font-mono);font-size:.78rem;min-width:72px;text-align:center">—</span>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('endA',1)">1m▶</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('endA',10)">10m▶</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('endA',100)">100m▶</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('endA',1000)">1km▶▶</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem;margin-left:4px" onclick="compSetupBoundsContext();rpResetBound('endA')">↺ Fine</button>
+          <button class="btn btn-primary-b" style="padding:2px 8px;font-size:.68rem;margin-left:6px;" onclick="compSetupBoundsContext();alignEndAtoB()">🔗 Allinea 🔵 su 🟠</button>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span style="color:var(--b);font-weight:700;font-size:.74rem;min-width:76px;">🟠 End B</span>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('endB',-1000)">◀◀1km</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('endB',-100)">◀100m</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('endB',-10)">◀10m</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('endB',-1)">◀1m</button>
+          <span id="rp-pos-endB" style="color:var(--b);font-family:var(--font-mono);font-size:.78rem;min-width:72px;text-align:center">—</span>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('endB',1)">1m▶</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('endB',10)">10m▶</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('endB',100)">100m▶</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem" onclick="compSetupBoundsContext();rpShift('endB',1000)">1km▶▶</button>
+          <button class="btn btn-ghost" style="padding:2px 7px;font-size:.72rem;margin-left:4px" onclick="compSetupBoundsContext();rpResetBound('endB')">↺ Fine</button>
+          <button class="btn btn-primary-b" style="padding:2px 8px;font-size:.68rem;margin-left:6px;" onclick="compSetupBoundsContext();alignEndBtoA()">🔗 Allinea 🟠 su 🔵</button>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:10px;margin-top:2px;">
+          <button class="btn btn-primary-b" style="font-size:.72rem;padding:4px 14px" onclick="compSetupBoundsContext();rpApplyBounds()">✓ Applica e ricalcola</button>
+          <button class="btn btn-danger"    style="font-size:.72rem;padding:4px 14px" onclick="compSetupBoundsContext();rpResetFullActivity()">↺ Ripristina tracce complete</button>
+          <span style="font-size:.7rem;color:var(--muted);font-family:var(--font-mono);">Sposta lo start/end per allineare la partenza o ignorare dati extra</span>
+        </div>
+
       </div>
 
       <!-- SECTOR EDIT PANEL (collapsible) -->
@@ -498,6 +571,7 @@
 
 // ── State ──
 let compStreamA = null, compStreamB = null;
+let compGeoMapAtoB = null; // Int32Array: indice globale A → indice globale B (aggiornato da compUpdateElevChart)
 let compNameA = 'A', compNameB = 'B';
 let compMap = null, compElevChart = null;
 let compMapReady = false;
@@ -579,6 +653,7 @@ async function compStart() {
     showLoading('Ricaricamento dati...');
     compStreamA = JSON.parse(JSON.stringify(sharedStreamA));
     compStreamB = JSON.parse(JSON.stringify(sharedStreamB));
+    compGeoMapAtoB = null; // invalidate mapping cache
     compOriginalStreams.A = JSON.parse(JSON.stringify(compStreamA));
     compOriginalStreams.B = JSON.parse(JSON.stringify(compStreamB));
     compStreamA._rawPower = compStreamA.power ? compStreamA.power.slice() : [];
@@ -743,6 +818,46 @@ function compInitMap() {
     if (!layerIds.length) { compClearSectionHighlight(); return; }
     const feats = compMap.queryRenderedFeatures(e.point, { layers: layerIds });
     if (!feats.length) compClearSectionHighlight();
+  });
+}
+
+// ── Setup contesto bounds per la tab Comparison ─────────────────
+// Chiamata da unified_app dopo il caricamento dei dati.
+// Registra i callback su bounds.js in modo che rpShift/rpApplyBounds
+// lavorino sugli stream di comparison (non di replay).
+function compSetupBoundsContext() {
+  // bounds.js viene caricato dopo tab_comparison nel bundle: aspetta che sia pronto
+  if (typeof boundsSetContext !== 'function') {
+    setTimeout(compSetupBoundsContext, 50);
+    return;
+  }
+  boundsSetContext(() => ({
+    sA: compStreamA,
+    sB: compStreamB,
+    map: compMap,
+    mapReady: compMapReady
+  }));
+  boundsSetOnApply(() => {
+    // Dopo "Applica e ricalcola": aggiorna global bounds, ridisegna mappa e grafico
+    compGlobalStartA = rpBoundStartA;
+    compGlobalEndA   = rpBoundEndA;
+    compGlobalStartB = rpBoundStartB;
+    compGlobalEndB   = rpBoundEndB;
+    // Ricostruisce il settore default sui nuovi bounds
+    compSectors = []; _compSectorIdCounter = 0;
+    compAddSector(true);
+    if (compMap && compMapReady) {
+      compDrawTrace('comp-ta', compStreamA, '#3b82f6');
+      compDrawTrace('comp-tb', compStreamB, '#f97316');
+      compFit();
+    }
+    compUpdateElevChart();
+    compRenderSectorMarkersAll();
+    compUpdateSectorLegend();
+    rpUpdateBoundsPanelUI();
+    rpUpdateBoundsMarkersOnMap();
+    document.getElementById('comp-status').textContent =
+      `Bounds applicati · A [${((compStreamA.distance_m[rpBoundEndA]||0)/1000).toFixed(1)}km] B [${((compStreamB.distance_m[rpBoundEndB]||0)/1000).toFixed(1)}km]`;
   });
 }
 
@@ -1438,31 +1553,152 @@ function compNearestByDist(s, d) {
 }
 
 // Ricerca globale (nessun hint prevIdx): scansiona tutta la traccia target
-function nearestGeoGlobal(la, lo, targetLat, targetLon) {
-  let bestI = 0;
-  let bestD2 = Infinity;
-  for (let i = 0; i < targetLat.length; i++) {
+// Trova il punto in targetLat/Lon geograficamente vicino a (la,lo) MA
+// tenendo conto della distanza percorsa come tiebreaker tra candidati multipli
+// (es. percorsi con più passaggi sullo stesso tratto).
+//
+// distA_m   = distance_m[idxA] — distanza percorsa da A fino al punto cercato
+// totalA_m  = distanza totale traccia A
+// targetDist_m = array distance_m di B (può essere null → fallback a solo geo)
+//
+// Strategia:
+//   1. Scansiona tutta B, raccoglie candidati entro GEO_TOLERANCE_M.
+//   2. Tra i candidati, sceglie quello la cui distance_m è più vicina a
+//      distA_m * (totalB_m / totalA_m)  — scala proporzionale.
+//   3. Fallback se nessun candidato entro soglia: allarga a 5× e ripete.
+function nearestGeoWithProgress(la, lo, targetLat, targetLon,
+                                distA_m, totalA_m, targetDist_m,
+                                GEO_TOLERANCE_M = 80, totalB_m_override = null) {
+  const n = targetLat.length;
+  if (n === 0) return 0;
+  const TOL2 = GEO_TOLERANCE_M * GEO_TOLERANCE_M;
+
+  // Raccoglie tutti i candidati entro soglia geo
+  let candidates = [];
+  let globalBestI = 0, globalBestD2 = Infinity;
+
+  for (let i = 0; i < n; i++) {
     const d2 = haversineDistanceSq(la, lo, targetLat[i], targetLon[i]);
-    if (d2 < bestD2) { bestD2 = d2; bestI = i; }
+    if (d2 < globalBestD2) { globalBestD2 = d2; globalBestI = i; }
+    if (d2 <= TOL2) candidates.push({ i, d2 });
+  }
+
+  // Fallback: nessun punto entro 80m (GPS divergenti tra dispositivi).
+  // Allarga a 500m fissi per raccogliere candidati da tutti i passaggi
+  // sullo stesso tratto — il tiebreaker distanza sceglierà il giro giusto.
+  if (candidates.length === 0) {
+    const FALLBACK_TOL2 = 500 * 500;
+    for (let i = 0; i < n; i++) {
+      const d2 = haversineDistanceSq(la, lo, targetLat[i], targetLon[i]);
+      if (d2 <= FALLBACK_TOL2) candidates.push({ i, d2 });
+    }
+    // Se ancora nessuno entro 500m, prendi solo il punto globalmente più vicino
+    if (candidates.length === 0) return globalBestI;
+  }
+
+  // Se c'è un solo candidato geometrico non serve tiebreaker
+  if (candidates.length === 1) return candidates[0].i;
+
+  // Distanza attesa in B (scaling proporzionale)
+  const totalB_m_eff = totalB_m_override !== null
+    ? totalB_m_override
+    : (targetDist_m ? (targetDist_m[targetDist_m.length - 1] || 1) : 1);
+
+  if (!targetDist_m || totalA_m <= 0) {
+    // Nessun dato di distanza: ritorna il più vicino geo
+    return candidates.reduce((b, c) => c.d2 < b.d2 ? c : b).i;
+  }
+
+  const targetExpectedDist = distA_m * (totalB_m_eff / totalA_m);
+
+  // Tiebreaker: vince SOLO chi ha distance_m più vicina all'expected.
+  // La geo è già usata per costruire i candidati — non entra nello score.
+  let bestI = candidates[0].i;
+  let bestDiff = Infinity;
+  for (const { i } of candidates) {
+    const diff = Math.abs((targetDist_m[i] || 0) - targetExpectedDist);
+    if (diff < bestDiff) { bestDiff = diff; bestI = i; }
   }
   return bestI;
 }
 
-// Allinea geograficamente startIdxB e endIdxB del settore rispetto ad A.
-// Usa sempre ricerca globale per startIdxB: evita match errati su tracce
-// a loop/anello dove la traccia B passa piu volte vicino allo stesso punto.
+// ── Lap detection ────────────────────────────────────────────────────────────
+// Analizza una traccia e ritorna un array di indici dove inizia ogni giro.
+// Un nuovo giro inizia quando la traccia ritorna entro LAP_CLOSE_M metri
+// da un punto già visitato molto prima (almeno MIN_LAP_M metri fa).
+// Ritorna [0, idx_giro2, idx_giro3, ...] — sempre almeno [0].
+function detectLapStarts(stream, LAP_CLOSE_M = 150, MIN_LAP_M = 3000) {
+  const n = stream.lat.length;
+  const laps = [0];
+  const dist = stream.distance_m;
+  let lastLapStart = 0;
+
+  for (let i = 1; i < n; i++) {
+    const dCurrent = dist[i] || 0;
+    const dLapStart = dist[lastLapStart] || 0;
+    // Controlla solo se abbiamo percorso almeno MIN_LAP_M dal lastLapStart
+    if (dCurrent - dLapStart < MIN_LAP_M) continue;
+
+    // Confronta il punto i con i punti vicino all'inizio dell'ultimo giro
+    // (finestra di 200 punti attorno a lastLapStart)
+    const windowEnd = Math.min(lastLapStart + 200, i - 1);
+    for (let j = lastLapStart; j < windowEnd; j++) {
+      const d2 = haversineDistanceSq(stream.lat[i], stream.lon[i], stream.lat[j], stream.lon[j]);
+      if (d2 <= LAP_CLOSE_M * LAP_CLOSE_M) {
+        laps.push(i);
+        lastLapStart = i;
+        break;
+      }
+    }
+  }
+  return laps;
+}
+
+// Dato un indice e un array di lapStarts, ritorna il numero di giro (0-based)
+function getLapNumber(idx, lapStarts) {
+  let lap = 0;
+  for (let i = 1; i < lapStarts.length; i++) {
+    if (idx >= lapStarts[i]) lap = i;
+    else break;
+  }
+  return lap;
+}
+
+// Cache lap detection — ricalcola solo se lo stream cambia
+let _lapCacheA = null, _lapCacheB = null;
+let _lapStartsA = null, _lapStartsB = null;
+function getLapStartsA() {
+  if (_lapCacheA !== compStreamA) { _lapStartsA = detectLapStarts(compStreamA); _lapCacheA = compStreamA; }
+  return _lapStartsA;
+}
+function getLapStartsB() {
+  if (_lapCacheB !== compStreamB) { _lapStartsB = detectLapStarts(compStreamB); _lapCacheB = compStreamB; }
+  return _lapStartsB;
+}
+
+// ── Allinea geograficamente startIdxB e endIdxB del settore rispetto ad A ───
+// Usa compGeoMapAtoB — lo stesso mapping monotono usato dal grafico altimetrico,
+// che già sovrappone perfettamente le due tracce.
 function compGeoAlignBtoA(sec) {
   if (!sec || !compStreamA || !compStreamB) return;
-  sec.startIdxB = nearestGeoGlobal(
-    compStreamA.lat[sec.startIdxA], compStreamA.lon[sec.startIdxA],
-    compStreamB.lat, compStreamB.lon
-  );
-  sec.endIdxB = nearestGeoMonotone(
-    compStreamA.lat[sec.endIdxA], compStreamA.lon[sec.endIdxA],
-    compStreamB.lat, compStreamB.lon,
-    sec.startIdxB
-  );
-  sec.endIdxB = Math.max(sec.endIdxB, sec.startIdxB + 5);
+
+  // Se il mapping non è ancora disponibile (chart non ancora renderizzato),
+  // costruiscilo ora su tutta la traccia
+  if (!compGeoMapAtoB) {
+    compGeoMapAtoB = new Int32Array(compStreamA.lat.length);
+    let lastB = 0;
+    for (let i = 0; i < compStreamA.lat.length; i++) {
+      lastB = nearestGeoMonotone(
+        compStreamA.lat[i], compStreamA.lon[i],
+        compStreamB.lat, compStreamB.lon, lastB
+      );
+      compGeoMapAtoB[i] = lastB;
+    }
+  }
+
+  sec.startIdxB = compGeoMapAtoB[sec.startIdxA] ?? 0;
+  sec.endIdxB   = compGeoMapAtoB[sec.endIdxA]   ?? (compStreamB.lat.length - 1);
+  sec.endIdxB   = Math.max(sec.endIdxB, sec.startIdxB + 5);
 }
 
 function compSectorShift(which, deltaM) {
@@ -1483,22 +1719,8 @@ function compSectorShift(which, deltaM) {
   if (which==='startB') sec.startIdxB = Math.min(idx, sec.endIdxB-5);
   if (which==='endB')   sec.endIdxB   = Math.max(idx, sec.startIdxB+5);
 
-  // Geo-sync sempre attivo: allinea automaticamente l'altro atleta geograficamente
-  if (compStreamA && compStreamB) {
-    if (which === 'startA') {
-      const best = nearestGeoMonotone(compStreamA.lat[sec.startIdxA], compStreamA.lon[sec.startIdxA], compStreamB.lat, compStreamB.lon, sec.startIdxB);
-      sec.startIdxB = Math.min(best, sec.endIdxB - 5);
-    } else if (which === 'endA') {
-      const best = nearestGeoMonotone(compStreamA.lat[sec.endIdxA], compStreamA.lon[sec.endIdxA], compStreamB.lat, compStreamB.lon, sec.endIdxB);
-      sec.endIdxB = Math.max(best, sec.startIdxB + 5);
-    } else if (which === 'startB') {
-      const best = nearestGeoMonotone(compStreamB.lat[sec.startIdxB], compStreamB.lon[sec.startIdxB], compStreamA.lat, compStreamA.lon, sec.startIdxA);
-      sec.startIdxA = Math.min(best, sec.endIdxA - 5);
-    } else if (which === 'endB') {
-      const best = nearestGeoMonotone(compStreamB.lat[sec.endIdxB], compStreamB.lon[sec.endIdxB], compStreamA.lat, compStreamA.lon, sec.endIdxA);
-      sec.endIdxA = Math.max(best, sec.startIdxA + 5);
-    }
-  }
+  // Nessun geo-sync automatico: le frecce spostano ogni atleta in modo indipendente
+  // per permettere aggiustamenti millimetrici precisi.
 
   compSyncSectorList();
   compScheduleRender({ markers: true });
@@ -1762,9 +1984,8 @@ function nearestGeoMonotone(la, lo, targetLat, targetLon, prevIdx) {
 // ────────────────────────────────────────────────────────────────
 function compAlignStartBtoA() {
   const sec = compGetActiveSector();
-  if (!sec || !compStreamA || !compStreamB) return;
-  const bestIdx = nearestGeoMonotone(compStreamA.lat[sec.startIdxA], compStreamA.lon[sec.startIdxA], compStreamB.lat, compStreamB.lon, sec.startIdxB);
-  sec.startIdxB = Math.min(bestIdx, sec.endIdxB - 5);
+  if (!sec || !compStreamA || !compStreamB || !compGeoMapAtoB) return;
+  sec.startIdxB = Math.min(compGeoMapAtoB[sec.startIdxA] ?? sec.startIdxB, sec.endIdxB - 5);
   compSyncSectorList();
   compScheduleRender({ markers:true, chart:true, panel:true });
   syncBoundsToReplay();
@@ -1772,9 +1993,14 @@ function compAlignStartBtoA() {
 
 function compAlignStartAtoB() {
   const sec = compGetActiveSector();
-  if (!sec || !compStreamA || !compStreamB) return;
-  const bestIdx = nearestGeoMonotone(compStreamB.lat[sec.startIdxB], compStreamB.lon[sec.startIdxB], compStreamA.lat, compStreamA.lon, sec.startIdxA);
-  sec.startIdxA = Math.min(bestIdx, sec.endIdxA - 5);
+  if (!sec || !compStreamA || !compStreamB || !compGeoMapAtoB) return;
+  // Trova indice A il cui mapping B è più vicino a startIdxB
+  let bestA = sec.startIdxA, bestDiff = Infinity;
+  for (let i = 0; i < compGeoMapAtoB.length; i++) {
+    const diff = Math.abs(compGeoMapAtoB[i] - sec.startIdxB);
+    if (diff < bestDiff) { bestDiff = diff; bestA = i; }
+  }
+  sec.startIdxA = Math.min(bestA, sec.endIdxA - 5);
   compSyncSectorList();
   compScheduleRender({ markers:true, chart:true, panel:true });
   syncBoundsToReplay();
@@ -1782,9 +2008,8 @@ function compAlignStartAtoB() {
 
 function compAlignEndBtoA() {
   const sec = compGetActiveSector();
-  if (!sec || !compStreamA || !compStreamB) return;
-  const bestIdx = nearestGeoMonotone(compStreamA.lat[sec.endIdxA], compStreamA.lon[sec.endIdxA], compStreamB.lat, compStreamB.lon, sec.endIdxB);
-  sec.endIdxB = Math.max(bestIdx, sec.startIdxB + 5);
+  if (!sec || !compStreamA || !compStreamB || !compGeoMapAtoB) return;
+  sec.endIdxB = Math.max(compGeoMapAtoB[sec.endIdxA] ?? sec.endIdxB, sec.startIdxB + 5);
   compSyncSectorList();
   compScheduleRender({ markers:true, chart:true, panel:true });
   syncBoundsToReplay();
@@ -1792,9 +2017,13 @@ function compAlignEndBtoA() {
 
 function compAlignEndAtoB() {
   const sec = compGetActiveSector();
-  if (!sec || !compStreamA || !compStreamB) return;
-  const bestIdx = nearestGeoMonotone(compStreamB.lat[sec.endIdxB], compStreamB.lon[sec.endIdxB], compStreamA.lat, compStreamA.lon, sec.endIdxA);
-  sec.endIdxA = Math.max(bestIdx, sec.startIdxA + 5);
+  if (!sec || !compStreamA || !compStreamB || !compGeoMapAtoB) return;
+  let bestA = sec.endIdxA, bestDiff = Infinity;
+  for (let i = 0; i < compGeoMapAtoB.length; i++) {
+    const diff = Math.abs(compGeoMapAtoB[i] - sec.endIdxB);
+    if (diff < bestDiff) { bestDiff = diff; bestA = i; }
+  }
+  sec.endIdxA = Math.max(bestA, sec.startIdxA + 5);
   compSyncSectorList();
   compScheduleRender({ markers:true, chart:true, panel:true });
   syncBoundsToReplay();
@@ -2264,6 +2493,11 @@ function compUpdateElevChart() {
   for (let i = 0; i < nA; i++) {
     lastGeoB = nearestGeoMonotone(latA_g[i], lonA_g[i], latB_g, lonB_g, lastGeoB);
     geoMapAtoB[i] = lastGeoB;
+  }
+  // Salva come mapping globale assoluto (iA_global → iB_global)
+  compGeoMapAtoB = new Int32Array(compStreamA.lat.length);
+  for (let i = 0; i < nA; i++) {
+    compGeoMapAtoB[globalS0A + i] = globalS0B + geoMapAtoB[i];
   }
   const dataA = distA.map((d,i) => [(d-d0A)/1000, seriesA[i]||0]);
   const dataB = distA.map((d,i) => [(d-d0A)/1000, seriesB[geoMapAtoB[i]]||0]);
@@ -3180,6 +3414,7 @@ function compExportCSV() {
 // ── BADGE: gestito dall'header globale (unified_app updateHeaderFileInfo) ──
 function compUpdateSharedBadge() { /* no-op */ }
 
+
 function compReset() {
   compClearAnalysis();
   compSectors=[]; compActiveSectorId=null; _compSectorIdCounter=0;
@@ -3196,5 +3431,21 @@ function compReset() {
   // Reset anche dei global bounds
   compGlobalStartA = 0; compGlobalEndA = compStreamA ? compStreamA.lat.length-1 : 0;
   compGlobalStartB = 0; compGlobalEndB = compStreamB ? compStreamB.lat.length-1 : 0;
+}
+
+// ── Wrapper Comparison per il pannello Regola Start/End ──────────────────────
+// Gestisce il pannello comp-bounds-panel (separato da rp-bounds-panel del replay)
+// e delega shift/apply alle stesse funzioni rpShift, rpApplyBounds, etc.
+function compToggleBoundsPanel() {
+  const panel = document.getElementById('comp-bounds-panel');
+  const btn   = document.getElementById('comp-btn-bounds');
+  if (!panel) return;
+  const isOpen = panel.style.display === 'flex';
+  panel.style.display = isOpen ? 'none' : 'flex';
+  if (btn) btn.classList.toggle('off', isOpen);
+  if (!isOpen) {
+    // Popola le label km appena il pannello si apre
+    if (typeof rpUpdateBoundsPanelUI === 'function') rpUpdateBoundsPanelUI();
+  }
 }
 </script>
