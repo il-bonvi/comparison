@@ -127,13 +127,12 @@
           </div>
 
           <!-- Header -->
-          <div style="padding:6px 8px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+          <div style="padding:6px 8px;border-bottom:1px solid var(--border);">
             <span style="font-size:.64rem;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;">Settori</span>
-            <button title="Nuovo settore" style="background:none;border:none;color:var(--a);cursor:not-allowed;opacity:.5;font-size:.9rem;padding:0 2px;line-height:1;">＋</button>
           </div>
 
           <!-- Sector list placeholder -->
-          <div id="rp-sector-list" style="overflow-y:auto;flex:1;padding:6px 8px;font-family:var(--font-mono);font-size:.68rem;color:var(--muted2);">
+          <div id="rp-sector-list" style="overflow-y:auto;flex:1;font-family:var(--font-mono);font-size:.68rem;color:var(--muted2);">
             <div style="text-align:center;padding:20px 8px;opacity:.5;">
               Definisci i settori<br>dalla tab Comparison
             </div>
@@ -750,12 +749,10 @@ let rpFullBounds = null;       // bounds "traccia completa" salvati prima dello 
 // (NON tocca l'highlight .active legato a compActiveSectorId — quello è gestito
 // separatamente da rpSyncSectorList in base a rpZoomedSectorId)
 function rpUpdateZoomButtonsUI() {
-  document.querySelectorAll('.rp-sec-item').forEach(item => {
+  document.querySelectorAll('#rp-sector-list .comp-sec-item').forEach(item => {
     const id = parseInt(item.dataset.secId);
     const isZoomed = (id === rpZoomedSectorId);
-    item.classList.toggle('zoomed', isZoomed);
-    item.style.background = isZoomed ? 'rgba(59,130,246,0.12)' : '';
-    item.style.borderLeft = isZoomed ? '2px solid var(--a)' : '';
+    item.classList.toggle('active', isZoomed);
     const btnReal = item.querySelector('.rp-sec-zoom-real');
     const btnAligned = item.querySelector('.rp-sec-zoom-aligned');
     if (btnReal)    btnReal.classList.toggle('active', isZoomed && rpSectorAlignMode === 'real');

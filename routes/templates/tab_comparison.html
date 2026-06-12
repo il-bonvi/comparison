@@ -1223,27 +1223,56 @@ function rpSyncSectorList() {
   list.innerHTML = '';
   const frag = document.createDocumentFragment();
   compSectors.forEach(sec => {
-    const item = document.createElement('div');
     const isZoomed = (typeof rpZoomedSectorId !== 'undefined' && sec.id === rpZoomedSectorId);
-    item.className = 'rp-sec-item' + (isZoomed ? ' zoomed' : '');
+
+    const item = document.createElement('div');
+    item.className = 'comp-sec-item' + (isZoomed ? ' active' : '');
     item.dataset.secId = sec.id;
-    item.style.cssText = 'display:flex;flex-direction:column;padding:5px 8px;cursor:default;border-bottom:1px solid rgba(255,255,255,0.04);' + (isZoomed ? 'background:rgba(59,130,246,0.12);border-left:2px solid var(--a);' : '');
-    item.innerHTML = `
-      <div style="display:flex;align-items:center;gap:5px;">
-        <div class="rp-sec-dot" style="background:${sec.color};border:1px solid rgba(255,255,255,0.2);"></div>
-        <div style="flex:1;min-width:0;">
-          <div class="rp-sec-label">${sec.name}</div>
-          <div style="font-size:.62rem;color:var(--muted2);font-family:var(--font-mono);">${compSectorRangeLabel(sec)}</div>
-        </div>
-        <div style="display:flex;gap:2px;flex-shrink:0;">
-          <button class="csb csb-neutral" style="padding:2px 4px;font-size:.62rem;" onclick="rpRenameSector(${sec.id})" title="Rinomina">✏️</button>
-          <button class="csb csb-red"     style="padding:2px 4px;font-size:.62rem;" onclick="rpDeleteSector(${sec.id})" title="Elimina settore">✕</button>
-        </div>
+
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:flex-start;gap:5px;width:100%;';
+    row.innerHTML = `
+      <div class="comp-sec-dot" style="background:${sec.color};margin-top:3px;flex-shrink:0;border:1px solid rgba(255,255,255,0.2);"></div>
+      <div style="flex:1;min-width:0;">
+        <div class="comp-sec-label">${sec.name}</div>
+        <div class="comp-sec-range">${compSectorRangeLabel(sec)}</div>
       </div>
-      <div style="display:flex;gap:2px;width:100%;margin-top:4px;">
-        <button class="csb csb-green rp-sec-zoom-real" style="flex:1;" onclick="rpZoomToSector(${sec.id},'real')" title="Mostra il settore con il gap reale accumulato">🔍 Reale</button>
-        <button class="csb csb-blue rp-sec-zoom-aligned" style="flex:1;" onclick="rpZoomToSector(${sec.id},'aligned')" title="Mostra il settore con partenza allineata (gap azzerato all'inizio)">🔍 Allineato</button>
+      <div style="display:flex;gap:2px;flex-shrink:0;margin-top:1px;">
+        <button class="csb csb-neutral" style="padding:2px 4px;font-size:.62rem;" onclick="compInlineEditSector(${sec.id},'rp')" title="Rinomina">✏️</button>
+        <button class="csb csb-red"     style="padding:2px 4px;font-size:.62rem;" onclick="compOpenConfirmDelete(${sec.id},'rp')" title="Elimina settore">✕</button>
       </div>`;
+
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:2px;width:100%;margin-top:4px;';
+    btnRow.innerHTML = `
+      <button class="csb csb-green rp-sec-zoom-real" style="flex:1;" onclick="rpZoomToSector(${sec.id},'real')" title="Mostra il settore con il gap reale accumulato">🔍 Reale</button>
+      <button class="csb csb-blue rp-sec-zoom-aligned" style="flex:1;" onclick="rpZoomToSector(${sec.id},'aligned')" title="Mostra il settore con partenza allineata (gap azzerato all'inizio)">🔍 Allineato</button>`;
+
+    const editRow = document.createElement('div');
+    editRow.id = `rp-sec-edit-${sec.id}`;
+    editRow.style.cssText = 'display:none;align-items:center;gap:3px;width:100%;padding-top:4px;';
+    editRow.innerHTML = `
+      <input id="rp-sec-input-${sec.id}" type="text" maxlength="20" value="${sec.name}"
+        style="flex:1;min-width:0;padding:2px 5px;background:var(--bg);border:1px solid var(--a);border-radius:3px;color:var(--text);font-family:var(--font-mono);font-size:.68rem;"
+        onkeydown="if(event.key==='Enter')compSaveInlineEdit(${sec.id},'rp');if(event.key==='Escape')compCancelInlineEdit(${sec.id},'rp');event.stopPropagation();"
+        onclick="event.stopPropagation();"/>
+      <button onclick="event.stopPropagation();compSaveInlineEdit(${sec.id},'rp')" style="background:var(--a);border:none;border-radius:3px;color:#fff;padding:2px 6px;font-size:.65rem;cursor:pointer;">✓</button>
+      <button onclick="event.stopPropagation();compCancelInlineEdit(${sec.id},'rp')" style="background:rgba(255,255,255,0.08);border:none;border-radius:3px;color:var(--muted2);padding:2px 6px;font-size:.65rem;cursor:pointer;">✕</button>`;
+
+    const confirmDel = document.createElement('div');
+    confirmDel.id = `rp-sec-cdel-${sec.id}`;
+    confirmDel.className = 'comp-sec-confirm';
+    confirmDel.innerHTML = `
+      <span>Eliminare «${sec.name}»?</span>
+      <div class="comp-sec-confirm-btns">
+        <button class="csb-confirm-yes" onclick="event.stopPropagation();rpDeleteSectorConfirmed(${sec.id});">✓ Elimina</button>
+        <button class="csb-confirm-no"  onclick="event.stopPropagation();compCloseConfirm(${sec.id},'rp');">✕ No</button>
+      </div>`;
+
+    item.appendChild(row);
+    item.appendChild(btnRow);
+    item.appendChild(editRow);
+    item.appendChild(confirmDel);
     frag.appendChild(item);
   });
   list.appendChild(frag);
@@ -1262,26 +1291,30 @@ function compEditSector(id) {
   compToggleSectorPanel();
 }
 
-function compInlineEditSector(id) {
+function compInlineEditSector(id, prefix) {
+  prefix = prefix || 'comp';
   // Chiudi eventuali altri edit/delete aperti
   compCloseAllInlineActions();
-  const editRow = document.getElementById(`comp-sec-edit-${id}`);
+  const editRow = document.getElementById(`${prefix}-sec-edit-${id}`);
   if (editRow) { editRow.style.display = 'flex'; editRow.querySelector('input').focus(); editRow.querySelector('input').select(); }
 }
 
-function compSaveInlineEdit(id) {
-  const input = document.getElementById(`comp-sec-input-${id}`);
+function compSaveInlineEdit(id, prefix) {
+  prefix = prefix || 'comp';
+  const input = document.getElementById(`${prefix}-sec-input-${id}`);
   if (!input) return;
   const sec = compSectors.find(s => s.id === id);
   if (sec) { sec.name = input.value.trim() || sec.name; }
-  compCancelInlineEdit(id);
+  compCancelInlineEdit(id, prefix);
   compRebuildSectorList();
   compUpdateSectorLegend();
-  if (sec) document.getElementById('comp-sec-name').value = sec.name;
+  const nameInput = document.getElementById('comp-sec-name');
+  if (sec && nameInput) nameInput.value = sec.name;
 }
 
-function compCancelInlineEdit(id) {
-  const editRow = document.getElementById(`comp-sec-edit-${id}`);
+function compCancelInlineEdit(id, prefix) {
+  prefix = prefix || 'comp';
+  const editRow = document.getElementById(`${prefix}-sec-edit-${id}`);
   if (editRow) editRow.style.display = 'none';
 }
 
@@ -1388,53 +1421,36 @@ function compOpenConfirmMapZoom(id) {
   if (el) el.classList.add('open');
 }
 
-function compOpenConfirmDelete(id) {
+function compOpenConfirmDelete(id, prefix) {
+  prefix = prefix || 'comp';
   if (compSectors.length <= 1) { document.getElementById('comp-status').textContent = 'Non puoi eliminare l\'unico settore.'; return; }
   compCloseAllInlineActions();
-  const el = document.getElementById(`comp-sec-cdel-${id}`);
+  const el = document.getElementById(`${prefix}-sec-cdel-${id}`);
   if (el) el.classList.add('open');
 }
 
-function compCloseConfirm(id) {
-  const z = document.getElementById(`comp-sec-czoom-${id}`);
-  const d = document.getElementById(`comp-sec-cdel-${id}`);
+function compCloseConfirm(id, prefix) {
+  prefix = prefix || 'comp';
+  const z = document.getElementById(`${prefix}-sec-czoom-${id}`);
+  const d = document.getElementById(`${prefix}-sec-cdel-${id}`);
   if (z) z.classList.remove('open');
   if (d) d.classList.remove('open');
 }
 
 function compCloseAllInlineActions() {
   compSectors.forEach(sec => {
-    compCancelInlineEdit(sec.id);
-    compCloseConfirm(sec.id);
+    compCancelInlineEdit(sec.id, 'comp');
+    compCloseConfirm(sec.id, 'comp');
+    compCancelInlineEdit(sec.id, 'rp');
+    compCloseConfirm(sec.id, 'rp');
   });
 }
 
 // ── Bridge per la sidebar settori del Race Replay ─────────────────────────
-// Riusano gli stessi dati/funzioni di comparison (compSectors, compRebuildSectorList,
-// compConfirmedDeleteSector, ...) tramite prompt/confirm nativi, dato che il replay
-// non ha gli stessi elementi DOM inline-edit di comparison.
-function rpRenameSector(id) {
-  const sec = compSectors.find(s => s.id === id);
-  if (!sec) return;
-  const name = prompt('Nuovo nome settore:', sec.name);
-  if (name === null) return; // annullato
-  const trimmed = name.trim();
-  if (!trimmed) return;
-  sec.name = trimmed;
-  compRebuildSectorList();
-  compUpdateSectorLegend();
-  const nameInput = document.getElementById('comp-sec-name');
-  if (nameInput && sec.id === compActiveSectorId) nameInput.value = sec.name;
-}
-
-function rpDeleteSector(id) {
-  if (compSectors.length <= 1) {
-    document.getElementById('comp-status').textContent = 'Non puoi eliminare l\'unico settore.';
-    return;
-  }
-  const sec = compSectors.find(s => s.id === id);
-  if (!sec) return;
-  if (!confirm(`Eliminare il settore «${sec.name}»?`)) return;
+// Riusano le stesse funzioni di comparison (compInlineEditSector, compSaveInlineEdit,
+// compOpenConfirmDelete, compConfirmedDeleteSector, ...) passando prefix='rp'
+// per puntare agli elementi DOM duplicati nella sidebar replay.
+function rpDeleteSectorConfirmed(id) {
   // Se il settore eliminato era quello zoomato nel replay, torna a traccia completa
   if (typeof rpZoomedSectorId !== 'undefined' && rpZoomedSectorId === id && typeof rpResetToFullActivity === 'function') {
     rpResetToFullActivity();

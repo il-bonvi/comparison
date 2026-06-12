@@ -1,6 +1,3 @@
-
-continuare per aggiustare race replay
-
 caricamento file: cambiando file il file vecchio da errore
 comparison barr laterale: button tabella
 dividi per sezioni
