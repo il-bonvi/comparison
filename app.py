@@ -153,7 +153,7 @@ async def upload(
     file_b: UploadFile = File(...),
 ):
     """
-    Unico endpoint di upload — usato da entrambe le tab (Comparison e Race Replay).
+    Endpoint di upload per ENTRAMBI i file — usato quando si caricano due nuovi file.
 
     Accetta due file FIT, li parsa e restituisce gli stream JSON pronti per il frontend.
     """
@@ -173,6 +173,52 @@ async def upload(
         "stream_a":   stream_a,
         "stream_b":   stream_b,
         "filename_a": file_a.filename,
+        "filename_b": file_b.filename,
+    })
+
+
+@app.post("/api/upload_single")
+async def upload_single(file_a: UploadFile = File(...)):
+    """
+    Upload del SOLO file A — usato quando si sostituisce un singolo file e
+    l'altro (B) viene riusato dalla cache (sharedStreamB) lato frontend.
+    """
+    try:
+        stream_a = _parse_fit_stream(await file_a.read())
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        logger.error(f"Errore imprevisto nel parsing FIT: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Errore interno nel parsing del file")
+
+    return JSONResponse({
+        "success":    True,
+        "stream_a":   stream_a,
+        "filename_a": file_a.filename,
+    })
+
+
+@app.post("/api/upload_single_b")
+async def upload_single_b(file_b: UploadFile = File(...)):
+    """
+    Upload del SOLO file B — usato quando si sostituisce un singolo file e
+    l'altro (A) viene riusato dalla cache (sharedStreamA) lato frontend.
+    """
+    try:
+        stream_b = _parse_fit_stream(await file_b.read())
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        logger.error(f"Errore imprevisto nel parsing FIT: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Errore interno nel parsing del file")
+
+    return JSONResponse({
+        "success":    True,
+        "stream_b":   stream_b,
         "filename_b": file_b.filename,
     })
 
