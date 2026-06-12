@@ -95,6 +95,56 @@
         </div>
       </div>
       <div id="replay-main">
+
+        <!-- ══ ROW: sidebar + mappa ══ -->
+        <div id="rp-main-row">
+
+        <!-- ══ SECTOR SIDEBAR (layout identico a comparison, bottoni non attivi) ══ -->
+        <div id="rp-sector-sidebar" style="position:relative;">
+
+          <!-- Dialog analisi -->
+          <div id="rp-analysis-dialog" style="display:none;position:absolute;inset:0;z-index:200;
+               flex-direction:column;background:var(--surface2);border-right:1px solid var(--border-hi);">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-bottom:1px solid var(--border-hi);background:rgba(251,191,36,.08);">
+              <span style="font-weight:700;color:#fbbf24;font-size:.7rem;font-family:var(--font-mono);">📊 Analisi Sezioni</span>
+              <button style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:.85rem;padding:0 2px;">✕</button>
+            </div>
+            <div style="padding:10px;display:flex;flex-direction:column;gap:10px;flex:1;overflow-y:auto;font-family:var(--font-mono);font-size:.7rem;">
+              <div style="display:flex;flex-direction:column;gap:5px;">
+                <label style="color:var(--muted2);font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;">Dividi per</label>
+                <select id="rp-adlg-mode" style="background:var(--bg);border:1px solid var(--border-hi);color:var(--text);padding:3px 6px;border-radius:4px;font-size:.7rem;font-family:var(--font-mono);">
+                  <option value="dist" selected>Distanza</option>
+                  <option value="time">Tempo</option>
+                </select>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:5px;">
+                <label style="color:var(--muted2);font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;">Valore (<span id="rp-adlg-unit">m</span>)</label>
+                <input type="number" id="rp-adlg-val" value="200" min="10" max="50000" step="10"
+                  style="padding:4px 8px;background:var(--bg);border:1px solid var(--border-hi);border-radius:4px;color:var(--text);font-size:.78rem;font-weight:bold;font-family:var(--font-mono);text-align:center;width:100%;box-sizing:border-box;"/>
+              </div>
+              <button style="width:100%;padding:6px 0;font-size:.74rem;font-weight:bold;background:rgba(251,191,36,.15);border:1px solid #fbbf24;border-radius:4px;color:#fbbf24;cursor:not-allowed;opacity:.5;">🔍 Ricalcola Sezioni</button>
+            </div>
+          </div>
+
+          <!-- Header -->
+          <div style="padding:6px 8px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:.64rem;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;">Settori</span>
+            <button title="Nuovo settore" style="background:none;border:none;color:var(--a);cursor:not-allowed;opacity:.5;font-size:.9rem;padding:0 2px;line-height:1;">＋</button>
+          </div>
+
+          <!-- Sector list placeholder -->
+          <div id="rp-sector-list" style="overflow-y:auto;flex:1;padding:6px 8px;font-family:var(--font-mono);font-size:.68rem;color:var(--muted2);">
+            <div style="text-align:center;padding:20px 8px;opacity:.5;">
+              Definisci i settori<br>dalla tab Comparison
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div style="padding:4px 6px;border-top:1px solid var(--border);">
+            <button id="rp-sector-reset-btn" class="btn btn-danger" style="width:100%;font-size:.64rem;padding:3px 0;display:none;" onclick="rpResetToFullActivity()" title="Torna a vedere tutta la traccia">↺ Traccia completa</button>
+          </div>
+        </div><!-- /rp-sector-sidebar -->
+
         <div id="replay-map-wrap">
           <div id="replay-map"></div>
           <div id="replay-gap-overlay">
@@ -237,7 +287,8 @@
             </div>
           </div>
 
-        </div>
+        </div><!-- /replay-map-wrap -->
+        </div><!-- /rp-main-row -->
         <div id="replay-chart-panel">
           <div id="replay-chart-resize"></div>
           <div id="replay-chart-toggles">
@@ -365,6 +416,7 @@ async function replayStart() {
     document.getElementById('replay-upload').style.display = 'none';
     document.getElementById('replay-app').style.display = 'flex';
     switchTab('replay');
+    rpSetupBoundsContext();
     rpBuildAlignment(); rpInitChart(); rpRenderCharts(); rpSetSpeed(1);
     setTimeout(() => { rpInitMap(); hideLoading(); }, 80);
     return;
@@ -430,6 +482,7 @@ async function replayStart() {
     document.getElementById('replay-upload').style.display = 'none';
     document.getElementById('replay-app').style.display = 'flex';
     switchTab('replay');
+    rpSetupBoundsContext();
     rpBuildAlignment(); rpInitChart(); rpRenderCharts(); rpSetSpeed(1);
     setTimeout(() => { rpInitMap(); hideLoading(); }, 80);
 
@@ -594,6 +647,122 @@ function alignEndAtoB() {
   rpUpdateBoundsMarkersOnMap();
   rpApplyBounds();
 }
+
+// ── Setup contesto bounds per il Race Replay ────────────────────
+// Registra rpSA/rpSB su bounds.js così rpShift/rpApplyBounds (e i nuovi
+// bottoni Zoom/Reset settore) lavorano sugli stream del replay.
+function rpSetupBoundsContext() {
+  if (typeof boundsSetContext !== 'function') {
+    setTimeout(rpSetupBoundsContext, 50);
+    return;
+  }
+  boundsSetContext(() => ({
+    sA: rpSA, sB: rpSB, map: rpMap, mapReady: rpMapReady
+  }));
+  boundsSetOnApply(() => {
+    rpBuildAlignment();
+    rpRenderCharts();
+    rpUpdateFrame(0);
+    if (typeof rpUpdateBoundsMarkersOnMap === 'function') rpUpdateBoundsMarkersOnMap();
+  });
+}
+
+// ── Zoom su settore: imposta i bounds del replay sul settore selezionato ──
+// sec.startIdxA/endIdxA/startIdxB/endIdxB sono indici assoluti, validi
+// 1:1 su rpSA/rpSB perché derivati dallo stesso sharedStreamA/B di compStreamA/B.
+//
+// mode:
+//  - 'real'    → Confronto reale: mantiene rpTimeOffsetB (gap accumulato fino al settore)
+//  - 'aligned' → Partenza allineata: azzera l'offset, entrambi partono da t=0 nel settore
+//
+// IMPORTANTE: questa funzione NON usa il sistema condiviso bounds.js/_boundsOnApply
+// (quello è per "Regola Start/End" e in comparison ricostruisce compSectors).
+// Lavora solo sulle variabili locali rpBoundStart/EndA/B del replay.
+function rpZoomToSector(secId, mode) {
+  mode = mode || 'real';
+
+  // Toggle: se clicco sul bottone già attivo per questo settore, torna a traccia completa
+  if (rpZoomedSectorId === secId && rpSectorAlignMode === mode) {
+    rpResetToFullActivity();
+    return;
+  }
+
+  const sec = (typeof compSectors !== 'undefined') ? compSectors.find(s => s.id === secId) : null;
+  if (!sec || !rpSA || !rpSB) return;
+
+  // Alla prima zoom, salva i bounds "traccia completa" correnti e l'offset globale,
+  // per poterli ripristinare con "Torna a traccia completa"
+  if (rpZoomedSectorId === null) {
+    rpFullBounds = { sA: rpBoundStartA, eA: rpBoundEndA, sB: rpBoundStartB, eB: rpBoundEndB };
+    rpSavedTimeOffsetB = rpTimeOffsetB;
+  }
+
+  rpBoundStartA = sec.startIdxA; rpBoundEndA = sec.endIdxA;
+  rpBoundStartB = sec.startIdxB; rpBoundEndB = sec.endIdxB;
+
+  if (mode === 'aligned') {
+    rpTimeOffsetB = 0; // entrambi partono allineati a t=0 nel settore
+  } else {
+    rpTimeOffsetB = rpSavedTimeOffsetB; // mantiene il gap reale accumulato
+  }
+
+  rpBuildAlignment();
+  rpRenderCharts();
+  rpUpdateFrame(0);
+  if (typeof rpUpdateBoundsMarkersOnMap === 'function') rpUpdateBoundsMarkersOnMap();
+
+  rpZoomedSectorId = secId;
+  rpSectorAlignMode = mode;
+  rpUpdateZoomButtonsUI();
+}
+
+// ── Torna alla traccia completa (semplice deseleziona, nessun reset distruttivo) ──
+function rpResetToFullActivity() {
+  if (!rpSA || !rpSB) return;
+  if (rpFullBounds) {
+    rpBoundStartA = rpFullBounds.sA; rpBoundEndA = rpFullBounds.eA;
+    rpBoundStartB = rpFullBounds.sB; rpBoundEndB = rpFullBounds.eB;
+  } else {
+    rpBoundStartA = 0; rpBoundEndA = rpSA.lat.length - 1;
+    rpBoundStartB = 0; rpBoundEndB = rpSB.lat.length - 1;
+  }
+  rpTimeOffsetB = rpSavedTimeOffsetB; // ripristina l'offset calibrato globale
+
+  rpBuildAlignment();
+  rpRenderCharts();
+  rpUpdateFrame(0);
+  if (typeof rpUpdateBoundsMarkersOnMap === 'function') rpUpdateBoundsMarkersOnMap();
+
+  rpZoomedSectorId = null;
+  rpSectorAlignMode = null;
+  rpUpdateZoomButtonsUI();
+}
+
+// Stato zoom settore
+let rpZoomedSectorId = null;   // id del settore attualmente zoomato (null = traccia completa)
+let rpSectorAlignMode = null;  // 'real' | 'aligned' | null
+let rpSavedTimeOffsetB = 0;    // offset globale salvato prima di zoomare
+let rpFullBounds = null;       // bounds "traccia completa" salvati prima dello zoom
+
+// Aggiorna stato visivo dei bottoni zoom/reset nella sidebar settori
+// (NON tocca l'highlight .active legato a compActiveSectorId — quello è gestito
+// separatamente da rpSyncSectorList in base a rpZoomedSectorId)
+function rpUpdateZoomButtonsUI() {
+  document.querySelectorAll('.rp-sec-item').forEach(item => {
+    const id = parseInt(item.dataset.secId);
+    const isZoomed = (id === rpZoomedSectorId);
+    item.classList.toggle('zoomed', isZoomed);
+    item.style.background = isZoomed ? 'rgba(59,130,246,0.12)' : '';
+    item.style.borderLeft = isZoomed ? '2px solid var(--a)' : '';
+    const btnReal = item.querySelector('.rp-sec-zoom-real');
+    const btnAligned = item.querySelector('.rp-sec-zoom-aligned');
+    if (btnReal)    btnReal.classList.toggle('active', isZoomed && rpSectorAlignMode === 'real');
+    if (btnAligned) btnAligned.classList.toggle('active', isZoomed && rpSectorAlignMode === 'aligned');
+  });
+  const resetBtn = document.getElementById('rp-sector-reset-btn');
+  if (resetBtn) resetBtn.style.display = rpZoomedSectorId !== null ? 'block' : 'none';
+}
+
 
 function rpBuildAlignment(){
   rpAligned = [];

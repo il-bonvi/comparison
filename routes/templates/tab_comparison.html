@@ -1119,6 +1119,7 @@ function compSyncSectorList() {
     const picker = item.querySelector('input[type=color]');
     if (picker && picker.value !== sec.color) picker.value = sec.color;
   });
+  rpSyncSectorList();
 }
 
 // DOM rebuild effettivo (chiamato solo via rAF)
@@ -1207,6 +1208,42 @@ function _compRebuildSectorListDOM() {
     frag.appendChild(item);
   });
   list.appendChild(frag);
+  // Sincronizza anche la sidebar del Race Replay
+  rpSyncSectorList();
+}
+
+// Aggiorna la sidebar settori nel Race Replay specchiando compSectors (read-only)
+function rpSyncSectorList() {
+  const list = document.getElementById('rp-sector-list');
+  if (!list) return;
+  if (!compSectors || compSectors.length === 0) {
+    list.innerHTML = '<div style="text-align:center;padding:20px 8px;opacity:.5;font-family:var(--font-mono);font-size:.68rem;color:var(--muted2);">Definisci i settori<br>dalla tab Comparison</div>';
+    return;
+  }
+  list.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  compSectors.forEach(sec => {
+    const item = document.createElement('div');
+    const isZoomed = (typeof rpZoomedSectorId !== 'undefined' && sec.id === rpZoomedSectorId);
+    item.className = 'rp-sec-item' + (isZoomed ? ' zoomed' : '');
+    item.dataset.secId = sec.id;
+    item.style.cssText = 'display:flex;flex-direction:column;padding:5px 8px;cursor:default;border-bottom:1px solid rgba(255,255,255,0.04);' + (isZoomed ? 'background:rgba(59,130,246,0.12);border-left:2px solid var(--a);' : '');
+    item.innerHTML = `
+      <div style="display:flex;align-items:center;gap:5px;">
+        <div class="rp-sec-dot" style="background:${sec.color};border:1px solid rgba(255,255,255,0.2);"></div>
+        <div style="flex:1;min-width:0;">
+          <div class="rp-sec-label">${sec.name}</div>
+          <div style="font-size:.62rem;color:var(--muted2);font-family:var(--font-mono);">${compSectorRangeLabel(sec)}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:2px;width:100%;margin-top:4px;">
+        <button class="csb csb-green rp-sec-zoom-real" style="flex:1;" onclick="rpZoomToSector(${sec.id},'real')" title="Mostra il settore con il gap reale accumulato">🔍 Reale</button>
+        <button class="csb csb-blue rp-sec-zoom-aligned" style="flex:1;" onclick="rpZoomToSector(${sec.id},'aligned')" title="Mostra il settore con partenza allineata (gap azzerato all'inizio)">🏁 Allineato</button>
+      </div>`;
+    frag.appendChild(item);
+  });
+  list.appendChild(frag);
+  rpUpdateZoomButtonsUI();
 }
 
 // ✏️ Apre il pannello settori per modificare start/end/analisi del settore cliccato
