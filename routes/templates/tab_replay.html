@@ -709,6 +709,7 @@ function rpZoomToSector(secId, mode) {
   rpBuildAlignment();
   rpRenderCharts();
   rpUpdateFrame(0);
+  rpRedrawTracesWithBounds();
   if (typeof rpUpdateBoundsMarkersOnMap === 'function') rpUpdateBoundsMarkersOnMap();
 
   rpZoomedSectorId = secId;
@@ -731,6 +732,7 @@ function rpResetToFullActivity() {
   rpBuildAlignment();
   rpRenderCharts();
   rpUpdateFrame(0);
+  rpRedrawTracesWithBounds();
   if (typeof rpUpdateBoundsMarkersOnMap === 'function') rpUpdateBoundsMarkersOnMap();
 
   rpZoomedSectorId = null;

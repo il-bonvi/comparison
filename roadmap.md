@@ -1,6 +1,5 @@
 
-race replay: visualizzare e creare settori anche qua...
-Settore aggiornato: 60.0→62.9 km rimuovi...
+continuare per aggiustare race replay
 
 caricamento file: cambiando file il file vecchio da errore
 comparison barr laterale: button tabella

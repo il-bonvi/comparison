@@ -1235,6 +1235,10 @@ function rpSyncSectorList() {
           <div class="rp-sec-label">${sec.name}</div>
           <div style="font-size:.62rem;color:var(--muted2);font-family:var(--font-mono);">${compSectorRangeLabel(sec)}</div>
         </div>
+        <div style="display:flex;gap:2px;flex-shrink:0;">
+          <button class="csb csb-neutral" style="padding:2px 4px;font-size:.62rem;" onclick="rpRenameSector(${sec.id})" title="Rinomina">✏️</button>
+          <button class="csb csb-red"     style="padding:2px 4px;font-size:.62rem;" onclick="rpDeleteSector(${sec.id})" title="Elimina settore">✕</button>
+        </div>
       </div>
       <div style="display:flex;gap:2px;width:100%;margin-top:4px;">
         <button class="csb csb-green rp-sec-zoom-real" style="flex:1;" onclick="rpZoomToSector(${sec.id},'real')" title="Mostra il settore con il gap reale accumulato">🔍 Reale</button>
@@ -1403,6 +1407,39 @@ function compCloseAllInlineActions() {
     compCancelInlineEdit(sec.id);
     compCloseConfirm(sec.id);
   });
+}
+
+// ── Bridge per la sidebar settori del Race Replay ─────────────────────────
+// Riusano gli stessi dati/funzioni di comparison (compSectors, compRebuildSectorList,
+// compConfirmedDeleteSector, ...) tramite prompt/confirm nativi, dato che il replay
+// non ha gli stessi elementi DOM inline-edit di comparison.
+function rpRenameSector(id) {
+  const sec = compSectors.find(s => s.id === id);
+  if (!sec) return;
+  const name = prompt('Nuovo nome settore:', sec.name);
+  if (name === null) return; // annullato
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  sec.name = trimmed;
+  compRebuildSectorList();
+  compUpdateSectorLegend();
+  const nameInput = document.getElementById('comp-sec-name');
+  if (nameInput && sec.id === compActiveSectorId) nameInput.value = sec.name;
+}
+
+function rpDeleteSector(id) {
+  if (compSectors.length <= 1) {
+    document.getElementById('comp-status').textContent = 'Non puoi eliminare l\'unico settore.';
+    return;
+  }
+  const sec = compSectors.find(s => s.id === id);
+  if (!sec) return;
+  if (!confirm(`Eliminare il settore «${sec.name}»?`)) return;
+  // Se il settore eliminato era quello zoomato nel replay, torna a traccia completa
+  if (typeof rpZoomedSectorId !== 'undefined' && rpZoomedSectorId === id && typeof rpResetToFullActivity === 'function') {
+    rpResetToFullActivity();
+  }
+  compConfirmedDeleteSector(id); // stessa funzione usata da comparison
 }
 
 // ── Shortcut tastiera Ctrl+Z / Ctrl+Y ────────────────────────────────────
