@@ -2268,9 +2268,18 @@ function compBuildSections(s, startIdx, endIdx, secMode, secVal) {
 }
 
 function compNearestByDistRange(s, d, lo, hi) {
-  let best=lo, bd=Infinity;
-  for (let i=lo;i<=hi;i++) { const diff=Math.abs((s.distance_m[i]||0)-d); if(diff<bd){bd=diff;best=i;} }
-  return best;
+  let l=lo, r=hi;
+  while (l < r) {
+    const mid = (l+r) >> 1;
+    if ((s.distance_m[mid]||0) < d) l = mid+1; else r = mid;
+  }
+  // confronta l con il vicino precedente per scegliere il più vicino
+  if (l > lo) {
+    const dPrev = Math.abs((s.distance_m[l-1]||0) - d);
+    const dCurr = Math.abs((s.distance_m[l]||0) - d);
+    if (dPrev < dCurr) return l-1;
+  }
+  return l;
 }
 function compNearestByTimeRange(s, t, lo, hi) {
   let best=lo, bd=Infinity;
@@ -2353,28 +2362,41 @@ function compRunAnalysis() {
 }
 
 function compDrawSectionsOnMap(sec, sA, sB) {
-  const drawSet = (sections, athlete, opacity, dashArr) => {
-    sections.forEach((s,i) => {
-      const col = SECTION_PALETTE[s.sectionIdx % SECTION_PALETTE.length];
-      const lid = `csec-${sec.id}-${athlete}-${i}`;
-      const sid = `csrc-${lid}`;
-      const geo = { type:'Feature', geometry:{type:'LineString',coordinates:s.coords},
-        properties:{sectionIdx:s.sectionIdx,athlete,sectorId:sec.id,
-          avgPower:Math.round(s.avgPower), avgHr:Math.round(s.avgHr),
-          avgSpeed:s.avgSpeed.toFixed(1), dTime:s.dTime.toFixed(1),
-          startDist:(s.startDist/1000).toFixed(2), endDist:(s.endDist/1000).toFixed(2)} };
-      if (!compMap.getSource(sid)) compMap.addSource(sid,{type:'geojson',data:geo});
-      else compMap.getSource(sid).setData(geo);
-      if (!compMap.getLayer(lid)) {
-        const paint = { 'line-color':col, 'line-width':athlete==='a'?5:3.5, 'line-opacity':opacity };
-        if (dashArr) paint['line-dasharray'] = dashArr;
-        compMap.addLayer({id:lid,type:'line',source:sid,paint});
+  const buildFC = (sections, athlete) => ({
+    type: 'FeatureCollection',
+    features: sections.map((s, i) => ({
+      type: 'Feature',
+      id: i,
+      geometry: { type: 'LineString', coordinates: s.coords },
+      properties: {
+        sectionIdx: s.sectionIdx, athlete, sectorId: sec.id,
+        color: SECTION_PALETTE[s.sectionIdx % SECTION_PALETTE.length],
+        avgPower: Math.round(s.avgPower), avgHr: Math.round(s.avgHr),
+        avgSpeed: s.avgSpeed.toFixed(1), dTime: s.dTime.toFixed(1),
+        startDist: (s.startDist/1000).toFixed(2), endDist: (s.endDist/1000).toFixed(2)
       }
-      compAnalysisLayers.push({layerId:lid,sourceId:sid});
-    });
+    }))
+  });
+
+  const addSet = (fc, athlete) => {
+    const sid = `csrc-all-${sec.id}-${athlete}`;
+    const lid = `csec-all-${sec.id}-${athlete}`;
+    const baseW = athlete === 'a' ? 5 : 3.5;
+    const baseOp = athlete === 'a' ? 0.95 : 0.80;
+    if (!compMap.getSource(sid)) compMap.addSource(sid, { type:'geojson', data:fc, generateId:false });
+    else compMap.getSource(sid).setData(fc);
+    if (!compMap.getLayer(lid)) {
+      compMap.addLayer({ id: lid, type: 'line', source: sid, paint: {
+        'line-color': ['get','color'],
+        'line-width': ['case', ['boolean',['feature-state','hover'],false], baseW+2, ['boolean',['feature-state','dim'],false], Math.max(2,baseW-2), baseW],
+        'line-opacity': ['case', ['boolean',['feature-state','hover'],false], 1, ['boolean',['feature-state','dim'],false], 0.25, baseOp]
+      }});
+    }
+    compAnalysisLayers.push({ layerId: lid, sourceId: sid, athlete, featureCount: fc.features.length });
   };
-  drawSet(sA,'a',0.95,null);
-  drawSet(sB,'b',0.80,null);
+
+  addSet(buildFC(sA,'a'), 'a');
+  addSet(buildFC(sB,'b'), 'b');
   compApplySectionHighlight();
 }
 
@@ -2383,20 +2405,14 @@ function compApplySectionHighlight() {
   const sel = compHighlightedSection || compHoverSection;
   compAnalysisLayers.forEach(l => {
     if (!compMap.getLayer(l.layerId)) return;
-    const parts = l.layerId.split('-');
-    const secId = parseInt(parts[1], 10);
-    const athlete = parts[2];
-    const idx = parseInt(parts[3], 10);
-    const baseWidth = athlete === 'a' ? 5 : 3.5;
-    const baseOpacity = athlete === 'a' ? 0.95 : 0.8;
-    if (!sel) {
-      compMap.setPaintProperty(l.layerId, 'line-width', baseWidth);
-      compMap.setPaintProperty(l.layerId, 'line-opacity', baseOpacity);
-      return;
+    const n = l.featureCount || 0;
+    for (let i = 0; i < n; i++) {
+      const isMatch = sel && l.layerId === `csec-all-${sel.sectorId}-${l.athlete}` && i === sel.sectionIdx;
+      compMap.setFeatureState({ source: l.sourceId, id: i }, {
+        hover: !!isMatch,
+        dim: sel ? !isMatch : false
+      });
     }
-    const isMatch = sel && secId === sel.sectorId && idx === sel.sectionIdx;
-    compMap.setPaintProperty(l.layerId, 'line-width', isMatch ? baseWidth + 2 : Math.max(2, baseWidth - 2));
-    compMap.setPaintProperty(l.layerId, 'line-opacity', isMatch ? 1 : 0.25);
   });
   compUpdateSectionHighlightMarker();
 }
@@ -2453,14 +2469,44 @@ function compHandleHover(e) {
   const tip=document.getElementById('comp-hover-tip');
   const layerIds = compAnalysisLayers.map(l=>l.layerId).filter(id=>compMap.getLayer(id));
   if (!layerIds.length) { tip.style.display='none'; return; }
-  const feats=compMap.queryRenderedFeatures(e.point,{layers:layerIds});
+  const hitbox = 6; // px di tolleranza attorno al cursore
+  const bbox = [[e.point.x-hitbox, e.point.y-hitbox],[e.point.x+hitbox, e.point.y+hitbox]];
+  const feats=compMap.queryRenderedFeatures(bbox,{layers:layerIds});
   if(feats.length>0){
     const f=feats[0].properties;
     const col=SECTION_PALETTE[f.sectionIdx%SECTION_PALETTE.length];
-    tip.innerHTML=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-      <div style="width:10px;height:10px;border-radius:50%;background:${col}"></div>
-      <b>Sez.${f.sectionIdx+1}</b> <span style="color:var(--muted)">(${f.athlete==='a'?compNameA:compNameB})</span></div>
-      ⚡ ${f.avgPower}W · 🚀 ${f.avgSpeed}km/h · ♥ ${f.avgHr}bpm<br/>⏱ ${f.dTime}s · 📍 ${f.startDist}→${f.endDist}km`;
+
+    // Cerca anche la sezione corrispondente dell'altro atleta (stesso settore, stesso indice sezione)
+    const otherAthlete = f.athlete==='a' ? 'b' : 'a';
+    const otherLid = `csec-all-${f.sectorId}-${otherAthlete}`;
+    let otherF = null;
+    if (compMap.getLayer(otherLid)) {
+      const otherSid = `csrc-all-${f.sectorId}-${otherAthlete}`;
+      const src = compMap.getSource(otherSid);
+      const tryExtract = (fc) => {
+        const feat = fc && fc.features && fc.features[f.sectionIdx];
+        return feat ? feat.properties : null;
+      };
+      if (src && src._data) otherF = tryExtract(src._data);
+      else if (src && src.serialize) otherF = tryExtract(src.serialize().data);
+    }
+
+    const rowHtml = (props, athlete) => `
+      <div style="display:flex;align-items:center;gap:6px;margin:${athlete==='a'?'0 0 3px':'6px 0 3px'}">
+        <div style="width:10px;height:10px;border-radius:50%;background:${col}"></div>
+        <b>Sez.${props.sectionIdx+1}</b> <span style="color:var(--muted)">(${athlete==='a'?compNameA:compNameB})</span>
+      </div>
+      ⚡ ${props.avgPower}W · 🚀 ${props.avgSpeed}km/h · ♥ ${props.avgHr}bpm<br/>⏱ ${props.dTime}s · 📍 ${props.startDist}→${props.endDist}km`;
+
+    // Ordina sempre A sopra, B sotto, indipendentemente da quale traccia è stata hoverata
+    const propsA = f.athlete==='a' ? f : otherF;
+    const propsB = f.athlete==='b' ? f : otherF;
+
+    let html = '';
+    if (propsA) html += rowHtml(propsA,'a');
+    if (propsB) html += (propsA ? '<div style="border-top:1px solid var(--border);margin:4px 0"></div>' : '') + rowHtml(propsB,'b');
+
+    tip.innerHTML = html;
     tip.style.cssText=`display:block;left:${e.point.x+12}px;top:${e.point.y-16}px;`;
     compMap.getCanvas().style.cursor='pointer';
   } else { tip.style.display='none'; compMap.getCanvas().style.cursor=''; }
@@ -2612,10 +2658,9 @@ function compUpdateElevChart() {
   compSectors.forEach(sector => {
     if (!sector.analyzed) return;
     sector.sections.sA.forEach((s,i) => {
-      const refStart = compStreamA.distance_m[sector.startIdxA] || 0;
       markAreas.push({
-        x0: (s.startDist - refStart)/1000,
-        x1: (s.endDist   - refStart)/1000,
+        x0: (s.startDist - d0A)/1000,
+        x1: (s.endDist   - d0A)/1000,
         color: SECTION_PALETTE[s.sectionIdx % SECTION_PALETTE.length],
         opacity: sector.id === compActiveSectorId ? 0.14 : 0.06
       });

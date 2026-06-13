@@ -1034,7 +1034,6 @@ function rpRedrawTracesWithBounds() {
   const lats = [], lons = [];
   for (let i = rpBoundStartA; i <= rpBoundEndA; i++) { lats.push(rpSA.lat[i]); lons.push(rpSA.lon[i]); }
   for (let i = rpBoundStartB; i <= rpBoundEndB; i++) { lats.push(rpSB.lat[i]); lons.push(rpSB.lon[i]); }
-  if (lats.length) rpMap.fitBounds([[Math.min(...lons),Math.min(...lats)],[Math.max(...lons),Math.max(...lats)]],{padding:60,duration:600});
 }
 
 // Ripristina il range completo (entrambe le tracce)
