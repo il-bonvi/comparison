@@ -1,4 +1,4 @@
-tabella: manca pendenza A-b
+uniformare grandezza delle topbar e aggiustare i buttons.
 comparison barr laterale: button tabella? No meglio un change più importante...
 dividi per sezioni
 

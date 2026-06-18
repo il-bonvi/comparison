@@ -85,7 +85,7 @@
         <div style="width:1px;height:16px;background:var(--border-hi);margin:0 2px;flex-shrink:0;"></div>
         <button class="btn btn-ghost" onclick="compUndoLastSectorBounds()" title="Annulla ultima modifica (Ctrl+Z)" style="padding:3px 8px;font-size:.72rem;">↩ Undo</button>
         <button class="btn btn-ghost" onclick="compRedoLastSectorBounds()" title="Ripristina modifica annullata (Ctrl+Y)" style="padding:3px 8px;font-size:.72rem;">↪ Redo</button>
-        <span id="comp-status" style="font-size:.68rem;color:var(--muted);margin-left:12px;font-family:var(--font-mono);flex-shrink:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+        
       </div>
 
       <!-- Smoothing panel -->
@@ -324,9 +324,6 @@
             <button onclick="compAddSector()" title="Nuovo settore" style="background:none;border:none;color:var(--a);cursor:pointer;font-size:.9rem;padding:0 2px;line-height:1;">＋</button>
           </div>
           <div id="comp-sector-list" style="overflow-y:auto; flex:1;"></div>
-          <div style="padding:4px 6px; border-top:1px solid var(--border);">
-            <button onclick="compToggleIsolateSector()" id="comp-btn-isolate" class="btn btn-ghost" style="width:100%;font-size:.64rem;padding:3px 0;" title="Mostra solo il settore selezionato su mappa e grafico">👁 Isola settore</button>
-          </div>
         </div>
 
         <div id="comp-map-and-chart">
@@ -856,7 +853,6 @@ function compSetupBoundsContext() {
     compUpdateSectorLegend();
     rpUpdateBoundsPanelUI();
     rpUpdateBoundsMarkersOnMap();
-    document.getElementById('comp-status').textContent =
       `Bounds applicati · A [${((compStreamA.distance_m[rpBoundEndA]||0)/1000).toFixed(1)}km] B [${((compStreamB.distance_m[rpBoundEndB]||0)/1000).toFixed(1)}km]`;
   });
 }
@@ -1320,7 +1316,6 @@ function compCancelInlineEdit(id, prefix) {
 
 function compConfirmDeleteSector(id) {
   if (compSectors.length <= 1) {
-    document.getElementById('comp-status').textContent = 'Non puoi eliminare l\'unico settore.';
     return;
   }
   compCloseAllInlineActions();
@@ -1383,7 +1378,6 @@ function _compApplyEntry(entry) {
     compRenderSectorMarkersAll();
     compUpdateElevChart();
     syncBoundsToReplay();
-    document.getElementById('comp-status').textContent = `Bounds di «${sec.name}» ripristinati.`;
     return { type:'bounds', id:entry.id, snapshot:current };
   } else if (entry.type === 'delete') {
     // Ripristina settore eliminato
@@ -1393,7 +1387,6 @@ function _compApplyEntry(entry) {
     compUpdateSectorPanelUI();
     compRenderSectorMarkersAll();
     compUpdateElevChart();
-    document.getElementById('comp-status').textContent = `Settore «${entry.sec.name}» ripristinato.`;
     // L'inverso è una delete
     return { type:'delete', sec: JSON.parse(JSON.stringify(entry.sec)) };
   }
@@ -1401,14 +1394,12 @@ function _compApplyEntry(entry) {
 }
 
 function compUndoLastSectorBounds() {
-  if (!_compUndoStack.length) { document.getElementById('comp-status').textContent = 'Niente da annullare.'; return; }
   const entry = _compUndoStack.pop();
   const inverse = _compApplyEntry(entry);
   if (inverse) _compRedoStack.push(inverse);
 }
 
 function compRedoLastSectorBounds() {
-  if (!_compRedoStack.length) { document.getElementById('comp-status').textContent = 'Niente da ripristinare.'; return; }
   const entry = _compRedoStack.pop();
   const inverse = _compApplyEntry(entry);
   if (inverse) _compUndoStack.push(inverse);
@@ -1423,7 +1414,6 @@ function compOpenConfirmMapZoom(id) {
 
 function compOpenConfirmDelete(id, prefix) {
   prefix = prefix || 'comp';
-  if (compSectors.length <= 1) { document.getElementById('comp-status').textContent = 'Non puoi eliminare l\'unico settore.'; return; }
   compCloseAllInlineActions();
   const el = document.getElementById(`${prefix}-sec-cdel-${id}`);
   if (el) el.classList.add('open');
@@ -1491,31 +1481,12 @@ function compZoomToSector(id) {
   if (lats.length) compMap.fitBounds([[Math.min(...lons),Math.min(...lats)],[Math.max(...lons),Math.max(...lats)]],{padding:50,duration:600});
 }
 
-// Toggle "Isola settore": mostra solo la porzione del settore su mappa e grafico
-function compToggleIsolateSector() {
-  _compIsolateSector = !_compIsolateSector;
-  const btn = document.getElementById('comp-btn-isolate');
-  if (btn) btn.classList.toggle('active', _compIsolateSector);
-  if (_compIsolateSector) {
-    compRedrawTracesWithBounds();   // disegna solo porzione settore
-    compZoomToSector(compActiveSectorId);
-  } else {
-    // Ripristina traccia completa
-    if (compMap && compMapReady && compStreamA) {
-      compDrawTrace('comp-ta', compStreamA, '#3b82f6');
-      if (compStreamB) compDrawTrace('comp-tb', compStreamB, '#f97316');
-    }
-    compFit();
-  }
-  compUpdateElevChart();
-}
 
 // Usa lo zoom attuale del GRAFICO come bounds del settore attivo
 function compSetSectorFromChartZoom() {
   const sec = compGetActiveSector();
   if (!sec) return;
   if (!compZoomDomainX || compZoomDomainX[0] >= compZoomDomainX[1]) {
-    document.getElementById('comp-status').textContent = 'Zooma prima il grafico per definire il range.';
     return;
   }
   compPushUndo(sec);
@@ -1531,7 +1502,6 @@ function compSetSectorFromChartZoom() {
   compRenderSectorMarkersAll();
   compUpdateElevChart();
   syncBoundsToReplay();
-  document.getElementById('comp-status').textContent = `Settore aggiornato da zoom grafico: ${compSectorRangeLabel(sec)}`;
 }
 
 // Alias per retrocompatibilità (bottone sidebar e pannello)
@@ -1551,7 +1521,6 @@ function compToggleDragSector() {
   // Mostra/nascondi il banner nel grafico
   const banner = document.getElementById('comp-drag-banner');
   if (banner) banner.style.display = _compDragSectorMode ? 'flex' : 'none';
-  if (!_compDragSectorMode) document.getElementById('comp-status').textContent = '';
 }
 
 // Callback chiamata da _compD3Render quando l'utente ha finito un drag in "sector mode"
@@ -1579,7 +1548,6 @@ function compOnDragSectorSelected(xKmStart, xKmEnd) {
   compRenderSectorMarkersAll();
   compUpdateElevChart();
   syncBoundsToReplay();
-  document.getElementById('comp-status').textContent = `Settore aggiornato: ${compSectorRangeLabel(sec)}`;
 }
 
 function compOnSectorChange() {
@@ -2153,7 +2121,6 @@ function compResetFullActivity() {
   compUpdateSectorPanelUI();
   compRenderSectorMarkersAll();
   compUpdateSectorLegend();
-  document.getElementById('comp-status').textContent = 'Attività ripristinata';
   // Riporta Replay al range completo
   if (typeof rpBoundStartA !== 'undefined' && rpSA) {
     rpBoundStartA = 0; rpBoundEndA = rpSA.lat.length - 1;
@@ -2353,7 +2320,6 @@ function compRunAnalysis() {
       compUpdateVisBtns();
       compUpdateElevChart();
       compBuildMetricsTable();
-      document.getElementById('comp-status').textContent =
         `${sec.name} · ${sA.length} sez A / ${sB.length} sez B`;
       compUpdateSectorChips();
     } catch(e) { console.error(e); alert(e.message); }
@@ -3216,10 +3182,16 @@ function compBuildMetricsTable() {
     {label:'VAM 🔵 Tot',    key:'vamA_c',     tip:'Velocità ascensionale cumulativa 🔵'},
     {label:'VAM 🟠 Tot',    key:'vamB_c',     tip:'Velocità ascensionale cumulativa 🟠'},
     {label:'ΔVAM Tot',     key:'dVam_c',     tip:'🟠 - 🔵 cumulativo'},
-    {label:'Disliv',       key:'altDiff',    tip:'Dislivello sezione 🔵'},
-    {label:'Disliv Tot',   key:'altDiff_c',  tip:'Dislivello cumulativo 🔵'},
-    {label:'Pend %',       key:'grade',      tip:'Pendenza media 🔵'},
-    {label:'Pend % Tot',   key:'grade_c',    tip:'Pendenza media cumulativa 🔵'},
+    {label:'Disliv 🔵',    key:'altDiff',    tip:'Dislivello sezione 🔵'},
+    {label:'Disliv 🟠',    key:'altDiffB',   tip:'Dislivello sezione 🟠'},
+    {label:'Disliv 🔵 Tot',key:'altDiff_c',  tip:'Dislivello cumulativo 🔵'},
+    {label:'Disliv 🟠 Tot',key:'altDiffB_c', tip:'Dislivello cumulativo 🟠'},
+    {label:'Pend % 🔵',    key:'grade',      tip:'Pendenza media 🔵'},
+    {label:'Pend % 🟠',    key:'gradeB',     tip:'Pendenza media 🟠'},
+    {label:'Δ Pend %',     key:'dGrade',     tip:'Differenza pendenza 🔵 - 🟠'},
+    {label:'Pend % 🔵 Tot',key:'grade_c',    tip:'Pendenza media cumulativa 🔵'},
+    {label:'Pend % 🟠 Tot',key:'gradeB_c',   tip:'Pendenza media cumulativa 🟠'},
+    {label:'Δ Pend % Tot', key:'dGrade_c',   tip:'Differenza pendenza cumulativa 🔵 - 🟠'},
   ];
   compTableColsCache = cols;
   if (!compTableColVis._init) {
@@ -3385,9 +3357,19 @@ function compBuildMetricsTable() {
       
       // Dislivello e Pendenza
       if (sA) { c((sA.dAlt>=0?'+':'')+sA.dAlt.toFixed(1)+'m','td-neutral','altDiff'); } else c('—','td-neutral','altDiff');
+      if (sB) { c((sB.dAlt>=0?'+':'')+sB.dAlt.toFixed(1)+'m','td-neutral','altDiffB'); } else c('—','td-neutral','altDiffB');
       if (sA&&cumAltA) { c((cumAltA>=0?'+':'')+cumAltA.toFixed(1)+'m','td-neutral','altDiff_c'); } else c('—','td-neutral','altDiff_c');
-      if (sA) { c(sA.avgGrade.toFixed(1)+'%','td-neutral','grade'); } else c('—','td-neutral','grade');
-      if (sA&&cumDistA>0) { c(cumGradeA.toFixed(1)+'%','td-neutral','grade_c'); } else c('—','td-neutral','grade_c');
+      if (sB&&cumAltB) { c((cumAltB>=0?'+':'')+cumAltB.toFixed(1)+'m','td-neutral','altDiffB_c'); } else c('—','td-neutral','altDiffB_c');
+      const gradeA = sA && sA.dDist > 0 ? sA.avgGrade : null;
+      const gradeB = sB && sB.dDist > 0 ? sB.avgGrade : null;
+      const cumGradeAval = cumDistA > 0 ? cumGradeA : null;
+      const cumGradeBval = cumDistB > 0 ? cumGradeB : null;
+      if (gradeA != null) { c(gradeA.toFixed(1)+'%','td-neutral','grade'); } else c('—','td-neutral','grade');
+      if (gradeB != null) { c(gradeB.toFixed(1)+'%','td-neutral','gradeB'); } else c('—','td-neutral','gradeB');
+      if (gradeA != null && gradeB != null) { const dg=gradeA-gradeB; c((dg>=0?'+':'')+dg.toFixed(1)+'%','td-neutral','dGrade'); } else c('—','td-neutral','dGrade');
+      if (cumGradeAval != null) { c(cumGradeAval.toFixed(1)+'%','td-neutral','grade_c'); } else c('—','td-neutral','grade_c');
+      if (cumGradeBval != null) { c(cumGradeBval.toFixed(1)+'%','td-neutral','gradeB_c'); } else c('—','td-neutral','gradeB_c');
+      if (cumGradeAval != null && cumGradeBval != null) { const dgC=cumGradeAval-cumGradeBval; c((dgC>=0?'+':'')+dgC.toFixed(1)+'%','td-neutral','dGrade_c'); } else c('—','td-neutral','dGrade_c');
 
       tbody.appendChild(tr2);
     }
@@ -3576,7 +3558,6 @@ function compReset() {
   const drawer=document.getElementById('comp-table-drawer');
   if(drawer) drawer.style.transform='translateY(100%)';
   document.getElementById('comp-btn-table').classList.remove('off');
-  document.getElementById('comp-status').textContent='';
   if(compSectorPanelOpen) compToggleSectorPanel();
   // Reset anche dei global bounds
   compGlobalStartA = 0; compGlobalEndA = compStreamA ? compStreamA.lat.length-1 : 0;
