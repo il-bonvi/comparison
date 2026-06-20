@@ -49,7 +49,23 @@
         <span style="width:1px; height:16px; background:var(--border-hi); flex-shrink:0;"></span>
 
         <button class="btn btn-ghost" id="rp-btn-bounds" onclick="rpToggleBoundsPanel()" style="padding:2px 6px; font-size:.72rem; flex-shrink:0;">🎯 Regola Start/End</button>
-        <button class="btn btn-ghost" id="rp-btn-smooth" onclick="rpToggleSmoothPanel()" style="padding:2px 6px; font-size:.72rem; flex-shrink:0;">avg</button>
+
+        <!-- FIX: avg button + dropdown assoluto — non sposta il layout (no flash) -->
+        <div style="position:relative;display:inline-flex;align-items:center;flex-shrink:0;">
+          <button class="btn btn-ghost" id="rp-btn-smooth" onclick="rpToggleSmoothPanel()" style="padding:2px 6px; font-size:.72rem;">avg</button>
+          <div id="rp-smooth-panel" style="position:absolute;top:calc(100% + 4px);left:0;z-index:500;display:none;">
+            <div class="smooth-group">
+              <span class="sg-label">⚡ Power</span>
+              <input type="number" id="rp-smooth-pwr" min="1" max="300" value="5" style="width:52px;" oninput="rpApplySmoothing()">
+              <span style="color:var(--muted2);font-size:.68rem;">s</span>
+            </div>
+            <div class="smooth-group">
+              <span class="sg-label">🚀 Speed</span>
+              <input type="number" id="rp-smooth-spd" min="1" max="300" value="5" style="width:52px;" oninput="rpApplySmoothing()">
+              <span style="color:var(--muted2);font-size:.68rem;">s</span>
+            </div>
+          </div>
+        </div>
 
         <span style="width:1px; height:16px; background:var(--border-hi); flex-shrink:0;"></span>
 
@@ -80,18 +96,6 @@
         <div style="margin-left:auto; display:flex; align-items:center; gap:8px; flex-shrink:0;">
           <span id="replay-status" style="font-size:.7rem; color:var(--muted2); font-family:var(--font-mono);"></span>
           <div id="replay-gap-big" style="color:var(--gap-pos); font-size:1.1rem; font-weight:700; font-family:var(--font-mono);">+0.0s</div>
-        </div>
-      </div>
-      <div id="rp-smooth-panel">
-        <div class="smooth-group">
-          <span class="sg-label">⚡ Power</span>
-          <input type="number" id="rp-smooth-pwr" min="1" max="300" value="5" style="width:52px;" oninput="rpApplySmoothing()">
-          <span style="color:var(--muted2);font-size:.68rem;">s</span>
-        </div>
-        <div class="smooth-group">
-          <span class="sg-label">🚀 Speed</span>
-          <input type="number" id="rp-smooth-spd" min="1" max="300" value="5" style="width:52px;" oninput="rpApplySmoothing()">
-          <span style="color:var(--muted2);font-size:.68rem;">s</span>
         </div>
       </div>
       <div id="replay-main">
@@ -1846,8 +1850,19 @@ function rpApplySmoothing() {
 
 function rpToggleSmoothPanel() {
   const panel = document.getElementById('rp-smooth-panel');
+  const btn   = document.getElementById('rp-btn-smooth');
   const isOpen = panel.style.display === 'flex';
-  panel.style.display = isOpen ? 'none' : 'flex';
+  if (isOpen) {
+    panel.style.display = 'none';
+    if (btn) btn.classList.remove('active');
+  } else {
+    const r = btn.getBoundingClientRect();
+    panel.style.position = 'fixed';
+    panel.style.top  = (r.bottom + 4) + 'px';
+    panel.style.left = r.left + 'px';
+    panel.style.display = 'flex';
+    if (btn) btn.classList.add('active');
+  }
 }
 
 // ── BOUNDS PANEL ──
@@ -1856,7 +1871,7 @@ function rpToggleBoundsPanel() {
   const panel = document.getElementById('rp-bounds-panel');
   panel.style.display = rpBoundsPanelOpen ? 'flex' : 'none';
   const btn = document.getElementById('rp-btn-bounds');
-  btn.classList.toggle('off', !rpBoundsPanelOpen);
+  btn.classList.toggle('active', rpBoundsPanelOpen);
   if (rpBoundsPanelOpen) rpUpdateBoundsMarkersOnMap();
   else rpRemoveBoundsMarkers();
 }
@@ -1980,7 +1995,7 @@ function replayReset(){
   rpMapReady = false;
   rpBoundsPanelOpen=false;
   document.getElementById('rp-bounds-panel').style.display='none';
-  document.getElementById('rp-btn-bounds').classList.remove('off');
+  document.getElementById('rp-btn-bounds').classList.remove('active');
   rpSA=rpSB=null; rpAligned=[]; rpCurrentT=0;
   rpBoundStartA=rpBoundEndA=rpBoundStartB=rpBoundEndB=0;
   rpTimeOffsetB=0;
