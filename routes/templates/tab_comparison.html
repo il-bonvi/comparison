@@ -363,15 +363,22 @@
       <!-- Chart panel — full width, sovrappone la sidebar -->
       <div id="comp-chart-panel">
           <div id="comp-chart-resize"></div>
-          <div style="display:flex;gap:4px;padding:4px 10px 0;align-items:center;">
+          <div style="display:flex;gap:4px;padding:4px 10px 0;align-items:center;flex-wrap:wrap;">
             <button class="chart-tog ct-gap-on" id="comp-ctog-elev" onclick="compChartTab('elev')">QUOTA</button>
             <button class="chart-tog ct-spd-off" id="comp-ctog-speed" onclick="compChartTab('speed')">VELOCITÀ</button>
             <button class="chart-tog ct-spda-off" id="comp-ctog-speedavg" onclick="compChartTab('speedavg')">AVG5s</button>
+            <button class="chart-tog ct-dspd-off" id="comp-ctog-dspd" onclick="compChartTab('dspd')">ΔSPD</button>
+            <button class="chart-tog ct-dspda-off" id="comp-ctog-dspdavg" onclick="compChartTab('dspdavg')">ΔAVG5s</button>
             <button class="chart-tog ct-pwr-off" id="comp-ctog-power" onclick="compChartTab('power')">POTENZA</button>
             <button class="chart-tog ct-pwra-off" id="comp-ctog-poweravg" onclick="compChartTab('poweravg')">AVG5s</button>
+            <button class="chart-tog ct-dpwr-off" id="comp-ctog-dpwr" onclick="compChartTab('dpwr')">ΔPWR</button>
+            <button class="chart-tog ct-dpwra-off" id="comp-ctog-dpwravg" onclick="compChartTab('dpwravg')">ΔAVG5s</button>
             <button class="chart-tog ct-wkg-off" id="comp-ctog-wkg" onclick="compChartTab('wkg')" title="W/kg (imposta i kg)">W/kg</button>
-            <button class="chart-tog ct-wkg-off" id="comp-ctog-wkgavg" onclick="compChartTab('wkgavg')" title="W/kg smoothed">W/kg avg</button>
+            <button class="chart-tog ct-wkg-off" id="comp-ctog-wkgavg" onclick="compChartTab('wkgavg')" title="W/kg smoothed">AVG5s</button>
+            <button class="chart-tog ct-dwkg-off" id="comp-ctog-dwkg" onclick="compChartTab('dwkg')" title="Δ W/kg">ΔW/kg</button>
+            <button class="chart-tog ct-dwkg-off" id="comp-ctog-dwkgavg" onclick="compChartTab('dwkgavg')" title="Δ W/kg smoothed">ΔAVG5s</button>
             <button class="chart-tog ct-hr-off" id="comp-ctog-hr" onclick="compChartTab('hr')">HR</button>
+            <button class="chart-tog ct-dhr-off" id="comp-ctog-dhr" onclick="compChartTab('dhr')">ΔHR</button>
           </div>
           <div id="comp-drag-banner" style="display:none;position:absolute;top:0;left:0;right:0;z-index:50;
             background:rgba(59,130,246,0.18);border-bottom:2px solid var(--a);
@@ -2201,8 +2208,16 @@ function compApplySmoothing() {
   const pwrLabel = `AVG${winPwr}s`;
   const btnSpd = document.getElementById('comp-ctog-speedavg');
   const btnPwr = document.getElementById('comp-ctog-poweravg');
+  const btnWkgAvg = document.getElementById('comp-ctog-wkgavg');
+  const btnDSpdAvg = document.getElementById('comp-ctog-dspdavg');
+  const btnDPwrAvg = document.getElementById('comp-ctog-dpwravg');
+  const btnDWkgAvg = document.getElementById('comp-ctog-dwkgavg');
   if (btnSpd) btnSpd.textContent = spdLabel;
   if (btnPwr) btnPwr.textContent = pwrLabel;
+  if (btnWkgAvg) btnWkgAvg.textContent = pwrLabel;
+  if (btnDSpdAvg) btnDSpdAvg.textContent = 'Δ' + spdLabel;
+  if (btnDPwrAvg) btnDPwrAvg.textContent = 'Δ' + pwrLabel;
+  if (btnDWkgAvg) btnDWkgAvg.textContent = 'Δ' + pwrLabel;
 
   if (compElevChart) compUpdateElevChart();
 }
@@ -2503,10 +2518,10 @@ function compHandleHover(e) {
 // ────────────────────────────────────────────────────────────────
 function compChartTab(tab) {
   compCurrentChartTab = tab;
-  ['elev','speed','speedavg','power','poweravg','wkg','wkgavg','hr'].forEach(t => {
+  ['elev','speed','speedavg','dspd','dspdavg','power','poweravg','dpwr','dpwravg','wkg','wkgavg','dwkg','dwkgavg','hr','dhr'].forEach(t => {
     const btn = document.getElementById(`comp-ctog-${t}`);
     if (!btn) return;
-    const colorMap = {elev:'gap',speed:'spd',speedavg:'spda',power:'pwr',poweravg:'pwra',wkg:'wkg',wkgavg:'wkg',hr:'hr'};
+    const colorMap = {elev:'gap',speed:'spd',speedavg:'spda',dspd:'dspd',dspdavg:'dspda',power:'pwr',poweravg:'pwra',dpwr:'dpwr',dpwravg:'dpwra',wkg:'wkg',wkgavg:'wkg',dwkg:'dwkg',dwkgavg:'dwkg',hr:'hr',dhr:'dhr'};
     const on = t===tab;
     btn.className = `chart-tog ct-${colorMap[t]}-${on?'on':'off'}`;
   });
@@ -2611,10 +2626,121 @@ function compUpdateElevChart() {
       labelA = `${compNameA.slice(0,12)} W/kg`;
       labelB = `${compNameB.slice(0,12)} W/kg`;
     }
-  } else {
+  } else if (tab === 'hr') {
     seriesA = sliceA(compStreamA.hr||[]);
     seriesB = sliceB(compStreamB.hr||[]);
     yLabel='bpm'; yLabelColor='#ef4444';
+  }
+
+  // ── GRAFICI DELTA ──────────────────────────────────────────────────────────
+  const isDelta = ['dspd','dspdavg','dpwr','dpwravg','dwkg','dwkgavg','dhr'].includes(tab);
+  if (isDelta) {
+    const rawSpdA = compStreamA._rawSpeed || compStreamA.speed || [];
+    const rawSpdB = compStreamB._rawSpeed || compStreamB.speed || [];
+    const avgSpdA = compStreamA._avgSpeed || rawSpdA;
+    const avgSpdB = compStreamB._avgSpeed || rawSpdB;
+    const rawPwrA = compStreamA._rawPower || compStreamA.power || [];
+    const rawPwrB = compStreamB._rawPower || compStreamB.power || [];
+    const avgPwrA = compStreamA._avgPower || rawPwrA;
+    const avgPwrB = compStreamB._avgPower || rawPwrB;
+    const wA = athleteWeights.a, wB = athleteWeights.b;
+
+    let srcA, srcB, decimals = 1;
+    if (tab === 'dspd') {
+      srcA = sliceA(rawSpdA); srcB = sliceB(rawSpdB);
+      yLabel='Δkm/h'; yLabelColor='#22c55e'; decimals=1;
+    } else if (tab === 'dspdavg') {
+      srcA = sliceA(avgSpdA); srcB = sliceB(avgSpdB);
+      yLabel=`ΔSPD${winSpd}s`; yLabelColor='#22c55e'; decimals=1;
+    } else if (tab === 'dpwr') {
+      srcA = sliceA(rawPwrA); srcB = sliceB(rawPwrB);
+      yLabel='ΔW'; yLabelColor='#a855f7'; decimals=0;
+    } else if (tab === 'dpwravg') {
+      srcA = sliceA(avgPwrA); srcB = sliceB(avgPwrB);
+      yLabel=`ΔPWR${winPwr}s`; yLabelColor='#a855f7'; decimals=0;
+    } else if (tab === 'dwkg') {
+      if (!wA && !wB) {
+        const dom = document.getElementById('comp-elevation-chart');
+        dom.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted2);font-size:.78rem;font-family:var(--font-mono);">⚖️ Imposta i kg nel pannello <b style="color:#a855f7;margin:0 4px">⚖️ kg</b> per visualizzare i W/kg</div>`;
+        return;
+      }
+      srcA = sliceA(rawPwrA).map(v => wA > 0 ? v/wA : 0);
+      srcB = sliceB(rawPwrB).map(v => wB > 0 ? v/wB : 0);
+      yLabel='ΔW/kg'; yLabelColor='#d8b4fe'; decimals=2;
+    } else if (tab === 'dwkgavg') {
+      if (!wA && !wB) {
+        const dom = document.getElementById('comp-elevation-chart');
+        dom.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted2);font-size:.78rem;font-family:var(--font-mono);">⚖️ Imposta i kg nel pannello <b style="color:#a855f7;margin:0 4px">⚖️ kg</b> per visualizzare i W/kg</div>`;
+        return;
+      }
+      srcA = sliceA(avgPwrA).map(v => wA > 0 ? v/wA : 0);
+      srcB = sliceB(avgPwrB).map(v => wB > 0 ? v/wB : 0);
+      yLabel=`ΔW/kg${winPwr}s`; yLabelColor='#d8b4fe'; decimals=2;
+    } else if (tab === 'dhr') {
+      srcA = sliceA(compStreamA.hr||[]);
+      srcB = sliceB(compStreamB.hr||[]);
+      yLabel='Δbpm'; yLabelColor='#ef4444'; decimals=0;
+    }
+
+    // Costruisce il geo-mapping A→B (identico alla sezione normale sotto)
+    const nA2 = distA.length;
+    const latA_g2  = compStreamA.lat.slice(globalS0A, globalE0A+1);
+    const lonA_g2  = compStreamA.lon.slice(globalS0A, globalE0A+1);
+    const latB_g2  = compStreamB.lat.slice(globalS0B, globalE0B+1);
+    const lonB_g2  = compStreamB.lon.slice(globalS0B, globalE0B+1);
+    const geoMap2 = new Int32Array(nA2);
+    let lastGeo2 = 0;
+    for (let i = 0; i < nA2; i++) {
+      lastGeo2 = nearestGeoMonotone(latA_g2[i], lonA_g2[i], latB_g2, lonB_g2, lastGeo2);
+      geoMap2[i] = lastGeo2;
+    }
+    compGeoMapAtoB = new Int32Array(compStreamA.lat.length);
+    for (let i = 0; i < nA2; i++) {
+      compGeoMapAtoB[globalS0A + i] = globalS0B + geoMap2[i];
+    }
+
+    const deltaData = distA.map((d,i) => {
+      const vA = srcA[i] || 0;
+      const vB = srcB[geoMap2[i]] || 0;
+      return [(d-distA[0])/1000, +(vA - vB).toFixed(decimals)];
+    });
+
+    // Sezioni e linee (stessa logica normale)
+    const markAreas2 = [];
+    compSectors.forEach(sector => {
+      if (!sector.analyzed) return;
+      sector.sections.sA.forEach((s,i) => {
+        markAreas2.push({ x0:(s.startDist-distA[0])/1000, x1:(s.endDist-distA[0])/1000, color:SECTION_PALETTE[s.sectionIdx%SECTION_PALETTE.length], opacity:sector.id===compActiveSectorId?0.14:0.06 });
+      });
+    });
+    const previewLines2 = [];
+    const activeSec2 = compGetActiveSector();
+    if (activeSec2 && compStreamA) {
+      const xStart2 = (compStreamA.distance_m[activeSec2.startIdxA] - distA[0]) / 1000;
+      const xEnd2   = (compStreamA.distance_m[activeSec2.endIdxA]   - distA[0]) / 1000;
+      previewLines2.push({ x: xStart2, color: '#22c55e', label: 'START ▸', active: true, width: 2 });
+      previewLines2.push({ x: xEnd2,   color: '#ef4444', label: '◂ END',    active: true, width: 2 });
+      if (xEnd2 > xStart2) markAreas2.push({ x0: xStart2, x1: xEnd2, color: '#888888', opacity: 0.1 });
+    }
+    const boundLines2 = [];
+    compSectors.forEach(sec2 => {
+      const sDistA2 = compStreamA.distance_m[sec2.startIdxA]||0;
+      const eDistA2 = compStreamA.distance_m[sec2.endIdxA]||0;
+      boundLines2.push({ x:(sDistA2-distA[0])/1000, color:sec2.color, label:sec2.name+' ▶', active:sec2.id===compActiveSectorId });
+      boundLines2.push({ x:(eDistA2-distA[0])/1000, color:sec2.color, label:'◀ '+sec2.name, active:sec2.id===compActiveSectorId });
+    });
+
+    _compD3Render({
+      series:[{ name:`Δ (A−B)`, data:deltaData, color:yLabelColor, width:2, zeroline:true }],
+      yLeft:{ name:yLabel, color:yLabelColor },
+      arrivalLines: [...previewLines2, ...boundLines2],
+      sections: markAreas2,
+      xLabel:'km (progressivo)',
+      tooltip:(xv,pts) => `<b>${xv.toFixed(2)} km</b><br/>${pts.map(p=>`<span style="color:${p.color}">■</span> ${p.name}: <b>${p.val >= 0 ? '+' : ''}${p.val.toFixed(decimals)}</b>`).join('<br/>')}`,
+      onHover:(xv) => compUpdateMapHoverFromChart(xv),
+      onLeave:() => compClearMapHoverFromChart()
+    });
+    return;
   }
 
   // Costruisce dataB con asse X = distanza di A (corrispondenza geografica).
@@ -2775,6 +2901,19 @@ function _compD3Render(opts) {
           .attr('fill', sec.color).attr('opacity', sec.opacity);
       });
     }
+
+    // Zeroline (per grafici delta)
+    if (opts.series.some(s => s.zeroline)) {
+      const y0 = yScaleL(0);
+      if (y0 >= 0 && y0 <= H) {
+        g.append('line')
+          .attr('x1', 0).attr('x2', W)
+          .attr('y1', y0).attr('y2', y0)
+          .attr('stroke', '#475569')
+          .attr('stroke-width', 1)
+          .attr('stroke-dasharray', '3,3');
+      }
+    }
  
     // Asse X
     g.append('g')
@@ -2852,11 +2991,45 @@ function _compD3Render(opts) {
     // Serie (area + linea)
     opts.series.forEach(ser => {
       const ys = (ser.yRight && yScaleR) ? yScaleR : yScaleL;
+
+      if (ser.zeroline) {
+        const y0 = ys(0);
+        const colorPos = '#3b82f6';
+        const colorNeg = '#f97316';
+        const clipIdPos = `comp-clip-pos-${Math.random().toString(36).slice(2,7)}`;
+        const clipIdNeg = `comp-clip-neg-${Math.random().toString(36).slice(2,7)}`;
+        const defs = svg.select('defs');
+        defs.append('clipPath').attr('id', clipIdPos)
+          .append('rect').attr('x',0).attr('y',0).attr('width',W).attr('height', Math.max(0, y0));
+        defs.append('clipPath').attr('id', clipIdNeg)
+          .append('rect').attr('x',0).attr('y', Math.max(0,y0)).attr('width',W).attr('height', Math.max(0, H-y0));
+
+        const areaGen = d3.area()
+          .x(d => currentXScale(d[0]))
+          .y0(y0).y1(d => ys(d[1]))
+          .curve(d3.curveCatmullRom.alpha(0.5));
+        const lineGen2 = d3.line()
+          .x(d => currentXScale(d[0]))
+          .y(d => ys(d[1]))
+          .curve(d3.curveCatmullRom.alpha(0.5));
+
+        g.append('path').datum(ser.data).attr('clip-path',`url(#${clipIdPos})`)
+          .attr('clip-path',`url(#${clipIdPos})`).attr('fill','rgba(59,130,246,.15)').attr('d', areaGen);
+        g.append('path').datum(ser.data).attr('clip-path',`url(#${clipIdPos})`)
+          .attr('fill','none').attr('stroke', colorPos).attr('stroke-width', ser.width||2).attr('d', lineGen2);
+
+        g.append('path').datum(ser.data).attr('clip-path',`url(#${clipIdNeg})`)
+          .attr('fill','rgba(249,115,22,.15)').attr('d', areaGen);
+        g.append('path').datum(ser.data).attr('clip-path',`url(#${clipIdNeg})`)
+          .attr('fill','none').attr('stroke', colorNeg).attr('stroke-width', ser.width||2).attr('d', lineGen2);
+        return;
+      }
+
       const lineGen = d3.line()
         .x(d => currentXScale(d[0]))
         .y(d => ys(d[1]))
         .curve(d3.curveCatmullRom.alpha(0.5));
- 
+
       if (ser.area) {
         const areaGen = d3.area()
           .x(d => currentXScale(d[0]))
@@ -2868,7 +3041,7 @@ function _compD3Render(opts) {
           .attr('fill', ser.area)
           .attr('d', areaGen);
       }
- 
+
       g.append('path')
         .datum(ser.data)
         .attr('clip-path', 'url(#comp-clip-main)')
@@ -2885,12 +3058,17 @@ function _compD3Render(opts) {
     .attr('transform', `translate(${totalW - margin.right - 4}, 6)`);
   opts.series.forEach((ser, i) => {
     const row = leg.append('g').attr('transform', `translate(0, ${i * 12})`);
-    row.append('line')
-      .attr('x1', -36).attr('x2', -22).attr('y1', 4).attr('y2', 4)
-      .attr('stroke', ser.color).attr('stroke-width', ser.width || 2)
-      .attr('stroke-dasharray', ser.dash || null);
+    if (ser.zeroline) {
+      row.append('line').attr('x1',-36).attr('x2',-26).attr('y1',4).attr('y2',4).attr('stroke','#3b82f6').attr('stroke-width', ser.width||2);
+      row.append('line').attr('x1',-24).attr('x2',-14).attr('y1',4).attr('y2',4).attr('stroke','#f97316').attr('stroke-width', ser.width||2);
+    } else {
+      row.append('line')
+        .attr('x1', -36).attr('x2', -22).attr('y1', 4).attr('y2', 4)
+        .attr('stroke', ser.color).attr('stroke-width', ser.width || 2)
+        .attr('stroke-dasharray', ser.dash || null);
+    }
     row.append('text')
-      .attr('x', -19).attr('y', 8)
+      .attr('x', -11).attr('y', 8)
       .attr('fill', '#64748b').attr('font-size', '8px')
       .text(ser.name);
   });
